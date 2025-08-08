@@ -1,5 +1,5 @@
 import Product from "../models/productSchema.js";
-
+import { sendWhatsAppMessage } from "../utils/whatsappService.js";
 
 export const createProduct = async(req, res) => {
     try {
@@ -8,6 +8,9 @@ export const createProduct = async(req, res) => {
         const newProduct = new Product(productData);
         await newProduct.save();
 
+        console.log('New Product Created:', newProduct);
+        
+        
         res.status(201).json({
             success: true,
             message: 'Product Created Successfully!',
@@ -72,6 +75,9 @@ export const updateProduct = async (req, res) => {
         message: 'Product not found',
       });
     }
+    // console.log('Product Updated:', updatedProduct);
+    await sendWhatsAppMessage(
+            process.env.WHATSAPP_NOTIFICATION_NUMBER,`product : ${updatedProduct.productName} has updated. View Changes at ${process.env.CLIENT_URL}/products/${updatedProduct._id}`)
     res.status(200).json({
       success: true,
       message: 'Product updated successfully',
