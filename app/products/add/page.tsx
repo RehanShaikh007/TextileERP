@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/router";
 import {
   Card,
@@ -69,6 +69,8 @@ export default function AddProductPage() {
   });
   const [customTag, setCustomTag] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
 
   // handle input change
   const handleInput = (
@@ -258,6 +260,10 @@ export default function AddProductPage() {
       setSelectedTags([...selectedTags, newTag]);
       setCustomTag("");
     }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -515,32 +521,32 @@ export default function AddProductPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-4">
                     <input
+                      ref={fileInputRef}
                       type="file"
                       multiple
                       accept="image/*"
                       onChange={handleImageUpload}
-                      id="image-upload"
+                      className="hidden"
                     />
-                    <label htmlFor="image-upload" className="cursor-pointer">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="cursor-pointer bg-transparent"
-                        disabled={isUploading}
-                      >
-                        {isUploading ? (
-                          <span className="flex items-center">
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Uploading...
-                          </span>
-                        ) : (
-                          <>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload Images
-                          </>
-                        )}
-                      </Button>
-                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="cursor-pointer bg-transparent"
+                      disabled={isUploading}
+                      onClick={triggerFileInput}
+                    >
+                      {isUploading ? (
+                        <span className="flex items-center">
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </span>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Images
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   {productImages.length > 0 && (
