@@ -9,6 +9,7 @@ import stockRouter from './routes/stockRoutes.js'
 import cors from 'cors'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
+import whatsappNotificationRoutes from "./routes/whatsappNotificationRoutes.js";
 
 dotenv.config()
 
@@ -26,12 +27,18 @@ app.use(cors({
   credentials: true
 }))
 
+
 // Mount all routes under /api/v1
 app.use('/api/v1/products', productRouter)
 app.use('/api/v1/customer', customerRouter)
 app.use('/api/v1/order', orderRouter)
 app.use('/api/v1/returns', returnRouter)
 app.use('/api/v1/stock', stockRouter)
+
+// Mount all routes (products, stock, order, customer, return) under /api/v1
+app.use('/api/v1', router)
+app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
+
 
 mongoose.connect(process.env.MONGO_URI)
 .then(()=>{

@@ -1,14 +1,20 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -16,7 +22,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+} from "@/components/ui/breadcrumb";
 import {
   Dialog,
   DialogContent,
@@ -24,26 +30,110 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { MessageSquare, Plus, Settings, Bell, Users, Package, ShoppingCart, AlertTriangle } from "lucide-react"
+} from "@/components/ui/dialog";
+import {
+  MessageSquare,
+  Plus,
+  Settings,
+  Bell,
+  Users,
+  Package,
+  ShoppingCart,
+  AlertTriangle,
+} from "lucide-react";
+
+// Types
+interface Admin {
+  id: number;
+  name: string;
+  number: string;
+  role: string;
+  active: boolean;
+}
+
+interface NotificationSettings {
+  orderUpdates: boolean;
+  stockAlerts: boolean;
+  lowStockWarnings: boolean;
+  newCustomers: boolean;
+  dailyReports: boolean;
+  returnRequests: boolean;
+}
+
+type NotificationType =
+  | "stock_alert"
+  | "order_update"
+  | "return_request"
+  | "daily_report";
+
+interface Notification {
+  id: number;
+  type: NotificationType;
+  message: string;
+  timestamp: string;
+  sent: boolean;
+  recipients: number;
+}
 
 export default function NotificationsPage() {
-  const [adminNumbers, setAdminNumbers] = useState([
-    { id: 1, name: "Rajesh Kumar", number: "+91 98765 43210", role: "Owner", active: true },
-    { id: 2, name: "Priya Sharma", number: "+91 87654 32109", role: "Manager", active: true },
-    { id: 3, name: "Amit Patel", number: "+91 76543 21098", role: "Sales Head", active: false },
-  ])
+  const [adminNumbers, setAdminNumbers] = useState<Admin[]>([
+    {
+      id: 1,
+      name: "Rajesh Kumar",
+      number: "+91 98765 43210",
+      role: "Owner",
+      active: true,
+    },
+    {
+      id: 2,
+      name: "Priya Sharma",
+      number: "+91 87654 32109",
+      role: "Manager",
+      active: true,
+    },
+    {
+      id: 3,
+      name: "Amit Patel",
+      number: "+91 76543 21098",
+      role: "Sales Head",
+      active: false,
+    },
+  ]);
 
-  const [notificationSettings, setNotificationSettings] = useState({
-    orderUpdates: true,
-    stockAlerts: true,
-    lowStockWarnings: true,
-    newCustomers: false,
-    dailyReports: true,
-    returnRequests: true,
-  })
+  const [notificationSettings, setNotificationSettings] =
+    useState<NotificationSettings>({
+      orderUpdates: false,
+      stockAlerts: false,
+      lowStockWarnings: false,
+      newCustomers: false,
+      dailyReports: false,
+      returnRequests: false,
+    });
 
-  const recentNotifications = [
+  const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+
+  // Fetch current settings from backend on page load
+  useEffect(() => {
+    async function fetchSettings() {
+      setLoading(true);
+      try {
+        const res = await fetch(
+          "http://localhost:4000/api/v1/whatsapp-notifications"
+        );
+        if (!res.ok) throw new Error("Failed to fetch settings");
+        const data: NotificationSettings = await res.json();
+        setNotificationSettings(data);
+      } catch (err) {
+        console.error("Error fetching notification settings:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSettings();
+  }, []);
+
+  const recentNotifications: Notification[] = [
     {
       id: 1,
       type: "stock_alert",
@@ -76,36 +166,77 @@ export default function NotificationsPage() {
       sent: true,
       recipients: 2,
     },
-  ]
+  ];
 
-  const getNotificationIcon = (type: string) => {
+  function Spinner(): JSX.Element {
+    return (
+      <svg className="animate-spin h-6 w-6 text-primary" viewBox="0 0 24 24">
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+          fill="none"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+        />
+      </svg>
+    );
+  }
+
+  const getNotificationIcon = (type: NotificationType): JSX.Element => {
     switch (type) {
       case "stock_alert":
-        return <Package className="h-4 w-4 text-orange-500" />
+        return <Package className="h-4 w-4 text-orange-500" />;
       case "order_update":
-        return <ShoppingCart className="h-4 w-4 text-blue-500" />
+        return <ShoppingCart className="h-4 w-4 text-blue-500" />;
       case "return_request":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
       case "daily_report":
-        return <Bell className="h-4 w-4 text-green-500" />
+        return <Bell className="h-4 w-4 text-green-500" />;
       default:
-        return <Bell className="h-4 w-4 text-muted-foreground" />
+        return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
-  }
+  };
 
-  const toggleNotificationSetting = (setting: string) => {
+  const toggleNotificationSetting = (setting: keyof NotificationSettings) => {
     setNotificationSettings((prev) => ({
       ...prev,
-      [setting]: !prev[setting as keyof typeof prev],
-    }))
-  }
+      [setting]: !prev[setting],
+    }));
+  };
+
+  const saveSettings = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(
+        "http://localhost:4000/api/v1/whatsapp-notifications",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(notificationSettings),
+        }
+      );
+      if (!res.ok) throw new Error("Failed to save settings");
+      console.log("Settings saved successfully");
+    } catch (err) {
+      console.error("Error saving settings:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const notificationStats = {
     activeAdmins: adminNumbers.filter((admin) => admin.active).length,
     todayAlerts: 12,
     stockAlerts: 5,
     successRate: 98.5,
-  }
+  };
 
   return (
     <SidebarInset>
@@ -130,7 +261,9 @@ export default function NotificationsPage() {
         <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold">WhatsApp Notifications</h2>
-            <p className="text-muted-foreground">Manage admin numbers and notification settings</p>
+            <p className="text-muted-foreground">
+              Manage admin numbers and notification settings
+            </p>
           </div>
           <Dialog>
             <DialogTrigger asChild>
@@ -142,7 +275,9 @@ export default function NotificationsPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Admin Number</DialogTitle>
-                <DialogDescription>Add a new admin number for WhatsApp notifications</DialogDescription>
+                <DialogDescription>
+                  Add a new admin number for WhatsApp notifications
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -176,44 +311,64 @@ export default function NotificationsPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Admins</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Active Admins
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{notificationStats.activeAdmins}</div>
-              <p className="text-xs text-muted-foreground">Receiving notifications</p>
+              <div className="text-2xl font-bold">
+                {notificationStats.activeAdmins}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Receiving notifications
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Today's Alerts</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Today's Alerts
+              </CardTitle>
               <Bell className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{notificationStats.todayAlerts}</div>
-              <p className="text-xs text-muted-foreground">Notifications sent</p>
+              <div className="text-2xl font-bold">
+                {notificationStats.todayAlerts}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Notifications sent
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Stock Alerts</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Stock Alerts
+              </CardTitle>
               <Package className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-500">{notificationStats.stockAlerts}</div>
+              <div className="text-2xl font-bold text-orange-500">
+                {notificationStats.stockAlerts}
+              </div>
               <p className="text-xs text-muted-foreground">Low stock items</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Success Rate
+              </CardTitle>
               <MessageSquare className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">{notificationStats.successRate}%</div>
+              <div className="text-2xl font-bold text-green-500">
+                {notificationStats.successRate}%
+              </div>
               <p className="text-xs text-muted-foreground">Delivery success</p>
             </CardContent>
           </Card>
@@ -224,18 +379,25 @@ export default function NotificationsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Admin Numbers</CardTitle>
-              <CardDescription>Manage WhatsApp numbers for notifications</CardDescription>
+              <CardDescription>
+                Manage WhatsApp numbers for notifications
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {adminNumbers.map((admin) => (
-                <div key={admin.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div
+                  key={admin.id}
+                  className="flex items-center justify-between p-3 border rounded-lg"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                       <MessageSquare className="h-5 w-5 text-primary" />
                     </div>
                     <div>
                       <p className="font-medium">{admin.name}</p>
-                      <p className="text-sm text-muted-foreground">{admin.number}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {admin.number}
+                      </p>
                       <Badge variant="outline" className="text-xs mt-1">
                         {admin.role}
                       </Badge>
@@ -245,7 +407,11 @@ export default function NotificationsPage() {
                     <Switch
                       checked={admin.active}
                       onCheckedChange={(checked) => {
-                        setAdminNumbers((prev) => prev.map((a) => (a.id === admin.id ? { ...a, active: checked } : a)))
+                        setAdminNumbers((prev) =>
+                          prev.map((a) =>
+                            a.id === admin.id ? { ...a, active: checked } : a
+                          )
+                        );
                       }}
                     />
                     <Button size="sm" variant="outline">
@@ -258,94 +424,104 @@ export default function NotificationsPage() {
           </Card>
 
           {/* Notification Settings */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>Configure which notifications to send</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Order Updates</p>
-                    <p className="text-sm text-muted-foreground">New orders, status changes, deliveries</p>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+              <span className="ml-3 text-muted-foreground">
+                Loading settings...
+              </span>
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Notification Settings</CardTitle>
+                <CardDescription>
+                  Configure which notifications to send
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  {
+                    key: "orderUpdates",
+                    label: "Order Updates",
+                    desc: "New orders, status changes, deliveries",
+                  },
+                  {
+                    key: "stockAlerts",
+                    label: "Stock Alerts",
+                    desc: "Stock movements and updates",
+                  },
+                  {
+                    key: "lowStockWarnings",
+                    label: "Low Stock Warnings",
+                    desc: "When stock falls below minimum",
+                  },
+                  {
+                    key: "newCustomers",
+                    label: "New Customers",
+                    desc: "When new customers are added",
+                  },
+                  {
+                    key: "dailyReports",
+                    label: "Daily Reports",
+                    desc: "End of day summary reports",
+                  },
+                  {
+                    key: "returnRequests",
+                    label: "Return Requests",
+                    desc: "New return requests from customers",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.key}
+                    className="flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="font-medium">{item.label}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {item.desc}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={notificationSettings[item.key]}
+                      onCheckedChange={() =>
+                        toggleNotificationSetting(item.key)
+                      }
+                    />
                   </div>
-                  <Switch
-                    checked={notificationSettings.orderUpdates}
-                    onCheckedChange={() => toggleNotificationSetting("orderUpdates")}
-                  />
-                </div>
+                ))}
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Stock Alerts</p>
-                    <p className="text-sm text-muted-foreground">Stock movements and updates</p>
-                  </div>
-                  <Switch
-                    checked={notificationSettings.stockAlerts}
-                    onCheckedChange={() => toggleNotificationSetting("stockAlerts")}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Low Stock Warnings</p>
-                    <p className="text-sm text-muted-foreground">When stock falls below minimum</p>
-                  </div>
-                  <Switch
-                    checked={notificationSettings.lowStockWarnings}
-                    onCheckedChange={() => toggleNotificationSetting("lowStockWarnings")}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">New Customers</p>
-                    <p className="text-sm text-muted-foreground">When new customers are added</p>
-                  </div>
-                  <Switch
-                    checked={notificationSettings.newCustomers}
-                    onCheckedChange={() => toggleNotificationSetting("newCustomers")}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Daily Reports</p>
-                    <p className="text-sm text-muted-foreground">End of day summary reports</p>
-                  </div>
-                  <Switch
-                    checked={notificationSettings.dailyReports}
-                    onCheckedChange={() => toggleNotificationSetting("dailyReports")}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Return Requests</p>
-                    <p className="text-sm text-muted-foreground">New return requests from customers</p>
-                  </div>
-                  <Switch
-                    checked={notificationSettings.returnRequests}
-                    onCheckedChange={() => toggleNotificationSetting("returnRequests")}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                {/* Save Button */}
+                <Button
+                  onClick={saveSettings}
+                  disabled={saving}
+                  className="mt-4"
+                >
+                  {saving ? "Saving..." : "Save Settings"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Recent Notifications */}
         <Card>
           <CardHeader>
             <CardTitle>Recent Notifications</CardTitle>
-            <CardDescription>Latest WhatsApp notifications sent to admins</CardDescription>
+            <CardDescription>
+              Latest WhatsApp notifications sent to admins
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {recentNotifications.map((notification) => (
-                <div key={notification.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                  <div className="mt-1">{getNotificationIcon(notification.type)}</div>
+                <div
+                  key={notification.id}
+                  className="flex items-start gap-3 p-3 border rounded-lg"
+                >
+                  <div className="mt-1">
+                    {getNotificationIcon(notification.type)}
+                  </div>
                   <div className="flex-1">
                     <p className="font-medium">{notification.message}</p>
                     <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
@@ -365,5 +541,5 @@ export default function NotificationsPage() {
         </Card>
       </div>
     </SidebarInset>
-  )
+  );
 }
