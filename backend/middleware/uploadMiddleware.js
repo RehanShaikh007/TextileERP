@@ -1,10 +1,19 @@
 // middleware/uploadMiddleware.js
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(process.cwd(), 'uploads/'));
+    const uploadPath = path.join(process.cwd(), 'uploads');
+
+    // Create the folder if it doesn't exist
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+      console.log(`Created uploads folder at: ${uploadPath}`);
+    }
+
+    cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
