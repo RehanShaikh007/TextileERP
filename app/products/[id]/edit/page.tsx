@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -123,6 +123,8 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newTag, setNewTag] = useState("");
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -223,6 +225,52 @@ export default function EditProductPage() {
       ...prev,
       tags: prev.tags.filter((tag: string) => tag !== tagToRemove),
     }));
+  };
+
+  const handleImageUpload = async (files: FileList) => {
+    setUploadingImages(true);
+    try {
+      const formData = new FormData();
+      
+      // Append all files to FormData with 'images' field name
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+      }
+      
+      const response = await fetch('http://localhost:4000/api/v1/products/upload-images', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload images');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success && result.images) {
+        setFormData((prev: any) => ({
+          ...prev,
+          images: [...(prev.images || []), ...result.images],
+        }));
+      }
+    } catch (err) {
+      console.error('Error uploading images:', err);
+      setError('Failed to upload images');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      handleImageUpload(files);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -719,9 +767,22 @@ export default function EditProductPage() {
                     <p className="text-sm text-muted-foreground mb-2">
                       Drag and drop images here, or click to browse
                     </p>
-                    <Button type="button" variant="outline">
-                      Choose Files
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      onClick={triggerFileInput}
+                      disabled={uploadingImages}
+                    >
+                      {uploadingImages ? 'Uploading...' : 'Choose Files'}
                     </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
                   </div>
                 </div>
               </div>

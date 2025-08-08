@@ -28,6 +28,42 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { RotateCcw, Search, Plus, Package, CheckCircle, Clock, AlertCircle } from "lucide-react"
 
+interface Return {
+  _id: string
+  id: string
+  orderId: string
+  order: string
+  customer: string
+  product: string
+  color: string
+  quantityInMeters: number
+  returnReason: string
+  isApprove: boolean
+  date: string
+}
+
+interface Order {
+  _id: string
+  customer: string
+  orderItems: OrderItem[]
+}
+
+interface OrderItem {
+  product: string
+  color: string
+  quantity: number
+}
+
+interface Product {
+  _id: string
+  productName: string
+  variants: ProductVariant[]
+}
+
+interface ProductVariant {
+  color: string
+}
+
 export default function ReturnsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all")
@@ -102,30 +138,70 @@ export default function ReturnsPage() {
     const fetchData = async () => {
       try {
         setLoading(true)
+        setError(null)
         
         // Fetch returns
+        console.log('Fetching returns...')
         const returnsRes = await fetch('http://localhost:4000/api/v1/returns')
+        if (!returnsRes.ok) {
+          throw new Error(`Returns API error: ${returnsRes.status}`)
+        }
         const returnsData = await returnsRes.json()
+        console.log('Returns data:', returnsData)
+        console.log('Returns array:', returnsData.returns)
+        if (returnsData.returns && returnsData.returns.length > 0) {
+          console.log('First return object:', returnsData.returns[0])
+        }
         setReturns(returnsData.returns || [])
 
-        // Fetch orders (you'll need to create this endpoint)
-        const ordersRes = await fetch('http://localhost:4000/api/v1/orders')
+        // Fetch orders
+        console.log('Fetching orders...')
+        const ordersRes = await fetch('http://localhost:4000/api/v1/order')
+        if (!ordersRes.ok) {
+          throw new Error(`Orders API error: ${ordersRes.status}`)
+        }
         const ordersData = await ordersRes.json()
+        if (!ordersData.success) {
+          throw new Error(ordersData.message || "Failed to fetch orders")
+        }
+        console.log('Orders data:', ordersData)
         setOrders(ordersData.orders || [])
 
-        // Fetch products (you'll need to create this endpoint)
-        const productsRes = await fetch('http://localhost:4000/api/v1/products')
-        const productsData = await productsRes.json()
-        setProducts(productsData.products || [])
+        // Fetch products (support both /api/v1/products and /api/v1/products/products)
+        console.log('Fetching products...')
+        let productsData: any = null
+        let productsRes = await fetch('http://localhost:4000/api/v1/products')
+        if (productsRes.ok) {
+          const data = await productsRes.json()
+          if (data?.success && Array.isArray(data.products)) {
+            productsData = data.products
+          }
+        }
+        if (!productsData) {
+          // Try fallback route if backend is mounted at /api/v1/products
+          productsRes = await fetch('http://localhost:4000/api/v1/products/products')
+          if (!productsRes.ok) {
+            throw new Error(`Products API error: ${productsRes.status}`)
+          }
+          const data = await productsRes.json()
+          if (!data.success) {
+            throw new Error(data.message || "Failed to fetch products")
+          }
+          productsData = data.products || []
+        }
+        console.log('Products data:', productsData)
+        setProducts(productsData)
         
-        // Fetch colors (extract from products or create separate endpoint)
-        const colorsFromProducts = [...new Set(
-          productsData.products.flatMap((p: any) => 
-            p.variants?.map((v: any) => v.color) || []
-          )]
+        // Extract colors from products
+        const colorsFromProducts = Array.from(new Set(
+          productsData.products?.flatMap((p: Product) => 
+            p.variants?.map((v: ProductVariant) => v.color) || []
+          ) || []
+        )) as string[]
         setColors(colorsFromProducts)
 
       } catch (err) {
+        console.error('Fetch error:', err)
         setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
         setLoading(false)
@@ -160,11 +236,46 @@ export default function ReturnsPage() {
     return isApprove ? "Approved" : "Pending"
   }
 
+  // Get products for the selected order
+  const getOrderProducts = (orderId: string) => {
+    if (!orderId) return []
+    const selectedOrder = orders.find(order => order._id === orderId)
+    if (!selectedOrder) return []
+    
+    // Extract unique products from order items
+    const orderProducts = selectedOrder.orderItems.map((item: OrderItem) => item.product)
+    return products.filter(product => orderProducts.includes(product.productName))
+  }
+
+  // Get colors for the selected product
+  const getProductColors = (productName: string) => {
+    if (!productName) return []
+    const selectedProduct = products.find(product => product.productName === productName)
+    if (!selectedProduct) return []
+    
+    return selectedProduct.variants.map((variant: ProductVariant) => variant.color)
+  }
+
+  // Get available quantity for the selected order, product, and color
+  const getAvailableQuantity = (orderId: string, productName: string, color: string) => {
+    if (!orderId || !productName || !color) return 0
+    
+    const selectedOrder = orders.find(order => order._id === orderId)
+    if (!selectedOrder) return 0
+    
+    const orderItem = selectedOrder.orderItems.find((item: OrderItem) => 
+      item.product === productName && item.color === color
+    )
+    
+    return orderItem ? orderItem.quantity : 0
+  }
+
   const returnStats = {
     total: returns.length,
     pending: returns.filter(r => !r.isApprove).length,
     approved: returns.filter(r => r.isApprove).length,
-    totalValue: returns.reduce((sum, r) => sum + (r.quantityInMeters * 450), // Adjust with actual price
+    processed: returns.filter(r => r.isApprove).length, // For now, processed = approved
+    totalValue: returns.reduce((sum, r) => sum + (r.quantityInMeters * 450), 0), // Adjust with actual price
   }
 
   const handleCreateReturn = async () => {
@@ -215,6 +326,29 @@ export default function ReturnsPage() {
       ))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve return')
+    }
+  }
+
+  const handleRejectReturn = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/v1/returns/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isApprove: false })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to reject return')
+      }
+
+      const updatedReturn = await response.json()
+      setReturns(returns.map(r => 
+        r._id === id ? updatedReturn.return : r
+      ))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reject return')
     }
   }
 
@@ -315,15 +449,22 @@ export default function ReturnsPage() {
                   <Label htmlFor="order">Select Order</Label>
                   <Select 
                     value={newReturn.order}
-                    onValueChange={(value) => setNewReturn({...newReturn, order: value})}
+                    onValueChange={(value) => {
+                      setNewReturn({
+                        ...newReturn, 
+                        order: value,
+                        product: "", // Reset product when order changes
+                        color: "" // Reset color when order changes
+                      })
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose order" />
                     </SelectTrigger>
                     <SelectContent>
                       {orders.map((order) => (
-                        <SelectItem key={order._id} value={order.orderId}>
-                          {order.orderId} - {order.customer}
+                        <SelectItem key={order._id} value={order._id}>
+                          {order._id} - {order.customer}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -334,15 +475,22 @@ export default function ReturnsPage() {
                   <Label htmlFor="product">Product</Label>
                   <Select
                     value={newReturn.product}
-                    onValueChange={(value) => setNewReturn({...newReturn, product: value})}
+                    onValueChange={(value) => {
+                      setNewReturn({
+                        ...newReturn, 
+                        product: value,
+                        color: "" // Reset color when product changes
+                      })
+                    }}
+                    disabled={!newReturn.order}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select product" />
+                      <SelectValue placeholder={newReturn.order ? "Select product" : "Select order first"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {products.map((product) => (
-                        <SelectItem key={product._id} value={product.name}>
-                          {product.name}
+                      {getOrderProducts(newReturn.order).map((product) => (
+                        <SelectItem key={product._id} value={product.productName}>
+                          {product.productName}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -355,12 +503,13 @@ export default function ReturnsPage() {
                     <Select
                       value={newReturn.color}
                       onValueChange={(value) => setNewReturn({...newReturn, color: value})}
+                      disabled={!newReturn.product}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select color" />
+                        <SelectValue placeholder={newReturn.product ? "Select color" : "Select product first"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {colors.map((color) => (
+                        {getProductColors(newReturn.product).map((color) => (
                           <SelectItem key={color} value={color}>
                             {color}
                           </SelectItem>
@@ -378,7 +527,13 @@ export default function ReturnsPage() {
                         ...newReturn,
                         quantityInMeters: Number(e.target.value)
                       })}
+                      max={getAvailableQuantity(newReturn.order, newReturn.product, newReturn.color)}
                     />
+                    {newReturn.order && newReturn.product && newReturn.color && (
+                      <p className="text-sm text-muted-foreground">
+                        Available: {getAvailableQuantity(newReturn.order, newReturn.product, newReturn.color)} meters
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -493,19 +648,21 @@ export default function ReturnsPage() {
         </div>
 
         {/* Returns Table */}
-        {/* --- Demo: Return Ledger --- */}
+        {/* Return Ledger - Approved Returns */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Return Ledger</CardTitle>
-            <CardDescription>Track all returned stock in a dedicated ledger.</CardDescription>
+            <CardDescription>Approved returns that have been processed and moved to the ledger.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b">
                   <tr>
+                    <th className="text-left p-4 font-medium">Return ID</th>
                     <th className="text-left p-4 font-medium">Date</th>
                     <th className="text-left p-4 font-medium">Order ID</th>
+                    <th className="text-left p-4 font-medium">Customer</th>
                     <th className="text-left p-4 font-medium">Product</th>
                     <th className="text-left p-4 font-medium">Color</th>
                     <th className="text-left p-4 font-medium">Qty</th>
@@ -513,14 +670,16 @@ export default function ReturnsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {returns.map((r) => (
-                    <tr key={r.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4">{r.date}</td>
-                      <td className="p-4">{r.orderId}</td>
+                  {returns.filter(r => r.isApprove).map((r) => (
+                    <tr key={r._id} className="border-b hover:bg-muted/50">
+                      <td className="p-4 font-medium">{r.id || 'N/A'}</td>
+                      <td className="p-4">{r.date || 'N/A'}</td>
+                      <td className="p-4">{r.orderId || r.order || 'N/A'}</td>
+                      <td className="p-4">{r.customer || 'Unknown Customer'}</td>
                       <td className="p-4">{r.product}</td>
                       <td className="p-4">{r.color}</td>
-                      <td className="p-4">{r.quantity}m</td>
-                      <td className="p-4">{r.reason}</td>
+                      <td className="p-4">{r.quantityInMeters}m</td>
+                      <td className="p-4">{r.returnReason}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -532,7 +691,7 @@ export default function ReturnsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Return Requests</CardTitle>
-            <CardDescription>Manage and track all return requests</CardDescription>
+            <CardDescription>Pending return requests awaiting approval</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -551,41 +710,49 @@ export default function ReturnsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredReturns.map((returnItem) => (
-                    <tr key={returnItem.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">{returnItem.id}</td>
-                      <td className="p-4">{returnItem.orderId}</td>
-                      <td className="p-4">{returnItem.customer}</td>
+                  {filteredReturns.filter(returnItem => !returnItem.isApprove).map((returnItem) => (
+                    <tr key={returnItem.id || returnItem._id} className="border-b hover:bg-muted/50">
+                      <td className="p-4 font-medium">{returnItem.id || 'N/A'}</td>
+                      <td className="p-4">{returnItem.orderId || returnItem.order || 'N/A'}</td>
+                      <td className="p-4">{returnItem.customer || 'Unknown Customer'}</td>
                       <td className="p-4">
                         <div>
                           <p className="font-medium">{returnItem.product}</p>
                           <p className="text-sm text-muted-foreground">{returnItem.color}</p>
                         </div>
                       </td>
-                      <td className="p-4">{returnItem.quantity}m</td>
+                      <td className="p-4">{returnItem.quantityInMeters}m</td>
                       <td className="p-4">
-                        <span className="text-sm">{returnItem.reason}</span>
+                        <span className="text-sm">{returnItem.returnReason}</span>
                       </td>
-                      <td className="p-4">₹{returnItem.value.toLocaleString()}</td>
+                      <td className="p-4">₹{(returnItem.quantityInMeters * 450).toLocaleString()}</td>
                       <td className="p-4">
                         <div className="flex items-center gap-2">
-                          {getStatusIcon(returnItem.status)}
-                          <Badge variant={getStatusColor(returnItem.status)}>{returnItem.status}</Badge>
+                          {getStatusIcon(returnItem.isApprove)}
+                          <Badge variant={getStatusColor(returnItem.isApprove)}>{getStatusText(returnItem.isApprove)}</Badge>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
-                          {returnItem.status === "pending" && (
+                          {!returnItem.isApprove && (
                             <>
-                              <Button size="sm" variant="outline">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleApproveReturn(returnItem._id)}
+                              >
                                 Approve
                               </Button>
-                              <Button size="sm" variant="outline">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleRejectReturn(returnItem._id)}
+                              >
                                 Reject
                               </Button>
                             </>
                           )}
-                          {returnItem.status === "approved" && <Button size="sm">Process</Button>}
+                          {returnItem.isApprove && <Button size="sm">Process</Button>}
                         </div>
                       </td>
                     </tr>

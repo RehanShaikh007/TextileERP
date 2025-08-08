@@ -1,20 +1,25 @@
 import mongoose from "mongoose";
 
-const PRODUCTS = [
-  "Premium Cotton Base",
-  "Silk Blend Base",
-  "Polyester Mix Blend",
-  "Cotton Designer Print",
-];
-
 const returnSchema = new mongoose.Schema({
+    id: {
+        type: String,
+        required: true,
+        unique: true,
+    },
     order: {
+        type: String,
+        required: true,
+    },
+    orderId: {
+        type: String,
+        required: true,
+    },
+    customer: {
         type: String,
         required: true,
     },
     product:{
         type: String,
-        enum: PRODUCTS,
         required: true,
     },
     color:{

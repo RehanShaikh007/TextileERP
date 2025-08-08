@@ -1,4 +1,5 @@
 import Return from "../models/returnSchema.js";
+import Order from "../models/orderSchema.js";
 
 export const createReturn = async(req, res) =>{
     try {
@@ -11,8 +12,24 @@ export const createReturn = async(req, res) =>{
             })
         }
 
+        // Get order details to extract customer name
+        const orderDetails = await Order.findById(order);
+        if (!orderDetails) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found!'
+            })
+        }
+
+        // Generate Return ID
+        const returnsCount = await Return.countDocuments();
+        const returnId = `RET-${String(returnsCount + 1).padStart(3, '0')}`;
+
         const newReturn = await Return.create({
+           id: returnId,
            order,
+           orderId: order,
+           customer: orderDetails.customer,
            product,
            color,
            quantityInMeters,
@@ -26,7 +43,7 @@ export const createReturn = async(req, res) =>{
         })
 
     } catch (error) {
-        consoler.error('Error while creating return request', error);
+        console.error('Error while creating return request', error);
         res.status(500).json({
             success: false,
             message: 'Server Error',
