@@ -80,6 +80,12 @@ const data = {
           badge: "45",
         },
         {
+          title: "Agents",
+          url: "/agents",
+          icon: Users,
+          badge: "4",
+        },
+        {
           title: "Returns",
           url: "/returns",
           icon: RotateCcw,
