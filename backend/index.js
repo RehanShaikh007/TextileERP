@@ -34,9 +34,6 @@ app.use('/api/v1/customer', customerRouter)
 app.use('/api/v1/order', orderRouter)
 app.use('/api/v1/returns', returnRouter)
 app.use('/api/v1/stock', stockRouter)
-
-// Mount all routes (products, stock, order, customer, return) under /api/v1
-app.use('/api/v1', router)
 app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
 
 
