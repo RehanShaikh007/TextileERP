@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, JSX } from "react";
 import {
   Card,
   CardContent,
@@ -64,15 +64,15 @@ type NotificationType =
   | "stock_alert"
   | "order_update"
   | "return_request"
-  | "daily_report";
+  | "product_update";
 
 interface Notification {
   id: number;
   type: NotificationType;
   message: string;
   timestamp: string;
-  sent: boolean;
-  recipients: number;
+  status: string;
+  sentToCount: number;
 }
 
 export default function NotificationsPage() {
@@ -133,40 +133,39 @@ export default function NotificationsPage() {
     fetchSettings();
   }, []);
 
-  const recentNotifications: Notification[] = [
-    {
-      id: 1,
-      type: "stock_alert",
-      message: "Low stock alert: Premium Cotton Blend - Only 45m remaining",
-      timestamp: "2024-01-15 10:30 AM",
-      sent: true,
-      recipients: 2,
-    },
-    {
-      id: 2,
-      type: "order_update",
-      message: "Order ORD-001 has been delivered to Rajesh Textiles",
-      timestamp: "2024-01-15 09:15 AM",
-      sent: true,
-      recipients: 2,
-    },
-    {
-      id: 3,
-      type: "return_request",
-      message: "New return request RET-003 from Fashion Hub for 30m Silk Print",
-      timestamp: "2024-01-14 04:45 PM",
-      sent: true,
-      recipients: 2,
-    },
-    {
-      id: 4,
-      type: "daily_report",
-      message: "Daily sales report: 5 orders completed, ₹125,000 revenue",
-      timestamp: "2024-01-14 06:00 PM",
-      sent: true,
-      recipients: 2,
-    },
-  ];
+  const [recentNotifications, setRecentNotifications] = useState<
+    Notification[]
+  >([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
+  useEffect(() => {
+    async function fetchNotifications() {
+      setLoadingNotifications(true);
+      try {
+        const res = await fetch(
+          "http://localhost:4000/api/v1/whatsapp-messages"
+        );
+        const data = await res.json();
+        if (data.success && Array.isArray(data.messages)) {
+          setRecentNotifications(
+            data.messages.map((msg: any) => ({
+              id: msg._id,
+              type: msg.type,
+              message: msg.message,
+              timestamp: new Date(msg.createdAt).toLocaleString(),
+              sent: msg.status === "Delivered",
+              recipients: msg.sentToCount,
+            }))
+          );
+        }
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    }
+    fetchNotifications();
+  }, []);
 
   function Spinner(): JSX.Element {
     return (
@@ -197,7 +196,7 @@ export default function NotificationsPage() {
         return <ShoppingCart className="h-4 w-4 text-blue-500" />;
       case "return_request":
         return <AlertTriangle className="h-4 w-4 text-red-500" />;
-      case "daily_report":
+      case "product_update":
         return <Bell className="h-4 w-4 text-green-500" />;
       default:
         return <Bell className="h-4 w-4 text-muted-foreground" />;
@@ -483,9 +482,9 @@ export default function NotificationsPage() {
                       </p>
                     </div>
                     <Switch
-                      checked={notificationSettings[item.key]}
+                      checked={notificationSettings[item.key as keyof NotificationSettings]}
                       onCheckedChange={() =>
-                        toggleNotificationSetting(item.key)
+                        toggleNotificationSetting(item.key as keyof NotificationSettings)
                       }
                     />
                   </div>
@@ -526,8 +525,8 @@ export default function NotificationsPage() {
                     <p className="font-medium">{notification.message}</p>
                     <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                       <span>{notification.timestamp}</span>
-                      <span>Sent to {notification.recipients} admins</span>
-                      {notification.sent && (
+                      <span>Sent to {notification.sentToCount} admins</span>
+                      {notification.status === "Delivered" && (
                         <Badge variant="outline" className="text-xs">
                           Delivered
                         </Badge>

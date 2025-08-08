@@ -23,6 +23,7 @@ export const createProduct = async (req, res) => {
     // Save message log
     await WhatsappMessages.create({
       message: messageText,
+      type: "product_update",
       sentToCount: 2, // or dynamically get from your admin list
       status,
     });
@@ -81,6 +82,7 @@ export const updateProduct = async (req, res) => {
     // Save message log
     await WhatsappMessages.create({
       message: messageText,
+      type: "product_update",
       sentToCount: 2,
       status,
     });
@@ -116,6 +118,7 @@ export const deleteProduct = async (req, res) => {
     // Save message log
     await WhatsappMessages.create({
       message: messageText,
+      type: "product_update",
       sentToCount: 2,
       status,
     });

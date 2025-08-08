@@ -9,6 +9,10 @@ const whatsappMessagesSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  type: {
+    type: String,
+    enum: ["stock_alert", "order_update", "return_request", "product_update"],
+  },
   status: {
     type: String,
     default: "Delivered",
