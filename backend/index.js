@@ -10,6 +10,7 @@ import cors from 'cors'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
 import whatsappNotificationRoutes from "./routes/whatsappNotificationRoutes.js";
+import WhatsappMessageRoutes from './routes/whatsappMessagesRoutes.js';
 
 dotenv.config()
 
@@ -35,6 +36,7 @@ app.use('/api/v1/order', orderRouter)
 app.use('/api/v1/returns', returnRouter)
 app.use('/api/v1/stock', stockRouter)
 app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
+app.use('/api/v1/whatsapp-messages', WhatsappMessageRoutes);
 
 
 mongoose.connect(process.env.MONGO_URI)
