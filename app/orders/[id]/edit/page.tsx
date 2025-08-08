@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,43 +26,161 @@ import { CalendarIcon, Plus, X, Save, ArrowLeft } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 
+// TypeScript interfaces
+interface OrderItem {
+  product: string
+  color: string
+  quantity: number
+  unit: string
+  pricePerMeters: number
+}
+
+interface Order {
+  _id: string
+  customer: string
+  status?: string
+  orderDate: string
+  deliveryDate: string
+  orderItems: OrderItem[]
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface Customer {
+  _id: string
+  customerName: string
+  phone: string
+  address: string
+  city?: string
+}
+
+interface Product {
+  _id: string
+  productName: string
+  variants: {
+    color: string
+    price: number
+    sku: string
+  }[]
+}
+
+interface FormOrderItem {
+  id: number
+  product: string
+  color: string
+  quantity: number
+  price: number
+  total: number
+}
+
 export default function EditOrderPage() {
   const router = useRouter()
   const params = useParams()
   const orderId = params.id as string
 
-  // Mock existing order data - in real app, fetch based on orderId
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+
   const [formData, setFormData] = useState({
-    customer: "Rajesh Textiles",
-    status: "processing",
-    orderDate: new Date("2024-01-15"),
-    dueDate: new Date("2024-01-25"),
-    notes: "Rush order for upcoming fashion show. Please ensure quality check before dispatch.",
+    customer: "",
+    status: "pending",
+    orderDate: new Date(),
+    dueDate: new Date(),
+    notes: "",
   })
 
-  const [orderItems, setOrderItems] = useState([
-    { id: 1, product: "Premium Cotton Blend", color: "Blue", quantity: 120, price: 450, total: 54000 },
-    { id: 2, product: "Silk Designer Print", color: "Red", quantity: 60, price: 800, total: 48000 },
-    { id: 3, product: "Polyester Mix Fabric", color: "Green", quantity: 90, price: 320, total: 28800 },
+  const [orderItems, setOrderItems] = useState<FormOrderItem[]>([
+    { id: 1, product: "", color: "", quantity: 0, price: 0, total: 0 }
   ])
 
-  // Mock data
-  const customers = [
-    { id: "CUST-001", name: "Rajesh Textiles", city: "Mumbai" },
-    { id: "CUST-002", name: "Fashion Hub", city: "Delhi" },
-    { id: "CUST-003", name: "Style Point", city: "Bangalore" },
-    { id: "CUST-004", name: "Modern Fabrics", city: "Chennai" },
-  ]
+  // Fetch order, customers, and products on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-  const products = [
-    { id: "PRD-001", name: "Premium Cotton Blend", price: 450 },
-    { id: "PRD-002", name: "Silk Designer Print", price: 800 },
-    { id: "PRD-003", name: "Polyester Mix Fabric", price: 320 },
-    { id: "PRD-004", name: "Cotton Casual Wear", price: 380 },
-    { id: "PRD-005", name: "Linen Summer Collection", price: 650 },
-  ]
+        // Fetch order details, customers, and products in parallel
+        const [orderResponse, customersResponse, productsResponse] = await Promise.all([
+          fetch(`http://localhost:4000/api/v1/order/${orderId}`),
+          fetch('http://localhost:4000/api/v1/customer'),
+          fetch('http://localhost:4000/api/v1/products')
+        ])
 
-  const colors = ["Red", "Blue", "Green", "Yellow", "Black", "White", "Purple", "Orange", "Pink", "Brown"]
+        if (!orderResponse.ok) {
+          throw new Error('Failed to fetch order details')
+        }
+
+        const orderData = await orderResponse.json()
+        if (!orderData.success || !orderData.order) {
+          throw new Error('Invalid order response')
+        }
+
+        // Transform backend order to form data
+        const order = orderData.order
+        setFormData({
+          customer: order.customer,
+          status: order.status || "pending", // Use actual status from backend
+          orderDate: new Date(order.orderDate),
+          dueDate: new Date(order.deliveryDate),
+          notes: order.notes || "",
+        })
+
+        // Transform order items
+        const transformedItems = order.orderItems.map((item: OrderItem, index: number) => ({
+          id: index + 1,
+          product: item.product,
+          color: item.color,
+          quantity: item.quantity,
+          price: item.pricePerMeters,
+          total: item.quantity * item.pricePerMeters
+        }))
+        setOrderItems(transformedItems)
+
+        // Handle customers response
+        if (customersResponse.ok) {
+          const customersData = await customersResponse.json()
+          if (customersData.success && customersData.customers) {
+            setCustomers(customersData.customers)
+          }
+        }
+
+        // Handle products response  
+        if (productsResponse.ok) {
+          const productsData = await productsResponse.json()
+          if (productsData.success && productsData.products) {
+            setProducts(productsData.products)
+          }
+        }
+
+      } catch (err) {
+        console.error('Error fetching data:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load order data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [orderId])
+
+  // Get available colors from selected product
+  const getAvailableColors = (productName: string) => {
+    const product = products.find(p => p.productName === productName)
+    return product ? product.variants.map(v => v.color) : []
+  }
+
+  // Get price for selected product and color
+  const getProductPrice = (productName: string, color: string) => {
+    const product = products.find(p => p.productName === productName)
+    if (!product) return 0
+    const variant = product.variants.find(v => v.color === color)
+    return variant ? variant.price : 0
+  }
 
   const statusOptions = [
     { value: "pending", label: "Pending" },
@@ -97,12 +215,16 @@ export default function EditOrderPage() {
         if (item.id === id) {
           const updatedItem = { ...item, [field]: value }
 
-          // Auto-populate price when product is selected
+          // Reset color and price when product changes
           if (field === "product") {
-            const selectedProduct = products.find((p) => p.name === value)
-            if (selectedProduct) {
-              updatedItem.price = selectedProduct.price
+            updatedItem.color = ""
+            updatedItem.price = 0
             }
+
+          // Auto-populate price when color is selected
+          if (field === "color" && item.product) {
+            const price = getProductPrice(item.product, value as string)
+            updatedItem.price = price
           }
 
           // Calculate total
@@ -119,17 +241,62 @@ export default function EditOrderPage() {
     return orderItems.reduce((sum, item) => sum + item.total, 0)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const orderData = {
-      ...formData,
-      items: orderItems.filter((item) => item.product && item.quantity > 0),
-      total: getOrderTotal(),
+    // Validate required fields
+    const validItems = orderItems.filter((item) => item.product && item.color && item.quantity > 0)
+    if (!formData.customer || validItems.length === 0) {
+      alert('Please fill in all required fields and add at least one valid item.')
+      return
     }
 
-    console.log("Updated order data:", orderData)
-    router.push(`/orders/${orderId}`)
+    try {
+      setSaving(true)
+
+      // Transform form data to backend format
+      const backendOrderItems = validItems.map((item) => ({
+        product: item.product,
+        color: item.color,
+        quantity: item.quantity,
+        unit: "METERS",
+        pricePerMeters: item.price
+      }))
+
+      const orderData = {
+        customer: formData.customer,
+        status: formData.status,
+        orderDate: formData.orderDate.toISOString(),
+        deliveryDate: formData.dueDate.toISOString(),
+        orderItems: backendOrderItems,
+        notes: formData.notes
+      }
+
+      const response = await fetch(`http://localhost:4000/api/v1/order/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update order')
+      }
+
+      const result = await response.json()
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update order')
+      }
+
+      console.log("Order updated successfully:", result)
+      router.push('/orders')
+    } catch (err) {
+      console.error('Error updating order:', err)
+      alert(err instanceof Error ? err.message : 'Failed to update order')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -170,6 +337,25 @@ export default function EditOrderPage() {
           </div>
         </div>
 
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading order details...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="text-center">
+              <h3 className="text-lg font-medium mb-2">Failed to load order</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Try Again
+              </Button>
+            </div>
+          </div>
+        ) : (
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             {/* Order Information */}
@@ -187,10 +373,10 @@ export default function EditOrderPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.name}>
+                        <SelectItem key={customer._id} value={customer.customerName}>
                           <div className="flex flex-col">
-                            <span>{customer.name}</span>
-                            <span className="text-xs text-muted-foreground">{customer.city}</span>
+                            <span>{customer.customerName}</span>
+                            <span className="text-xs text-muted-foreground">{customer.city || 'N/A'}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -323,10 +509,12 @@ export default function EditOrderPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {products.map((product) => (
-                            <SelectItem key={product.id} value={product.name}>
+                            <SelectItem key={product._id} value={product.productName}>
                               <div className="flex flex-col">
-                                <span>{product.name}</span>
-                                <span className="text-xs text-muted-foreground">₹{product.price}/m</span>
+                                <span>{product.productName}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {product.variants.length} variants
+                                </span>
                               </div>
                             </SelectItem>
                           ))}
@@ -341,7 +529,7 @@ export default function EditOrderPage() {
                           <SelectValue placeholder="Select color" />
                         </SelectTrigger>
                         <SelectContent>
-                          {colors.map((color) => (
+                          {getAvailableColors(item.product).map((color) => (
                             <SelectItem key={color} value={color}>
                               {color}
                             </SelectItem>
@@ -412,12 +600,13 @@ export default function EditOrderPage() {
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
-              Save Changes
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </form>
+        )}
       </div>
     </SidebarInset>
   )

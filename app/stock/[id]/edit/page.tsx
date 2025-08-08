@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,38 +17,239 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Save, X } from "lucide-react"
+import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+
+// Stock interfaces based on backend schema
+interface StockVariant {
+  color: string;
+  quantity: number;
+  unit: string;
+}
+
+interface AdditionalInfo {
+  batchNumber: string;
+  qualityGrade: string;
+  notes?: string;
+}
+
+interface GrayStockDetails {
+  product: string;
+  factory: string;
+  agent: string;
+  orderNumber: string;
+}
+
+interface FactoryStockDetails {
+  product: string;
+  processingFactory: string;
+  processingStage: string;
+  expectedCompletion: string;
+}
+
+interface DesignStockDetails {
+  product: string;
+  design: string;
+  warehouse: string;
+}
+
+interface Stock {
+  _id: string;
+  stockType: "Gray Stock" | "Factory Stock" | "Design Stock";
+  status: string;
+  variants: StockVariant[];
+  stockDetails: GrayStockDetails | FactoryStockDetails | DesignStockDetails;
+  addtionalInfo: AdditionalInfo;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Frontend form interface
+interface StockFormData {
+  id: string;
+  product: string;
+  type: string;
+  quantity: number;
+  factory: string;
+  agent: string;
+  orderNumber: string;
+  status: string;
+  unitPrice: number;
+  location: string;
+  batchNumber: string;
+  qualityGrade: string;
+  material: string;
+  weight: string;
+  width: string;
+  color: string;
+  finish: string;
+  supplierName: string;
+  supplierContact: string;
+  supplierAddress: string;
+  notes: string;
+}
 
 export default function StockEditPage() {
   const params = useParams()
+  const router = useRouter()
   const stockId = params.id as string
 
-  // Mock stock data - in real app, fetch based on stockId
-  const [stockItem, setStockItem] = useState({
-    id: "GRY-001",
-    product: "Premium Cotton Base",
-    type: "gray",
-    quantity: 450,
-    factory: "Textile Mills Ltd",
-    agent: "Ramesh Kumar",
-    orderNumber: "PO-2024-001",
+  // State management
+  const [stockItem, setStockItem] = useState<StockFormData>({
+    id: "",
+    product: "",
+    type: "",
+    quantity: 0,
+    factory: "",
+    agent: "",
+    orderNumber: "",
     status: "available",
-    unitPrice: 120,
-    location: "Warehouse A - Section 2",
-    batchNumber: "BTH-2024-001",
-    qualityGrade: "A+",
-    material: "100% Cotton",
-    weight: "200 GSM",
-    width: "44 inches",
-    color: "Natural White",
-    finish: "Unfinished",
-    supplierName: "Cotton Mills India",
-    supplierContact: "+91 98765 43210",
-    supplierAddress: "Industrial Area, Coimbatore",
-    notes: "High quality cotton base material suitable for premium fabric production.",
+    unitPrice: 0,
+    location: "",
+    batchNumber: "",
+    qualityGrade: "A",
+    material: "",
+    weight: "",
+    width: "",
+    color: "",
+    finish: "",
+    supplierName: "",
+    supplierContact: "",
+    supplierAddress: "",
+    notes: "",
   })
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+
+  // Fetch stock data from backend
+  useEffect(() => {
+    const fetchStock = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch stock: ${response.status} ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        
+        if (data.success) {
+          const stock = data.stock as Stock
+          transformStockToFormData(stock)
+        } else {
+          throw new Error(data.message || "Failed to fetch stock")
+        }
+      } catch (err) {
+        console.error("Error fetching stock:", err)
+        setError(err instanceof Error ? err.message : "Failed to fetch stock")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (stockId) {
+      fetchStock()
+    }
+  }, [stockId])
+
+  // Transform backend stock data to form data
+  const transformStockToFormData = (stock: Stock) => {
+    const totalQuantity = stock.variants.reduce((sum, variant) => sum + variant.quantity, 0)
+    const mainColor = stock.variants[0]?.color || ""
+    
+    // Use dynamic status from backend
+    const status = stock.status || "available"
+
+    const formData: StockFormData = {
+      id: stock._id,
+      product: (stock.stockDetails as any).product || "",
+      type: stock.stockType.toLowerCase().replace(" ", "_"),
+      quantity: totalQuantity,
+      factory: (stock.stockDetails as any).factory || (stock.stockDetails as any).processingFactory || "",
+      agent: (stock.stockDetails as any).agent || "",
+      orderNumber: (stock.stockDetails as any).orderNumber || "",
+      status,
+      unitPrice: 120, // Default value, not in backend schema
+      location: (stock.stockDetails as any).warehouse || "Warehouse A - Section 2",
+      batchNumber: stock.addtionalInfo.batchNumber,
+      qualityGrade: stock.addtionalInfo.qualityGrade,
+      material: "100% Cotton", // Default value, not in backend schema
+      weight: "200 GSM", // Default value, not in backend schema
+      width: "44 inches", // Default value, not in backend schema
+      color: mainColor,
+      finish: "Unfinished", // Default value, not in backend schema
+      supplierName: "Cotton Mills India", // Default value, not in backend schema
+      supplierContact: "+91 98765 43210", // Default value, not in backend schema
+      supplierAddress: "Industrial Area, Coimbatore", // Default value, not in backend schema
+      notes: stock.addtionalInfo.notes || "",
+    }
+
+    setStockItem(formData)
+  }
+
+  // Transform form data back to backend format
+  const transformFormDataToBackend = (formData: StockFormData) => {
+    const stockType = formData.type === "gray_stock" ? "Gray Stock" : 
+                     formData.type === "factory_stock" ? "Factory Stock" : "Design Stock"
+
+    // Create variants based on quantity and color
+    const variants = [{
+      color: formData.color || "Natural White",
+      quantity: formData.quantity,
+      unit: "METERS"
+    }]
+
+    // Create stock details based on type
+    let stockDetails: any = {}
+    if (stockType === "Gray Stock") {
+      stockDetails = {
+        product: formData.product,
+        factory: formData.factory,
+        agent: formData.agent,
+        orderNumber: formData.orderNumber,
+      }
+    } else if (stockType === "Factory Stock") {
+      stockDetails = {
+        product: formData.product,
+        processingFactory: formData.factory,
+        processingStage: "Dyeing", // Default value
+        expectedCompletion: new Date().toISOString(),
+      }
+    } else if (stockType === "Design Stock") {
+      stockDetails = {
+        product: formData.product,
+        design: "Floral Print", // Default value
+        warehouse: formData.location,
+      }
+    }
+
+    // Create additional info
+    const addtionalInfo = {
+      batchNumber: formData.batchNumber,
+      qualityGrade: formData.qualityGrade,
+      notes: formData.notes,
+    }
+
+    return {
+      stockType,
+      status: formData.status,
+      variants,
+      stockDetails,
+      addtionalInfo,
+    }
+  }
 
   const factories = ["Textile Mills Ltd", "Silk Weavers Co", "Modern Textiles", "Synthetic Mills", "Premium Fabrics"]
   const agents = ["Ramesh Kumar", "Priya Sharma", "Suresh Patel", "Kavita Singh", "Amit Gupta"]
@@ -69,10 +270,125 @@ export default function StockEditPage() {
     }))
   }
 
-  const handleSave = () => {
-    // In real app, save to backend
-    console.log("Saving stock item:", stockItem)
-    // Show success message and redirect
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      setError(null)
+      setSuccess(false)
+
+      const backendData = transformFormDataToBackend(stockItem)
+
+      const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(backendData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to update stock")
+      }
+
+      const result = await response.json()
+      console.log("Stock updated successfully:", result)
+      
+      setSuccess(true)
+      
+      // Redirect to stock list after a short delay
+      setTimeout(() => {
+        router.push("/stock")
+      }, 1500)
+      
+    } catch (err) {
+      console.error("Error updating stock:", err)
+      setError(err instanceof Error ? err.message : "Failed to update stock")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/stock">Stock</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Edit</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-4 md:p-6">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Loading stock data...</span>
+          </div>
+        </div>
+      </SidebarInset>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/stock">Stock</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Edit</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-4 md:p-6">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Failed to load stock data</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <div className="flex gap-2 justify-center">
+              <Button 
+                onClick={() => window.location.reload()}
+                variant="outline"
+              >
+                Retry
+              </Button>
+              <Link href="/stock">
+                <Button variant="outline">
+                  Back to Stock List
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+    )
   }
 
   return (
@@ -123,12 +439,42 @@ export default function StockEditPage() {
                 Cancel
               </Button>
             </Link>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
               <Save className="h-4 w-4 mr-2" />
               Save Changes
+                </>
+              )}
             </Button>
           </div>
         </div>
+
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <span className="text-green-800 font-medium">Stock updated successfully!</span>
+            </div>
+            <p className="text-green-700 text-sm mt-1">Redirecting to stock list...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <span className="text-red-800 font-medium">Error updating stock</span>
+            </div>
+            <p className="text-red-700 text-sm mt-1">{error}</p>
+          </div>
+        )}
 
         {/* Edit Form */}
         <div className="grid gap-6 lg:grid-cols-2">
@@ -390,9 +736,18 @@ export default function StockEditPage() {
               Cancel
             </Button>
           </Link>
-          <Button onClick={handleSave}>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
             <Save className="h-4 w-4 mr-2" />
             Save Changes
+              </>
+            )}
           </Button>
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,28 +17,33 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Save, X } from "lucide-react"
+import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 
 export default function CustomerEditPage() {
   const params = useParams()
+  const router = useRouter()
   const customerId = params.id as string
 
-  // Mock customer data - in real app, fetch based on customerId
+  // Backend-mapped customer state
   const [customer, setCustomer] = useState({
-    id: "CUST-001",
-    name: "Rajesh Textiles",
-    city: "Mumbai",
-    state: "Maharashtra",
-    address: "123 Textile Market, Dadar West, Mumbai - 400028",
-    phone: "+91 98765 43210",
-    email: "rajesh@textiles.com",
-    gst: "27ABCDE1234F1Z5",
+    customerName: "",
+    city: "",
+    state: "",
+    address: "",
+    phone: "",
+    email: "",
+    gst: "",
     status: "active",
-    creditLimit: 500000,
-    notes: "Reliable customer with good payment history. Prefers cotton and silk fabrics.",
+    creditLimit: 0,
+    notes: "",
   })
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const cities = ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Pune", "Ahmedabad", "Surat"]
   const states = ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "West Bengal", "Gujarat", "Rajasthan", "Punjab"]
@@ -50,10 +55,158 @@ export default function CustomerEditPage() {
     }))
   }
 
-  const handleSave = () => {
-    // In real app, save to backend
-    console.log("Saving customer:", customer)
-    // Show success message and redirect
+  // Fetch customer by ID
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) {
+          throw new Error(`Failed to fetch customer: ${res.status} ${res.statusText}`)
+        }
+        const data = await res.json()
+        if (!data.success || !data.customer) {
+          throw new Error(data.message || 'Customer not found')
+        }
+        const c = data.customer as any
+        setCustomer({
+          customerName: c.customerName || "",
+          city: c.city || "",
+          state: "", // not in backend schema
+          address: c.address || "",
+          phone: c.phone ? String(c.phone) : "",
+          email: c.email || "",
+          gst: "", // not in backend schema
+          status: "active", // not in backend schema; kept for UI
+          creditLimit: c.creditLimit || 0,
+          notes: "", // not in backend schema
+        })
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to fetch customer')
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (customerId) fetchCustomer()
+  }, [customerId])
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      setError(null)
+      setSuccess(false)
+
+      // Basic validation
+      if (!customer.customerName || !customer.email || !customer.phone || !customer.city || !customer.address) {
+        throw new Error('Please fill all required fields')
+      }
+
+      const payload = {
+        customerName: customer.customerName,
+        // Map UI types to backend enums exactly
+        customerType: undefined as any, // not editable here; left unchanged
+        email: customer.email,
+        phone: parseInt(customer.phone.replace(/\D/g, '')) || 0,
+        city: customer.city,
+        creditLimit: Number(customer.creditLimit) || 0,
+        address: customer.address,
+      }
+
+      // Fetch existing to preserve immutable/missing fields like customerType
+      const existing = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`)
+      if (existing.ok) {
+        const exData = await existing.json()
+        if (exData?.customer?.customerType) {
+          payload.customerType = exData.customer.customerType
+        }
+      }
+      if (!payload.customerType) payload.customerType = 'Wholesale'
+
+      const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || 'Failed to update customer')
+      }
+
+      setSuccess(true)
+      setTimeout(() => {
+        router.push('/customers')
+      }, 1200)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update customer')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/customers">Customers</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Edit</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Loading customer...</div>
+        </div>
+      </SidebarInset>
+    )
+  }
+
+  if (error) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/customers">Customers</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Edit</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center">
+            <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground mb-3">{error}</p>
+            <Button variant="outline" onClick={() => location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </SidebarInset>
+    )
   }
 
   return (
@@ -72,7 +225,7 @@ export default function CustomerEditPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={`/customers/${customerId}`}>{customer.name}</BreadcrumbLink>
+              <BreadcrumbLink href={`/customers/${customerId}`}>{customer.customerName || 'Customer'}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -104,12 +257,17 @@ export default function CustomerEditPage() {
                 Cancel
               </Button>
             </Link>
-            <Button onClick={handleSave}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>) : (<><Save className="h-4 w-4 mr-2" />Save Changes</>)}
             </Button>
           </div>
         </div>
+
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded p-3 flex items-center gap-2 text-sm text-green-800">
+            <CheckCircle className="h-4 w-4" /> Customer updated successfully. Redirecting...
+          </div>
+        )}
 
         {/* Edit Form */}
         <div className="grid gap-6 lg:grid-cols-2">
@@ -124,8 +282,8 @@ export default function CustomerEditPage() {
                 <Label htmlFor="name">Customer Name *</Label>
                 <Input
                   id="name"
-                  value={customer.name}
-                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  value={customer.customerName}
+                  onChange={(e) => handleInputChange("customerName", e.target.value)}
                   placeholder="Enter customer name"
                 />
               </div>
@@ -165,7 +323,7 @@ export default function CustomerEditPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">Address *</Label>
                 <Textarea
                   id="address"
                   value={customer.address}
@@ -261,9 +419,8 @@ export default function CustomerEditPage() {
               Cancel
             </Button>
           </Link>
-          <Button onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Changes
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>) : (<><Save className="h-4 w-4 mr-2" />Save Changes</>)}
           </Button>
         </div>
       </div>

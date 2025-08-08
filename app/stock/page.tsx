@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,125 +30,171 @@ import {
   ArrowUpDown,
   Eye,
   Edit,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
+
+// Stock interfaces based on backend schema
+interface StockVariant {
+  color: string;
+  quantity: number;
+  unit: string;
+}
+
+interface AdditionalInfo {
+  batchNumber: string;
+  qualityGrade: string;
+  notes?: string;
+}
+
+interface GrayStockDetails {
+  product: string;
+  factory: string;
+  agent: string;
+  orderNumber: string;
+}
+
+interface FactoryStockDetails {
+  product: string;
+  processingFactory: string;
+  processingStage: string;
+  expectedCompletion: string;
+}
+
+interface DesignStockDetails {
+  product: string;
+  design: string;
+  warehouse: string;
+}
+
+interface Stock {
+  _id: string;
+  stockType: "Gray Stock" | "Factory Stock" | "Design Stock";
+  status: string;
+  variants: StockVariant[];
+  stockDetails: GrayStockDetails | FactoryStockDetails | DesignStockDetails;
+  addtionalInfo: AdditionalInfo;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Frontend display interfaces (keeping existing structure)
+interface DisplayStock {
+  id: string;
+  product: string;
+  quantity: number;
+  factory?: string;
+  agent?: string;
+  orderNumber?: string;
+  stage?: string;
+  expectedCompletion?: string;
+  design?: string;
+  colors?: string[];
+  warehouse?: string;
+  status: string;
+}
 
 export default function StockPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedFilter, setSelectedFilter] = useState("all")
 
-  // Mock data for different stock types
-  const grayStock = [
-    {
-      id: "GRY-001",
-      product: "Premium Cotton Base",
-      quantity: 450,
-      factory: "Textile Mills Ltd",
-      agent: "Ramesh Kumar",
-      date: "2024-01-15",
-      orderNumber: "PO-2024-001",
-      status: "available",
-    },
-    {
-      id: "GRY-002",
-      product: "Silk Blend Base",
-      quantity: 280,
-      factory: "Silk Weavers Co",
-      agent: "Priya Sharma",
-      date: "2024-01-14",
-      orderNumber: "PO-2024-002",
-      status: "low",
-    },
-    {
-      id: "GRY-003",
-      product: "Cotton Mix Base",
-      quantity: 120,
-      factory: "Modern Textiles",
-      agent: "Suresh Patel",
-      date: "2024-01-13",
-      orderNumber: "PO-2024-003",
-      status: "available",
-    },
-    {
-      id: "GRY-004",
-      product: "Polyester Base",
-      quantity: 0,
-      factory: "Synthetic Mills",
-      agent: "Kavita Singh",
-      date: "2024-01-12",
-      orderNumber: "PO-2024-004",
-      status: "out",
-    },
-  ]
+  // Backend data states
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const factoryStock = [
-    {
-      id: "FAC-001",
-      product: "Cotton Blend Processing",
-      quantity: 320,
-      factory: "Modern Textiles",
-      stage: "Dyeing",
-      expectedCompletion: "2024-01-20",
-      status: "processing",
-    },
-    {
-      id: "FAC-002",
-      product: "Silk Designer Processing",
-      quantity: 180,
-      factory: "Premium Fabrics",
-      stage: "Printing",
-      expectedCompletion: "2024-01-18",
-      status: "processing",
-    },
-    {
-      id: "FAC-003",
-      product: "Polyester Mix Processing",
-      quantity: 240,
-      factory: "Synthetic Mills",
-      stage: "Finishing",
-      expectedCompletion: "2024-01-22",
-      status: "processing",
-    },
-  ]
+  // Fetch stocks from backend
+  useEffect(() => {
+    const fetchStocks = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch("http://localhost:4000/api/v1/stock", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch stocks: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setStocks(data.stocks || []);
+        } else {
+          throw new Error(data.message || "Failed to fetch stocks");
+        }
+      } catch (err) {
+        console.error("Error fetching stocks:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch stocks");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const designStock = [
-    {
-      id: "DES-001",
-      product: "Cotton Blend Fabric",
-      design: "Floral Print",
-      quantity: 540,
-      colors: ["Blue", "Red", "Green"],
-      status: "available",
-      warehouse: "Main Warehouse",
-    },
-    {
-      id: "DES-002",
-      product: "Silk Designer Print",
-      design: "Abstract Pattern",
-      quantity: 45,
-      colors: ["Gold", "Silver"],
-      status: "low",
-      warehouse: "Main Warehouse",
-    },
-    {
-      id: "DES-003",
-      product: "Polyester Mix",
-      design: "Geometric Design",
-      quantity: 280,
-      colors: ["Black", "White", "Gray"],
-      status: "available",
-      warehouse: "Secondary Warehouse",
-    },
-    {
-      id: "DES-004",
-      product: "Cotton Casual",
-      design: "Solid Colors",
-      quantity: 0,
-      colors: ["Navy", "Khaki"],
-      status: "out",
-      warehouse: "Main Warehouse",
-    },
-  ]
+    fetchStocks();
+  }, []);
+
+  // Transform backend data to frontend display format
+  const transformStocks = (stocks: Stock[]): {
+    grayStock: DisplayStock[];
+    factoryStock: DisplayStock[];
+    designStock: DisplayStock[];
+  } => {
+    const grayStock: DisplayStock[] = [];
+    const factoryStock: DisplayStock[] = [];
+    const designStock: DisplayStock[] = [];
+
+    stocks.forEach((stock) => {
+      const totalQuantity = stock.variants.reduce((sum, variant) => sum + variant.quantity, 0);
+      const colors = stock.variants.map(v => v.color);
+
+      // Use dynamic status from backend
+      const status = stock.status || "available";
+
+      const baseStock: DisplayStock = {
+        id: stock._id,
+        product: (stock.stockDetails as any).product || "Unknown Product",
+        quantity: totalQuantity,
+        status,
+      };
+
+      if (stock.stockType === "Gray Stock") {
+        const details = stock.stockDetails as GrayStockDetails;
+        grayStock.push({
+          ...baseStock,
+          factory: details.factory,
+          agent: details.agent,
+          orderNumber: details.orderNumber,
+        });
+      } else if (stock.stockType === "Factory Stock") {
+        const details = stock.stockDetails as FactoryStockDetails;
+        factoryStock.push({
+          ...baseStock,
+          factory: details.processingFactory,
+          stage: details.processingStage,
+          expectedCompletion: new Date(details.expectedCompletion).toLocaleDateString(),
+          status: status, // Use dynamic status from backend
+        });
+      } else if (stock.stockType === "Design Stock") {
+        const details = stock.stockDetails as DesignStockDetails;
+        designStock.push({
+          ...baseStock,
+          design: details.design,
+          colors,
+          warehouse: details.warehouse,
+        });
+      }
+    });
+
+    return { grayStock, factoryStock, designStock };
+  };
+
+  const { grayStock, factoryStock, designStock } = transformStocks(stocks);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -184,8 +230,77 @@ export default function StockPage() {
     grayTotal: grayStock.reduce((sum, item) => sum + item.quantity, 0),
     factoryTotal: factoryStock.reduce((sum, item) => sum + item.quantity, 0),
     designTotal: designStock.reduce((sum, item) => sum + item.quantity, 0),
-    lowStockItems: [...grayStock, ...designStock].filter((item) => item.status === "low").length,
-    outOfStockItems: [...grayStock, ...designStock].filter((item) => item.status === "out").length,
+    lowStockItems: stocks.filter((stock) => stock.status === "low").length,
+    outOfStockItems: stocks.filter((stock) => stock.status === "out").length,
+    processingItems: stocks.filter((stock) => stock.status === "processing").length,
+    totalStocks: stocks.length,
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Stock Management</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-4 md:p-6">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Loading stock data...</span>
+          </div>
+        </div>
+      </SidebarInset>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Stock Management</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center p-4 md:p-6">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Failed to load stock data</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()}
+              variant="outline"
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </SidebarInset>
+    );
   }
 
   return (
@@ -228,7 +343,21 @@ export default function StockPage() {
         </div>
 
         {/* Stock Overview Cards */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Stocks</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stockStats.totalStocks}</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3 text-green-500" />
+                All stock items
+              </p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Gray Stock</CardTitle>
@@ -292,6 +421,17 @@ export default function StockPage() {
               <p className="text-xs text-muted-foreground">Urgent restocking</p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Processing</CardTitle>
+              <Factory className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-500">{stockStats.processingItems}</div>
+              <p className="text-xs text-muted-foreground">In production</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Stock Details Tabs */}
@@ -347,14 +487,21 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {grayStock.map((item) => (
+                      {grayStock.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                            No gray stock found
+                          </td>
+                        </tr>
+                      ) : (
+                        grayStock.map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.quantity}m</td>
                           <td className="p-4">{item.factory}</td>
                           <td className="p-4">{item.agent}</td>
                           <td className="p-4">{item.orderNumber}</td>
-                          <td className="p-4">{item.date}</td>
+                            <td className="p-4">{new Date().toLocaleDateString()}</td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {getStatusIcon(item.status)}
@@ -376,7 +523,8 @@ export default function StockPage() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -405,7 +553,14 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {factoryStock.map((item) => (
+                      {factoryStock.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                            No factory stock found
+                          </td>
+                        </tr>
+                      ) : (
+                        factoryStock.map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.quantity}m</td>
@@ -433,7 +588,8 @@ export default function StockPage() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -462,14 +618,21 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {designStock.map((item) => (
+                      {designStock.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                            No design stock found
+                          </td>
+                        </tr>
+                      ) : (
+                        designStock.map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.design}</td>
                           <td className="p-4">{item.quantity}m</td>
                           <td className="p-4">
                             <div className="flex gap-1 flex-wrap">
-                              {item.colors.map((color, index) => (
+                                {item.colors?.map((color, index) => (
                                 <Badge key={index} variant="outline" className="text-xs">
                                   {color}
                                 </Badge>
@@ -498,7 +661,8 @@ export default function StockPage() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

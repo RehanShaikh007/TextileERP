@@ -13,87 +13,66 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, MapPin, Phone, Mail, ShoppingCart, TrendingUp, ArrowLeft, Star, Clock } from "lucide-react"
+import { Edit, MapPin, Phone, Mail, ShoppingCart, TrendingUp, ArrowLeft, Star, Clock, Loader2, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
 
 export default function CustomerViewPage() {
   const params = useParams()
   const customerId = params.id as string
 
-  // Mock customer data - in real app, fetch based on customerId
-  const customer = {
-    id: "CUST-001",
-    name: "Rajesh Textiles",
-    city: "Mumbai",
-    state: "Maharashtra",
-    address: "123 Textile Market, Dadar West, Mumbai - 400028",
-    phone: "+91 98765 43210",
-    email: "rajesh@textiles.com",
-    gst: "27ABCDE1234F1Z5",
-    totalOrders: 45,
-    totalValue: 1250000,
-    lastOrder: "2024-01-15",
-    status: "active",
-    avgOrderValue: 27778,
-    joinDate: "2022-03-15",
-    creditLimit: 500000,
-    outstandingAmount: 125000,
-    rating: 4.5,
-  }
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [customer, setCustomer] = useState({
+    customerName: "",
+    city: "",
+    address: "",
+    phone: "",
+    email: "",
+    creditLimit: 0,
+  })
+
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        })
+        if (!res.ok) throw new Error(`Failed to fetch customer: ${res.status} ${res.statusText}`)
+        const data = await res.json()
+        if (!data.success || !data.customer) throw new Error(data.message || 'Customer not found')
+        const c = data.customer as any
+        setCustomer({
+          customerName: c.customerName || "",
+          city: c.city || "",
+          address: c.address || "",
+          phone: c.phone ? `+${c.phone}` : "",
+          email: c.email || "",
+          creditLimit: c.creditLimit || 0,
+        })
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to fetch customer')
+      } finally {
+        setLoading(false)
+      }
+    }
+    if (customerId) fetchCustomer()
+  }, [customerId])
 
   const recentOrders = [
-    {
-      id: "ORD-001",
-      date: "2024-01-15",
-      amount: 45000,
-      status: "delivered",
-      items: 3,
-      products: ["Cotton Blend Fabric", "Silk Designer Print"],
-    },
-    {
-      id: "ORD-002",
-      date: "2024-01-10",
-      amount: 32000,
-      status: "shipped",
-      items: 2,
-      products: ["Polyester Mix", "Cotton Casual"],
-    },
-    {
-      id: "ORD-003",
-      date: "2024-01-05",
-      amount: 28000,
-      status: "delivered",
-      items: 4,
-      products: ["Premium Cotton Base", "Silk Blend Base"],
-    },
+    { id: "ORD-001", date: "2024-01-15", amount: 45000, status: "delivered", items: 3, products: ["Cotton Blend Fabric", "Silk Designer Print"] },
+    { id: "ORD-002", date: "2024-01-10", amount: 32000, status: "shipped", items: 2, products: ["Polyester Mix", "Cotton Casual"] },
+    { id: "ORD-003", date: "2024-01-05", amount: 28000, status: "delivered", items: 4, products: ["Premium Cotton Base", "Silk Blend Base"] },
   ]
 
   const paymentHistory = [
-    {
-      id: "PAY-001",
-      date: "2024-01-16",
-      amount: 45000,
-      method: "Bank Transfer",
-      status: "completed",
-      reference: "TXN123456789",
-    },
-    {
-      id: "PAY-002",
-      date: "2024-01-11",
-      amount: 32000,
-      method: "Cheque",
-      status: "completed",
-      reference: "CHQ987654321",
-    },
-    {
-      id: "PAY-003",
-      date: "2024-01-06",
-      amount: 28000,
-      method: "Cash",
-      status: "completed",
-      reference: "CASH001",
-    },
+    { id: "PAY-001", date: "2024-01-16", amount: 45000, method: "Bank Transfer", status: "completed", reference: "TXN123456789" },
+    { id: "PAY-002", date: "2024-01-11", amount: 32000, method: "Cheque", status: "completed", reference: "CHQ987654321" },
+    { id: "PAY-003", date: "2024-01-06", amount: 28000, method: "Cash", status: "completed", reference: "CASH001" },
   ]
 
   const getStatusBadge = (status: string) => {
@@ -113,6 +92,68 @@ export default function CustomerViewPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/customers">Customers</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Loading...</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Loading customer...</div>
+        </div>
+      </SidebarInset>
+    )
+  }
+
+  if (error) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/customers">Customers</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Error</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center">
+            <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground mb-3">{error}</p>
+            <Link href="/customers"><Button variant="outline">Back to Customers</Button></Link>
+          </div>
+        </div>
+      </SidebarInset>
+    )
+  }
+
   return (
     <SidebarInset>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -129,7 +170,7 @@ export default function CustomerViewPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{customer.name}</BreadcrumbPage>
+              <BreadcrumbPage>{customer.customerName}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -146,10 +187,10 @@ export default function CustomerViewPage() {
               </Button>
             </Link>
             <div>
-              <h2 className="text-2xl font-bold">{customer.name}</h2>
+              <h2 className="text-2xl font-bold">{customer.customerName}</h2>
               <p className="text-muted-foreground flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
-                {customer.city}, {customer.state}
+                {customer.city}
               </p>
             </div>
           </div>
@@ -171,7 +212,7 @@ export default function CustomerViewPage() {
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{customer.totalOrders}</div>
+              <div className="text-2xl font-bold">0</div>
               <p className="text-xs text-muted-foreground">All time orders</p>
             </CardContent>
           </Card>
@@ -182,7 +223,7 @@ export default function CustomerViewPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{customer.totalValue.toLocaleString()}</div>
+              <div className="text-2xl font-bold">₹0</div>
               <p className="text-xs text-muted-foreground">Lifetime value</p>
             </CardContent>
           </Card>
@@ -193,22 +234,21 @@ export default function CustomerViewPage() {
               <Clock className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-500">₹{customer.outstandingAmount.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-orange-500">₹0</div>
               <p className="text-xs text-muted-foreground">Pending payment</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rating</CardTitle>
+              <CardTitle className="text-sm font-medium">Credit Limit</CardTitle>
               <Star className="h-4 w-4 text-yellow-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold flex items-center gap-1">
-                {customer.rating}
-                <Star className="h-5 w-5 text-yellow-500 fill-current" />
+                ₹{customer.creditLimit.toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">Customer rating</p>
+              <p className="text-xs text-muted-foreground">Customer limit</p>
             </CardContent>
           </Card>
         </div>
@@ -222,11 +262,6 @@ export default function CustomerViewPage() {
               <CardDescription>Basic customer details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Status</span>
-                {getStatusBadge(customer.status)}
-              </div>
-
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Phone className="h-4 w-4 text-muted-foreground" />
@@ -246,20 +281,8 @@ export default function CustomerViewPage() {
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">GST Number</span>
-                  <span className="font-medium">{customer.gst}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Join Date</span>
-                  <span className="font-medium">{customer.joinDate}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Credit Limit</span>
                   <span className="font-medium">₹{customer.creditLimit.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Avg Order Value</span>
-                  <span className="font-medium">₹{customer.avgOrderValue.toLocaleString()}</span>
                 </div>
               </div>
             </CardContent>

@@ -1,39 +1,40 @@
 import express from 'express'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
-import router from './routes/productRoutes.js';
-import cors from 'cors';
-import path, { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import router from './routes/productRoutes.js'
+import cors from 'cors'
+import path, { dirname } from 'path'
+import { fileURLToPath } from 'url'
 
-dotenv.config();
+dotenv.config()
 
-const app = express();
+const app = express()
 
-app.use(express.json());
+app.use(express.json())
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')))
 
 app.use(cors({
-    origin: 'http://localhost:3000',
-    credentials: true
+  origin: 'http://localhost:3000',
+  credentials: true
 }))
 
-app.use('/api/v1', router);
+// Mount all routes (products, stock, order, customer, return) under /api/v1
+app.use('/api/v1', router)
 
 mongoose.connect(process.env.MONGO_URI)
 .then(()=>{
-    console.log(`MongoDb Connnected Successfully!`);
+  console.log(`MongoDb Connnected Successfully!`)
 })
 .catch((err)=>{
-    console.error(`Error Connecting MongoDb: ${err}`)
+  console.error(`Error Connecting MongoDb: ${err}`)
 })
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT
 
 app.listen(PORT, () =>{
-   console.log(`Server Running on PORT ${PORT}`);
+  console.log(`Server Running on PORT ${PORT}`)
 })

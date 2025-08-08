@@ -2,7 +2,7 @@ import Stock from "../models/stockScehma.js";
 
 export const createStock = async (req, res) => {
   try {
-    const { stockType, variants, stockDetails, addtionalInfo } = req.body;
+    const { stockType, status, variants, stockDetails, addtionalInfo } = req.body;
 
     if (!stockType || !variants ||variants.length === 0 || !stockDetails || stockDetails.length === 0 || !addtionalInfo || addtionalInfo.length === 0) {
       return res.status(400).json({
@@ -13,6 +13,7 @@ export const createStock = async (req, res) => {
 
     const newStock = await Stock.create({
       stockType,
+      status: status || "available",
       variants,
       stockDetails,
       addtionalInfo,

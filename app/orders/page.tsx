@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,69 +19,103 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShoppingCart, Search, Plus, Eye, Download, Edit, Package, Clock, CheckCircle, AlertCircle } from "lucide-react"
 import Link from "next/link"
 
+// TypeScript interfaces
+interface OrderItem {
+  product: string
+  color: string
+  quantity: number
+  unit: string
+  pricePerMeters: number
+}
+
+interface Order {
+  _id: string
+  customer: string
+  status?: string
+  orderDate: string
+  deliveryDate: string
+  orderItems: OrderItem[]
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface DisplayOrder {
+  id: string
+  customer: string
+  customerCity: string
+  items: number
+  totalAmount: number
+  status: string
+  date: string
+  dueDate: string
+  products: string[]
+}
+
 export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [selectedCustomer, setSelectedCustomer] = useState("all")
+  const [orders, setOrders] = useState<DisplayOrder[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Mock data
-  const orders = [
-    {
-      id: "ORD-001",
-      customer: "Rajesh Textiles",
-      customerCity: "Mumbai",
-      items: 3,
-      totalAmount: 45000,
-      status: "processing",
-      date: "2024-01-15",
-      dueDate: "2024-01-25",
-      products: ["Cotton Blend Fabric", "Silk Print", "Polyester Mix"],
-    },
-    {
-      id: "ORD-002",
-      customer: "Fashion Hub",
-      customerCity: "Delhi",
-      items: 2,
-      totalAmount: 32000,
-      status: "delivered",
-      date: "2024-01-14",
-      dueDate: "2024-01-24",
-      products: ["Premium Cotton", "Designer Silk"],
-    },
-    {
-      id: "ORD-003",
-      customer: "Style Point",
-      customerCity: "Bangalore",
-      items: 4,
-      totalAmount: 28000,
-      status: "pending",
-      date: "2024-01-13",
-      dueDate: "2024-01-23",
-      products: ["Cotton Casual", "Linen Summer", "Wool Winter", "Blend Fabric"],
-    },
-    {
-      id: "ORD-004",
-      customer: "Modern Fabrics",
-      customerCity: "Chennai",
-      items: 2,
-      totalAmount: 52000,
-      status: "processing",
-      date: "2024-01-12",
-      dueDate: "2024-01-22",
-      products: ["Premium Silk", "Designer Cotton"],
-    },
-    {
-      id: "ORD-005",
-      customer: "Textile World",
-      customerCity: "Pune",
-      items: 5,
-      totalAmount: 67000,
-      status: "confirmed",
-      date: "2024-01-11",
-      dueDate: "2024-01-21",
-      products: ["Cotton Blend", "Silk Mix", "Polyester", "Linen", "Wool"],
-    },
-  ]
+  // Fetch orders from backend
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const response = await fetch('http://localhost:4000/api/v1/order')
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders')
+        }
+        
+        const data = await response.json()
+        
+        if (data.success && data.orders) {
+          const transformedOrders = transformOrders(data.orders)
+          setOrders(transformedOrders)
+        } else {
+          throw new Error('Invalid response format')
+        }
+      } catch (err) {
+        console.error('Error fetching orders:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load orders')
+        setOrders([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [])
+
+  // Transform backend orders to display format
+  const transformOrders = (backendOrders: Order[]): DisplayOrder[] => {
+    return backendOrders.map((order) => {
+      const totalAmount = order.orderItems.reduce((sum, item) => {
+        return sum + (item.quantity * item.pricePerMeters)
+      }, 0)
+      
+      const products = order.orderItems.map(item => item.product)
+      
+      return {
+        id: order._id,
+        customer: order.customer,
+        customerCity: 'City', // Mock data as requested
+        items: order.orderItems.length,
+        totalAmount,
+        status: order.status || 'pending', // Use backend status
+        date: new Date(order.orderDate).toISOString().split('T')[0],
+        dueDate: new Date(order.deliveryDate).toISOString().split('T')[0],
+        products
+      }
+    })
+  }
+
+
 
   const customers = [...new Set(orders.map((order) => order.customer))]
 
@@ -265,82 +299,103 @@ export default function OrdersPage() {
         {/* Orders Table */}
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left p-4 font-medium">Order ID</th>
-                    <th className="text-left p-4 font-medium">Customer</th>
-                    <th className="text-left p-4 font-medium">Items</th>
-                    <th className="text-left p-4 font-medium">Amount</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">Order Date</th>
-                    <th className="text-left p-4 font-medium">Due Date</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.map((order) => (
-                    <tr key={order.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4">
-                        <div className="font-medium">{order.id}</div>
-                      </td>
-                      <td className="p-4">
-                        <div>
-                          <p className="font-medium">{order.customer}</p>
-                          <p className="text-sm text-muted-foreground">{order.customerCity}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div>
-                          <p className="font-medium">{order.items} items</p>
-                          <p className="text-sm text-muted-foreground">
-                            {order.products.slice(0, 2).join(", ")}
-                            {order.products.length > 2 && "..."}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-medium">₹{order.totalAmount.toLocaleString()}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(order.status)}
-                          {getStatusBadge(order.status)}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="text-sm">{order.date}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="text-sm">{order.dueDate}</div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Link href={`/orders/${order.id}`}>
-                            <Button size="sm" variant="outline">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Link href={`/orders/${order.id}/edit`}>
-                            <Button size="sm" variant="outline">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                          <Button size="sm" variant="outline">
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Loading orders...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center py-12">
+                <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">Failed to load orders</h3>
+                <p className="text-muted-foreground mb-4">{error}</p>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline"
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b">
+                    <tr>
+                      <th className="text-left p-4 font-medium">Order ID</th>
+                      <th className="text-left p-4 font-medium">Customer</th>
+                      <th className="text-left p-4 font-medium">Items</th>
+                      <th className="text-left p-4 font-medium">Amount</th>
+                      <th className="text-left p-4 font-medium">Status</th>
+                      <th className="text-left p-4 font-medium">Order Date</th>
+                      <th className="text-left p-4 font-medium">Due Date</th>
+                      <th className="text-left p-4 font-medium">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id} className="border-b hover:bg-muted/50">
+                        <td className="p-4">
+                          <div className="font-medium">{order.id}</div>
+                        </td>
+                        <td className="p-4">
+                          <div>
+                            <p className="font-medium">{order.customer}</p>
+                            <p className="text-sm text-muted-foreground">{order.customerCity}</p>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div>
+                            <p className="font-medium">{order.items} items</p>
+                            <p className="text-sm text-muted-foreground">
+                              {order.products.slice(0, 2).join(", ")}
+                              {order.products.length > 2 && "..."}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="font-medium">₹{order.totalAmount.toLocaleString()}</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(order.status)}
+                            {getStatusBadge(order.status)}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="text-sm">{order.date}</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="text-sm">{order.dueDate}</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex gap-2">
+                            <Link href={`/orders/${order.id}`}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Link href={`/orders/${order.id}/edit`}>
+                              <Button size="sm" variant="outline">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Button size="sm" variant="outline">
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {filteredOrders.length === 0 && (
+        {!loading && !error && filteredOrders.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

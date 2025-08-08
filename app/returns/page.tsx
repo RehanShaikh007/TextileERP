@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,57 +31,197 @@ import { RotateCcw, Search, Plus, Package, CheckCircle, Clock, AlertCircle } fro
 export default function ReturnsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all")
+  const [returns, setReturns] = useState<Return[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [colors, setColors] = useState<string[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const returns = [
-    {
-      id: "RET-001",
-      orderId: "ORD-001",
-      customer: "Rajesh Textiles",
-      product: "Cotton Blend Fabric",
-      color: "Blue",
-      quantity: 45,
-      reason: "Quality issue",
-      status: "pending",
-      date: "2024-01-15",
-      value: 20250,
-    },
-    {
-      id: "RET-002",
-      orderId: "ORD-003",
-      customer: "Fashion Hub",
-      product: "Silk Designer Print",
-      color: "Red",
-      quantity: 30,
-      reason: "Wrong color",
-      status: "approved",
-      date: "2024-01-14",
-      value: 24000,
-    },
-    {
-      id: "RET-003",
-      orderId: "ORD-005",
-      customer: "Style Point",
-      product: "Polyester Mix",
-      color: "Green",
-      quantity: 60,
-      reason: "Damaged in transit",
-      status: "processed",
-      date: "2024-01-12",
-      value: 18000,
-    },
-    {
-      id: "RET-004",
-      orderId: "ORD-002",
-      customer: "Modern Fabrics",
-      product: "Premium Cotton",
-      color: "White",
-      quantity: 25,
-      reason: "Size mismatch",
-      status: "pending",
-      date: "2024-01-11",
-      value: 11250,
-    },
-  ]
+   // Form state for new return
+   const [newReturn, setNewReturn] = useState({
+    order: "",
+    product: "",
+    color: "",
+    quantityInMeters: 0,
+    returnReason: ""
+  })
+
+  // const returns = [
+  //   {
+  //     id: "RET-001",
+  //     orderId: "ORD-001",
+  //     customer: "Rajesh Textiles",
+  //     product: "Cotton Blend Fabric",
+  //     color: "Blue",
+  //     quantity: 45,
+  //     reason: "Quality issue",
+  //     status: "pending",
+  //     date: "2024-01-15",
+  //     value: 20250,
+  //   },
+  //   {
+  //     id: "RET-002",
+  //     orderId: "ORD-003",
+  //     customer: "Fashion Hub",
+  //     product: "Silk Designer Print",
+  //     color: "Red",
+  //     quantity: 30,
+  //     reason: "Wrong color",
+  //     status: "approved",
+  //     date: "2024-01-14",
+  //     value: 24000,
+  //   },
+  //   {
+  //     id: "RET-003",
+  //     orderId: "ORD-005",
+  //     customer: "Style Point",
+  //     product: "Polyester Mix",
+  //     color: "Green",
+  //     quantity: 60,
+  //     reason: "Damaged in transit",
+  //     status: "processed",
+  //     date: "2024-01-12",
+  //     value: 18000,
+  //   },
+  //   {
+  //     id: "RET-004",
+  //     orderId: "ORD-002",
+  //     customer: "Modern Fabrics",
+  //     product: "Premium Cotton",
+  //     color: "White",
+  //     quantity: 25,
+  //     reason: "Size mismatch",
+  //     status: "pending",
+  //     date: "2024-01-11",
+  //     value: 11250,
+  //   },
+  // ]
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        
+        // Fetch returns
+        const returnsRes = await fetch('http://localhost:4000/api/v1/returns')
+        const returnsData = await returnsRes.json()
+        setReturns(returnsData.returns || [])
+
+        // Fetch orders (you'll need to create this endpoint)
+        const ordersRes = await fetch('http://localhost:4000/api/v1/orders')
+        const ordersData = await ordersRes.json()
+        setOrders(ordersData.orders || [])
+
+        // Fetch products (you'll need to create this endpoint)
+        const productsRes = await fetch('http://localhost:4000/api/v1/products')
+        const productsData = await productsRes.json()
+        setProducts(productsData.products || [])
+        
+        // Fetch colors (extract from products or create separate endpoint)
+        const colorsFromProducts = [...new Set(
+          productsData.products.flatMap((p: any) => 
+            p.variants?.map((v: any) => v.color) || []
+          )]
+        setColors(colorsFromProducts)
+
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  const filteredReturns = returns.filter((returnItem) => {
+    const matchesSearch =
+      returnItem.order.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      returnItem.product.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = 
+      selectedStatus === "all" || 
+      (selectedStatus === "approved" && returnItem.isApprove) ||
+      (selectedStatus === "pending" && !returnItem.isApprove)
+    return matchesSearch && matchesStatus
+  })
+
+  const getStatusColor = (isApprove: boolean) => {
+    return isApprove ? "default" : "secondary"
+  }
+
+  const getStatusIcon = (isApprove: boolean) => {
+    return isApprove ? 
+      <CheckCircle className="h-4 w-4 text-green-500" /> : 
+      <Clock className="h-4 w-4 text-orange-500" />
+  }
+
+  const getStatusText = (isApprove: boolean) => {
+    return isApprove ? "Approved" : "Pending"
+  }
+
+  const returnStats = {
+    total: returns.length,
+    pending: returns.filter(r => !r.isApprove).length,
+    approved: returns.filter(r => r.isApprove).length,
+    totalValue: returns.reduce((sum, r) => sum + (r.quantityInMeters * 450), // Adjust with actual price
+  }
+
+  const handleCreateReturn = async () => {
+    try {
+      const response = await fetch('http://localhost:4000/api/v1/returns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newReturn)
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create return')
+      }
+
+      const data = await response.json()
+      setReturns([...returns, data.return])
+      setNewReturn({
+        order: "",
+        product: "",
+        color: "",
+        quantityInMeters: 0,
+        returnReason: ""
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create return')
+    }
+  }
+
+  const handleApproveReturn = async (id: string) => {
+    try {
+      const response = await fetch(`http://localhost:4000/api/v1/returns/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isApprove: true })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to approve return')
+      }
+
+      const updatedReturn = await response.json()
+      setReturns(returns.map(r => 
+        r._id === id ? updatedReturn.return : r
+      ))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve return')
+    }
+  }
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div>Error: {error}</div>
+
+
 
   const recentOrders = [
     { id: "ORD-001", customer: "Rajesh Textiles", date: "2024-01-15", items: 3 },
@@ -90,48 +230,48 @@ export default function ReturnsPage() {
     { id: "ORD-004", customer: "Modern Fabrics", date: "2024-01-12", items: 2 },
   ]
 
-  const filteredReturns = returns.filter((returnItem) => {
-    const matchesSearch =
-      returnItem.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      returnItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      returnItem.product.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = selectedStatus === "all" || returnItem.status === selectedStatus
-    return matchesSearch && matchesStatus
-  })
+  // const filteredReturns = returns.filter((returnItem) => {
+  //   const matchesSearch =
+  //     returnItem.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     returnItem.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     returnItem.product.toLowerCase().includes(searchTerm.toLowerCase())
+  //   const matchesStatus = selectedStatus === "all" || returnItem.status === selectedStatus
+  //   return matchesSearch && matchesStatus
+  // })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "secondary"
-      case "approved":
-        return "default"
-      case "processed":
-        return "outline"
-      default:
-        return "secondary"
-    }
-  }
+  // const getStatusColor = (status: string) => {
+  //   switch (status) {
+  //     case "pending":
+  //       return "secondary"
+  //     case "approved":
+  //       return "default"
+  //     case "processed":
+  //       return "outline"
+  //     default:
+  //       return "secondary"
+  //   }
+  // }
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="h-4 w-4 text-orange-500" />
-      case "approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case "processed":
-        return <Package className="h-4 w-4 text-blue-500" />
-      default:
-        return <AlertCircle className="h-4 w-4 text-muted-foreground" />
-    }
-  }
+  // const getStatusIcon = (status: string) => {
+  //   switch (status) {
+  //     case "pending":
+  //       return <Clock className="h-4 w-4 text-orange-500" />
+  //     case "approved":
+  //       return <CheckCircle className="h-4 w-4 text-green-500" />
+  //     case "processed":
+  //       return <Package className="h-4 w-4 text-blue-500" />
+  //     default:
+  //       return <AlertCircle className="h-4 w-4 text-muted-foreground" />
+  //   }
+  // }
 
-  const returnStats = {
-    total: returns.length,
-    pending: returns.filter((r) => r.status === "pending").length,
-    approved: returns.filter((r) => r.status === "approved").length,
-    processed: returns.filter((r) => r.status === "processed").length,
-    totalValue: returns.reduce((sum, r) => sum + r.value, 0),
-  }
+  // const returnStats = {
+  //   total: returns.length,
+  //   pending: returns.filter((r) => r.status === "pending").length,
+  //   approved: returns.filter((r) => r.status === "approved").length,
+  //   processed: returns.filter((r) => r.status === "processed").length,
+  //   totalValue: returns.reduce((sum, r) => sum + r.value, 0),
+  // }
 
   return (
     <SidebarInset>
@@ -173,14 +313,17 @@ export default function ReturnsPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="order">Select Order</Label>
-                  <Select>
+                  <Select 
+                    value={newReturn.order}
+                    onValueChange={(value) => setNewReturn({...newReturn, order: value})}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Choose order" />
                     </SelectTrigger>
                     <SelectContent>
-                      {recentOrders.map((order) => (
-                        <SelectItem key={order.id} value={order.id}>
-                          {order.id} - {order.customer} ({order.items} items)
+                      {orders.map((order) => (
+                        <SelectItem key={order._id} value={order.orderId}>
+                          {order.orderId} - {order.customer}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -189,14 +332,19 @@ export default function ReturnsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="product">Product</Label>
-                  <Select>
+                  <Select
+                    value={newReturn.product}
+                    onValueChange={(value) => setNewReturn({...newReturn, product: value})}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cotton-blend">Cotton Blend Fabric</SelectItem>
-                      <SelectItem value="silk-print">Silk Designer Print</SelectItem>
-                      <SelectItem value="polyester-mix">Polyester Mix</SelectItem>
+                      {products.map((product) => (
+                        <SelectItem key={product._id} value={product.name}>
+                          {product.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -204,30 +352,55 @@ export default function ReturnsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="color">Color</Label>
-                    <Select>
+                    <Select
+                      value={newReturn.color}
+                      onValueChange={(value) => setNewReturn({...newReturn, color: value})}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select color" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="blue">Blue</SelectItem>
-                        <SelectItem value="red">Red</SelectItem>
-                        <SelectItem value="green">Green</SelectItem>
+                        {colors.map((color) => (
+                          <SelectItem key={color} value={color}>
+                            {color}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="quantity">Quantity (meters)</Label>
-                    <Input id="quantity" type="number" placeholder="0" />
+                    <Input 
+                      id="quantity" 
+                      type="number" 
+                      value={newReturn.quantityInMeters}
+                      onChange={(e) => setNewReturn({
+                        ...newReturn,
+                        quantityInMeters: Number(e.target.value)
+                      })}
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="reason">Return Reason</Label>
-                  <Textarea id="reason" placeholder="Describe the reason for return..." />
+                  <Textarea 
+                    id="reason" 
+                    value={newReturn.returnReason}
+                    onChange={(e) => setNewReturn({
+                      ...newReturn,
+                      returnReason: e.target.value
+                    })}
+                    placeholder="Describe the reason for return..."
+                  />
                 </div>
-
                 <div className="flex gap-2">
-                  <Button className="flex-1">Process Return</Button>
+                  <Button 
+                    className="flex-1" 
+                    onClick={handleCreateReturn}
+                  >
+                    Process Return
+                  </Button>
                   <Button variant="outline" className="flex-1 bg-transparent">
                     Cancel
                   </Button>

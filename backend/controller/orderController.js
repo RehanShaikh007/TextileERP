@@ -2,7 +2,7 @@ import Order from "../models/orderSchema.js";
 
 export const createOrder = async(req, res) => {
     try {
-        const {customer, orderDate, deliveryDate, orderItems, notes} = req.body;
+        const {customer, status, orderDate, deliveryDate, orderItems, notes} = req.body;
 
         if(!customer || !orderDate || !deliveryDate || !orderItems || orderItems.length === 0){
             return res.status(401).json({
@@ -13,6 +13,7 @@ export const createOrder = async(req, res) => {
 
         const newOrder = await Order.create({
             customer,
+            status: status || "pending",
             orderDate,
             deliveryDate,
             orderItems,

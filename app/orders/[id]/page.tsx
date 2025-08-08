@@ -1,4 +1,5 @@
 "use client"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,61 +33,131 @@ import {
 import Link from "next/link"
 import { useParams } from "next/navigation"
 
+// TypeScript interfaces
+interface OrderItem {
+  product: string
+  color: string
+  quantity: number
+  unit: string
+  pricePerMeters: number
+}
+
+interface Order {
+  _id: string
+  customer: string
+  status?: string
+  orderDate: string
+  deliveryDate: string
+  orderItems: OrderItem[]
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+interface Customer {
+  _id: string
+  customerName: string
+  phone: string
+  address: string
+  email?: string
+  city?: string
+}
+
 export default function OrderViewPage() {
   const params = useParams()
   const orderId = params.id as string
 
-  // Mock order data - in real app, fetch based on orderId
-  const order = {
-    id: "ORD-001",
-    customer: {
-      name: "Rajesh Textiles",
-      city: "Mumbai",
-      phone: "+91 98765 43210",
-      email: "rajesh@textiles.com",
-      address: "123 Textile Street, Mumbai, Maharashtra 400001",
-    },
-    status: "processing",
-    orderDate: "2024-01-15",
-    dueDate: "2024-01-25",
-    deliveryDate: null,
-    totalAmount: 45000,
-    paidAmount: 20000,
-    balanceAmount: 25000,
-    paymentStatus: "partial",
-    items: [
-      {
-        id: 1,
-        product: "Premium Cotton Blend",
-        color: "Blue",
-        quantity: 120,
-        price: 450,
-        total: 54000,
-        image: "/placeholder.svg?height=100&width=100&text=Cotton+Blue",
-      },
-      {
-        id: 2,
-        product: "Silk Designer Print",
-        color: "Red",
-        quantity: 60,
-        price: 800,
-        total: 48000,
-        image: "/placeholder.svg?height=100&width=100&text=Silk+Red",
-      },
-      {
-        id: 3,
-        product: "Polyester Mix Fabric",
-        color: "Green",
-        quantity: 90,
-        price: 320,
-        total: 28800,
-        image: "/placeholder.svg?height=100&width=100&text=Polyester+Green",
-      },
-    ],
-    notes: "Rush order for upcoming fashion show. Please ensure quality check before dispatch.",
-    createdBy: "Sales Team",
-    lastUpdated: "2024-01-20",
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [order, setOrder] = useState<Order | null>(null)
+  const [customer, setCustomer] = useState<Customer | null>(null)
+
+  // Fetch order and customer data
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const response = await fetch(`http://localhost:4000/api/v1/order/${orderId}`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch order details')
+        }
+
+        const data = await response.json()
+        
+        if (!data.success || !data.order) {
+          throw new Error('Invalid order response')
+        }
+
+        setOrder(data.order)
+
+        // Fetch customer details based on customer name
+        const customerResponse = await fetch('http://localhost:4000/api/v1/customer')
+        if (customerResponse.ok) {
+          const customerData = await customerResponse.json()
+          if (customerData.success && customerData.customers) {
+            const foundCustomer = customerData.customers.find(
+              (c: Customer) => c.customerName === data.order.customer
+            )
+            setCustomer(foundCustomer || null)
+          }
+        }
+
+      } catch (err) {
+        console.error('Error fetching order:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load order data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrderData()
+  }, [orderId])
+
+  // Get status from backend or fallback to pending
+  const getOrderStatus = () => {
+    return order?.status || 'pending'
   }
+
+  // Calculate order totals
+  const calculateOrderTotal = () => {
+    if (!order) return 0
+    return order.orderItems.reduce((sum, item) => sum + (item.quantity * item.pricePerMeters), 0)
+  }
+
+  // Create dynamic order object from backend data
+  const dynamicOrder = order ? {
+    id: order._id,
+    customer: {
+      name: customer?.customerName || order.customer,
+      city: customer?.city || "N/A",
+      phone: customer?.phone || "N/A",
+      email: customer?.email || "N/A",
+      address: customer?.address || "N/A",
+    },
+    status: getOrderStatus(),
+    orderDate: new Date(order.orderDate).toLocaleDateString(),
+    dueDate: new Date(order.deliveryDate).toLocaleDateString(),
+    deliveryDate: null, // Can be enhanced based on business logic
+    totalAmount: calculateOrderTotal(),
+    paidAmount: Math.floor(calculateOrderTotal() * 0.4), // Mock 40% paid
+    balanceAmount: Math.floor(calculateOrderTotal() * 0.6), // Mock 60% balance
+    paymentStatus: "partial", // Mock status
+    items: order.orderItems.map((item, index) => ({
+      id: index + 1,
+      product: item.product,
+      color: item.color,
+      quantity: item.quantity,
+      price: item.pricePerMeters,
+      total: item.quantity * item.pricePerMeters,
+      image: `/placeholder.svg?height=100&width=100&text=${encodeURIComponent(item.product)}`,
+    })),
+    notes: order.notes || "",
+    createdBy: "Sales Team", // Mock data
+    lastUpdated: new Date(order.updatedAt).toLocaleDateString(),
+  } : null
 
   // Mock status history
   const statusHistory = [
@@ -169,30 +240,57 @@ export default function OrderViewPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{order.id}</BreadcrumbPage>
+              <BreadcrumbPage>{dynamicOrder?.id || orderId}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
       </header>
 
       <div className="flex-1 space-y-6 p-4 md:p-6">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading order details...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Failed to load order</h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Try Again
+            </Button>
+          </div>
+        ) : !dynamicOrder ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Order not found</h3>
+            <p className="text-muted-foreground mb-4">The requested order could not be found.</p>
+            <Link href="/orders">
+              <Button>Back to Orders</Button>
+            </Link>
+          </div>
+        ) : (
+          <>
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-4 md:items-start justify-between">
           <div className="flex items-start gap-4">
-            {getStatusIcon(order.status)}
+            {getStatusIcon(dynamicOrder.status)}
             <div>
-              <h1 className="text-3xl font-bold">Order {order.id}</h1>
+              <h1 className="text-3xl font-bold">Order {dynamicOrder.id}</h1>
               <p className="text-muted-foreground">
-                {order.customer.name} • {order.orderDate}
+                {dynamicOrder.customer.name} • {dynamicOrder.orderDate}
               </p>
               <div className="flex items-center gap-2 mt-2">
-                {getStatusBadge(order.status)}
-                {getPaymentStatusBadge(order.paymentStatus)}
+                {getStatusBadge(dynamicOrder.status)}
+                {getPaymentStatusBadge(dynamicOrder.paymentStatus)}
               </div>
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/orders/${order.id}/edit`}>
+            <Link href={`/orders/${dynamicOrder.id}/edit`}>
               <Button>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Order
@@ -218,28 +316,28 @@ export default function OrderViewPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Subtotal</span>
-                <span>₹{order.items.reduce((sum, item) => sum + item.total, 0).toLocaleString()}</span>
+                <span>₹{dynamicOrder.items.reduce((sum, item) => sum + item.total, 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Discount</span>
                 <span>
-                  -₹{(order.items.reduce((sum, item) => sum + item.total, 0) - order.totalAmount).toLocaleString()}
+                  -₹{(dynamicOrder.items.reduce((sum, item) => sum + item.total, 0) - dynamicOrder.totalAmount).toLocaleString()}
                 </span>
               </div>
               <Separator />
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount</span>
-                <span>₹{order.totalAmount.toLocaleString()}</span>
+                <span>₹{dynamicOrder.totalAmount.toLocaleString()}</span>
               </div>
               <Separator />
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Paid Amount</span>
-                  <span className="text-green-600">₹{order.paidAmount.toLocaleString()}</span>
+                  <span className="text-green-600">₹{dynamicOrder.paidAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Balance</span>
-                  <span className="text-red-600">₹{order.balanceAmount.toLocaleString()}</span>
+                  <span className="text-red-600">₹{dynamicOrder.balanceAmount.toLocaleString()}</span>
                 </div>
               </div>
             </CardContent>
@@ -258,12 +356,12 @@ export default function OrderViewPage() {
               <TabsContent value="items" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Order Items ({order.items.length})</CardTitle>
+                    <CardTitle>Order Items ({dynamicOrder.items.length})</CardTitle>
                     <CardDescription>Products included in this order</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {order.items.map((item) => (
+                      {dynamicOrder.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
                           <img
                             src={item.image || "/placeholder.svg"}
@@ -286,13 +384,13 @@ export default function OrderViewPage() {
                   </CardContent>
                 </Card>
 
-                {order.notes && (
+                {dynamicOrder.notes && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Order Notes</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm">{order.notes}</p>
+                      <p className="text-sm">{dynamicOrder.notes}</p>
                     </CardContent>
                   </Card>
                 )}
@@ -308,28 +406,28 @@ export default function OrderViewPage() {
                     <div className="flex items-center gap-3">
                       <User className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">{order.customer.name}</p>
+                        <p className="font-medium">{dynamicOrder.customer.name}</p>
                         <p className="text-sm text-muted-foreground">Customer</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Phone className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">{order.customer.phone}</p>
+                        <p className="font-medium">{dynamicOrder.customer.phone}</p>
                         <p className="text-sm text-muted-foreground">Phone</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Mail className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">{order.customer.email}</p>
+                        <p className="font-medium">{dynamicOrder.customer.email}</p>
                         <p className="text-sm text-muted-foreground">Email</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
                       <div>
-                        <p className="font-medium">{order.customer.address}</p>
+                        <p className="font-medium">{dynamicOrder.customer.address}</p>
                         <p className="text-sm text-muted-foreground">Delivery Address</p>
                       </div>
                     </div>
@@ -344,22 +442,22 @@ export default function OrderViewPage() {
                     <div className="flex items-center gap-3">
                       <Calendar className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">{order.orderDate}</p>
+                        <p className="font-medium">{dynamicOrder.orderDate}</p>
                         <p className="text-sm text-muted-foreground">Order Date</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <Clock className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="font-medium">{order.dueDate}</p>
+                        <p className="font-medium">{dynamicOrder.dueDate}</p>
                         <p className="text-sm text-muted-foreground">Due Date</p>
                       </div>
                     </div>
-                    {order.deliveryDate && (
+                    {dynamicOrder.deliveryDate && (
                       <div className="flex items-center gap-3">
                         <Truck className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <p className="font-medium">{order.deliveryDate}</p>
+                          <p className="font-medium">{dynamicOrder.deliveryDate}</p>
                           <p className="text-sm text-muted-foreground">Delivery Date</p>
                         </div>
                       </div>
@@ -414,10 +512,10 @@ export default function OrderViewPage() {
                           <Badge className="bg-green-100 text-green-800">Completed</Badge>
                         </div>
                       ))}
-                      {order.balanceAmount > 0 && (
+                      {dynamicOrder.balanceAmount > 0 && (
                         <div className="flex items-center justify-between p-3 border-2 border-dashed border-orange-200 rounded-lg">
                           <div>
-                            <p className="font-medium text-orange-600">₹{order.balanceAmount.toLocaleString()}</p>
+                            <p className="font-medium text-orange-600">₹{dynamicOrder.balanceAmount.toLocaleString()}</p>
                             <p className="text-sm text-muted-foreground">Pending Payment</p>
                           </div>
                           <Button size="sm">Record Payment</Button>
@@ -430,6 +528,8 @@ export default function OrderViewPage() {
             </Tabs>
           </div>
         </div>
+        </>
+        )}
       </div>
     </SidebarInset>
   )

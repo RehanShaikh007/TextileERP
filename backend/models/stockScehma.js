@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 const STOCK_TYPES = ["Gray Stock", "Factory Stock", "Design Stock"];
+const STOCK_STATUSES = ["available", "low", "out", "processing", "quality_check"];
 const PRODUCTS = [
   "Premium Cotton Base",
   "Silk Blend Base",
@@ -148,6 +149,11 @@ const stockSchema = new mongoose.Schema({
         type: String,
         enum: STOCK_TYPES,
         required: true
+    },
+    status:{
+        type: String,
+        enum: STOCK_STATUSES,
+        default: "available"
     },
     variants:[variantSchema],
     stockDetails:{

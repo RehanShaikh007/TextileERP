@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,9 +19,33 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Package, ArrowLeft, Save, Factory, Palette, Plus } from "lucide-react"
+import { Package, ArrowLeft, Save, Factory, Palette, Plus, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+
+// Product interface based on backend schema
+interface Product {
+  _id: string;
+  productName: string;
+  sku: string;
+  description?: string;
+  category: string;
+  unit: 'METERS' | 'SETS';
+  variants: Array<{
+    color: string;
+    pricePerMeters: number;
+    stockInMeters: number;
+  }>;
+  images?: string[];
+  tags?: string[];
+  stockInfo: {
+    minimumStock: number;
+    reorderPoint: number;
+    storageLocation: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
 export default function AddStockPage() {
   const router = useRouter();
@@ -31,6 +55,11 @@ export default function AddStockPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  
+  // Add state for products fetching
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
   
   // Add state for required fields
   const [stockDetails, setStockDetails] = useState({
@@ -49,6 +78,52 @@ export default function AddStockPage() {
     notes: "",
   });
 
+  // Fetch products from backend on component mount
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        setProductsError(null);
+        
+        const response = await fetch("http://localhost:4000/api/v1/products", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setProducts(data.products || []);
+        } else {
+          throw new Error(data.message || "Failed to fetch products");
+        }
+      } catch (err) {
+        console.error("Error fetching products:", err);
+        setProductsError(err instanceof Error ? err.message : "Failed to fetch products");
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Clear selected product when products change (in case the selected product was deleted)
+  useEffect(() => {
+    if (selectedProduct && products.length > 0) {
+      const productExists = products.find(p => p._id === selectedProduct);
+      if (!productExists) {
+        setSelectedProduct("");
+      }
+    }
+  }, [products, selectedProduct]);
+
   const factories = [
     { id: "FAC-001", name: "Textile Mills Ltd", location: "Mumbai" },
     { id: "FAC-002", name: "Silk Weavers Co", location: "Bangalore" },
@@ -61,13 +136,6 @@ export default function AddStockPage() {
     { id: "AGT-002", name: "Priya Sharma", factory: "FAC-002" },
     { id: "AGT-003", name: "Suresh Patel", factory: "FAC-003" },
     { id: "AGT-004", name: "Kavita Singh", factory: "FAC-004" },
-  ]
-
-  const products = [
-    { id: "PRD-001", name: "Premium Cotton Base", type: "cotton" },
-    { id: "PRD-002", name: "Silk Blend Base", type: "silk" },
-    { id: "PRD-003", name: "Polyester Mix Blend", type: "polyester" },
-    { id: "PRD-004", name: "Cotton Designer Print", type: "cotton" },
   ]
 
   const designs = [
@@ -109,12 +177,58 @@ export default function AddStockPage() {
     }, 0)
   }
 
+  // Helper function to get selected product name for display
+  const getSelectedProductName = () => {
+    if (!selectedProduct) return "";
+    const product = products.find(p => p._id === selectedProduct);
+    return product ? product.productName : "";
+  }
+
+  // Helper function to retry fetching products
+  const retryFetchProducts = async () => {
+    try {
+      setProductsLoading(true);
+      setProductsError(null);
+      
+      const response = await fetch("http://localhost:4000/api/v1/products", {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setProducts(data.products || []);
+      } else {
+        throw new Error(data.message || "Failed to fetch products");
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      setProductsError(err instanceof Error ? err.message : "Failed to fetch products");
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
   // Add this handler for form submission
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(false);
+    
+    // Validate that a product is selected
+    if (!selectedProduct) {
+      setError("Please select a product");
+      setLoading(false);
+      return;
+    }
     
     try {
       // Map variants to backend schema
@@ -155,8 +269,20 @@ export default function AddStockPage() {
         notes: addtionalInfo.notes,
       };
       
+      // Determine initial status based on total quantity
+      const totalQuantity = backendVariants.reduce((sum, variant) => sum + variant.quantity, 0);
+      let initialStatus = "available";
+      if (totalQuantity === 0) {
+        initialStatus = "out";
+      } else if (totalQuantity < 100) {
+        initialStatus = "low";
+      } else if (stockType === "factory") {
+        initialStatus = "processing";
+      }
+
       const payload = {
         stockType: stockType === "gray" ? "Gray Stock" : stockType === "factory" ? "Factory Stock" : "Design Stock",
+        status: initialStatus,
         variants: backendVariants,
         stockDetails: backendStockDetails,
         addtionalInfo: backendAddtionalInfo,
@@ -274,11 +400,34 @@ export default function AddStockPage() {
                               <SelectValue placeholder="Select product" />
                             </SelectTrigger>
                             <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.name}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
+                              {productsLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span>Loading products...</span>
+                                </div>
+                              ) : productsError ? (
+                                <div className="p-4 text-red-500 text-sm">
+                                  <div>Error: {productsError}</div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="mt-2"
+                                    onClick={retryFetchProducts}
+                                  >
+                                    Retry
+                                  </Button>
+                                </div>
+                              ) : products.length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  No products available
+                                </div>
+                              ) : (
+                                products.map((product) => (
+                                  <SelectItem key={product._id} value={product._id}>
+                                    {product.productName} ({product.sku})
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -331,11 +480,34 @@ export default function AddStockPage() {
                               <SelectValue placeholder="Select product" />
                             </SelectTrigger>
                             <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.name}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
+                              {productsLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span>Loading products...</span>
+                                </div>
+                              ) : productsError ? (
+                                <div className="p-4 text-red-500 text-sm">
+                                  <div>Error: {productsError}</div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="mt-2"
+                                    onClick={retryFetchProducts}
+                                  >
+                                    Retry
+                                  </Button>
+                                </div>
+                              ) : products.length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  No products available
+                                </div>
+                              ) : (
+                                products.map((product) => (
+                                  <SelectItem key={product._id} value={product._id}>
+                                    {product.productName} ({product.sku})
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -387,11 +559,34 @@ export default function AddStockPage() {
                               <SelectValue placeholder="Select product" />
                             </SelectTrigger>
                             <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.name}>
-                                  {product.name}
-                                </SelectItem>
-                              ))}
+                              {productsLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span>Loading products...</span>
+                                </div>
+                              ) : productsError ? (
+                                <div className="p-4 text-red-500 text-sm">
+                                  <div>Error: {productsError}</div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="mt-2"
+                                    onClick={retryFetchProducts}
+                                  >
+                                    Retry
+                                  </Button>
+                                </div>
+                              ) : products.length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  No products available
+                                </div>
+                              ) : (
+                                products.map((product) => (
+                                  <SelectItem key={product._id} value={product._id}>
+                                    {product.productName} ({product.sku})
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -549,6 +744,12 @@ export default function AddStockPage() {
                   </div>
 
                   <div className="space-y-2">
+                    {selectedProduct && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Selected Product</span>
+                        <span className="font-medium">{getSelectedProductName()}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Total Variants</span>
                       <span className="font-medium">{variants.length}</span>
