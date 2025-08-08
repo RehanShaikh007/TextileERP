@@ -42,6 +42,7 @@ interface Order {
 
 interface DisplayOrder {
   id: string
+  originalId: string // Original MongoDB ID
   customer: string
   customerCity: string
   items: number
@@ -101,8 +102,18 @@ export default function OrdersPage() {
       
       const products = order.orderItems.map(item => item.product)
       
+      // Format order ID as ORD-XXX where XXX is a number
+      // Extract numeric digits from MongoDB ID or generate random number
+      const orderId = order._id;
+      // Extract only numeric digits from the last part of the ID
+      const numericChars = orderId.replace(/[^0-9]/g, '');
+      // Use the last 3 digits, or pad with zeros if less than 3 digits
+      const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
+      const formattedId = `ORD-${lastThreeDigits}`;
+      
       return {
-        id: order._id,
+        id: formattedId,
+        originalId: order._id, // Keep original ID for links and references
         customer: order.customer,
         customerCity: 'City', // Mock data as requested
         items: order.orderItems.length,
@@ -122,6 +133,7 @@ export default function OrdersPage() {
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.originalId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.products.some((product) => product.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesStatus = selectedStatus === "all" || order.status === selectedStatus
@@ -371,12 +383,12 @@ export default function OrdersPage() {
                         </td>
                         <td className="p-4">
                           <div className="flex gap-2">
-                            <Link href={`/orders/${order.id}`}>
+                            <Link href={`/orders/${order.originalId}`}>
                               <Button size="sm" variant="outline">
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </Link>
-                            <Link href={`/orders/${order.id}/edit`}>
+                            <Link href={`/orders/${order.originalId}/edit`}>
                               <Button size="sm" variant="outline">
                                 <Edit className="h-4 w-4" />
                               </Button>

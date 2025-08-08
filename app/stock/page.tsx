@@ -139,6 +139,66 @@ export default function StockPage() {
     fetchStocks();
   }, []);
 
+  // State for products data
+  const [products, setProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+
+  // Fetch products for product name lookup
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        
+        // Try the main products endpoint
+        let response = await fetch("http://localhost:4000/api/v1/products", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        let data;
+        if (response.ok) {
+          data = await response.json();
+          if (data.success) {
+            setProducts(data.products || []);
+            return;
+          }
+        }
+        
+        // Try fallback endpoint if first one fails
+        response = await fetch("http://localhost:4000/api/v1/products/products", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          console.error("Failed to fetch products from both endpoints");
+          return;
+        }
+        
+        data = await response.json();
+        if (data.success) {
+          setProducts(data.products || []);
+        }
+      } catch (err) {
+        console.error("Error fetching products:", err);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // Helper function to get product name from product ID
+  const getProductName = (productId: string) => {
+    const product = products.find(p => p._id === productId);
+    return product ? product.productName : productId;
+  };
+
   // Transform backend data to frontend display format
   const transformStocks = (stocks: Stock[]): {
     grayStock: DisplayStock[];
@@ -155,10 +215,15 @@ export default function StockPage() {
 
       // Use dynamic status from backend
       const status = stock.status || "available";
+      
+      // Get product ID from stock details
+      const productId = (stock.stockDetails as any).product || "";
+      // Get product name using the helper function
+      const productName = getProductName(productId);
 
       const baseStock: DisplayStock = {
         id: stock._id,
-        product: (stock.stockDetails as any).product || "Unknown Product",
+        product: productName,
         quantity: totalQuantity,
         status,
       };

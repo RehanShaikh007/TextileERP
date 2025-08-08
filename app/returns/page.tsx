@@ -152,7 +152,29 @@ export default function ReturnsPage() {
         if (returnsData.returns && returnsData.returns.length > 0) {
           console.log('First return object:', returnsData.returns[0])
         }
-        setReturns(returnsData.returns || [])
+        
+        // Format order IDs as ORD-XXX
+        const formattedReturns = returnsData.returns?.map(returnItem => {
+          // Format order ID
+          const orderId = returnItem.order || returnItem.orderId;
+          // Extract only numeric digits from the ID
+          const numericChars = orderId.replace(/[^0-9]/g, '');
+          // Use the last 3 digits, or pad with zeros if less than 3 digits
+          const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
+          const formattedOrderId = `ORD-${lastThreeDigits}`;
+          
+          // Format date if it exists, otherwise use createdAt
+          const formattedDate = returnItem.date || 
+            (returnItem.createdAt ? new Date(returnItem.createdAt).toISOString().split('T')[0] : 'N/A');
+          
+          return {
+            ...returnItem,
+            formattedOrderId,
+            date: formattedDate
+          };
+        }) || [];
+        
+        setReturns(formattedReturns)
 
         // Fetch orders
         console.log('Fetching orders...')
@@ -462,11 +484,21 @@ export default function ReturnsPage() {
                       <SelectValue placeholder="Choose order" />
                     </SelectTrigger>
                     <SelectContent>
-                      {orders.map((order) => (
-                        <SelectItem key={order._id} value={order._id}>
-                          {order._id} - {order.customer}
-                        </SelectItem>
-                      ))}
+                      {orders.map((order) => {
+                        // Format order ID as ORD-XXX
+                        const orderId = order._id;
+                        // Extract only numeric digits from the ID
+                        const numericChars = orderId.replace(/[^0-9]/g, '');
+                        // Use the last 3 digits, or pad with zeros if less than 3 digits
+                        const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
+                        const formattedOrderId = `ORD-${lastThreeDigits}`;
+                        
+                        return (
+                          <SelectItem key={order._id} value={order._id}>
+                            {formattedOrderId} - {order.customer}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -674,7 +706,7 @@ export default function ReturnsPage() {
                     <tr key={r._id} className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">{r.id || 'N/A'}</td>
                       <td className="p-4">{r.date || 'N/A'}</td>
-                      <td className="p-4">{r.orderId || r.order || 'N/A'}</td>
+                      <td className="p-4">{r.formattedOrderId || 'N/A'}</td>
                       <td className="p-4">{r.customer || 'Unknown Customer'}</td>
                       <td className="p-4">{r.product}</td>
                       <td className="p-4">{r.color}</td>
@@ -713,7 +745,7 @@ export default function ReturnsPage() {
                   {filteredReturns.filter(returnItem => !returnItem.isApprove).map((returnItem) => (
                     <tr key={returnItem.id || returnItem._id} className="border-b hover:bg-muted/50">
                       <td className="p-4 font-medium">{returnItem.id || 'N/A'}</td>
-                      <td className="p-4">{returnItem.orderId || returnItem.order || 'N/A'}</td>
+                      <td className="p-4">{returnItem.formattedOrderId || 'N/A'}</td>
                       <td className="p-4">{returnItem.customer || 'Unknown Customer'}</td>
                       <td className="p-4">
                         <div>

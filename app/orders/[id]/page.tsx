@@ -130,6 +130,15 @@ export default function OrderViewPage() {
   // Create dynamic order object from backend data
   const dynamicOrder = order ? {
     id: order._id,
+    // Format order ID as ORD-XXX where XXX is a number
+    displayId: (() => {
+      const orderId = order._id;
+      // Extract only numeric digits from the ID
+      const numericChars = orderId.replace(/[^0-9]/g, '');
+      // Use the last 3 digits, or pad with zeros if less than 3 digits
+      const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
+      return `ORD-${lastThreeDigits}`;
+    })(),
     customer: {
       name: customer?.customerName || order.customer,
       city: customer?.city || "N/A",
@@ -240,7 +249,7 @@ export default function OrderViewPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{dynamicOrder?.id || orderId}</BreadcrumbPage>
+              <BreadcrumbPage>{dynamicOrder?.displayId || orderId}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -279,7 +288,7 @@ export default function OrderViewPage() {
           <div className="flex items-start gap-4">
             {getStatusIcon(dynamicOrder.status)}
             <div>
-              <h1 className="text-3xl font-bold">Order {dynamicOrder.id}</h1>
+              <h1 className="text-3xl font-bold">Order {dynamicOrder.displayId}</h1>
               <p className="text-muted-foreground">
                 {dynamicOrder.customer.name} • {dynamicOrder.orderDate}
               </p>
@@ -290,7 +299,7 @@ export default function OrderViewPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/orders/${dynamicOrder.id}/edit`}>
+            <Link href={`/orders/${dynamicOrder.id}/edit`}> {/* Keep using original ID for links */}
               <Button>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Order
