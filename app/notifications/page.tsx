@@ -58,6 +58,7 @@ interface NotificationSettings {
   newCustomers: boolean;
   dailyReports: boolean;
   returnRequests: boolean;
+  productUpdates: boolean;
 }
 
 type NotificationType =
@@ -108,6 +109,7 @@ export default function NotificationsPage() {
       newCustomers: false,
       dailyReports: false,
       returnRequests: false,
+      productUpdates: false,
     });
 
   const [loading, setLoading] = useState<boolean>(false);
@@ -469,6 +471,11 @@ export default function NotificationsPage() {
                     key: "returnRequests",
                     label: "Return Requests",
                     desc: "New return requests from customers",
+                  },
+                  {
+                    key: "productUpdates",
+                    label: "Product Updates",
+                    desc: "Create, update, or delete product notifications",
                   },
                 ].map((item) => (
                   <div

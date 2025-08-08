@@ -38,27 +38,37 @@ export const createReturn = async (req, res) => {
       returnReason,
     });
 
-    /** 📲 WhatsApp Notification **/
-    const messageText = `📦 New Return Request!\n\n🆔 Return ID: *${returnId}*\n👤 Customer: ${orderDetails.customer}\n🛍 Product: ${product}\n🎨 Color: ${color}\n📏 Qty (m): ${quantityInMeters}\n💬 Reason: ${returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
-    let status = "Delivered";
-    try {
-      await sendWhatsAppMessage(
-        process.env.WHATSAPP_NOTIFICATION_NUMBER,
-        messageText
-      );
-    } catch (whatsAppError) {
-      console.error(
-        "WhatsApp Notification Failed (createReturn):",
-        whatsAppError
-      );
-      status = "Not Delivered";
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let returnRequestsEnabled = false;
+    if (notificationSettings) {
+      returnRequestsEnabled = notificationSettings.returnRequests;
     }
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "return_request",
-      sentToCount: 2,
-      status,
-    });
+
+    /** 📲 WhatsApp Notification **/
+    if (returnRequestsEnabled) {
+      const messageText = `📦 New Return Request!\n\n🆔 Return ID: *${returnId}*\n👤 Customer: ${orderDetails.customer}\n🛍 Product: ${product}\n🎨 Color: ${color}\n📏 Qty (m): ${quantityInMeters}\n💬 Reason: ${returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(
+          process.env.WHATSAPP_NOTIFICATION_NUMBER,
+          messageText
+        );
+      } catch (whatsAppError) {
+        console.error(
+          "WhatsApp Notification Failed (createReturn):",
+          whatsAppError
+        );
+        status = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "return_request",
+        sentToCount: 2,
+        status,
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -129,27 +139,37 @@ export const updateReturn = async (req, res) => {
       });
     }
 
-    /** 📲 WhatsApp Notification **/
-    const messageText = `✏️ Return Updated!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
-    let status = "Delivered";
-    try {
-      await sendWhatsAppMessage(
-        process.env.WHATSAPP_NOTIFICATION_NUMBER,
-        messageText
-      );
-    } catch (whatsAppError) {
-      console.error(
-        "WhatsApp Notification Failed (updateReturn):",
-        whatsAppError
-      );
-      status = "Not Delivered";
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let returnRequestsEnabled = false;
+    if (notificationSettings) {
+      returnRequestsEnabled = notificationSettings.returnRequests;
     }
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "return_request",
-      sentToCount: 2,
-      status,
-    });
+
+    /** 📲 WhatsApp Notification **/
+    if (returnRequestsEnabled) {
+      const messageText = `✏️ Return Updated!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(
+          process.env.WHATSAPP_NOTIFICATION_NUMBER,
+          messageText
+        );
+      } catch (whatsAppError) {
+        console.error(
+          "WhatsApp Notification Failed (updateReturn):",
+          whatsAppError
+        );
+        status = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "return_request",
+        sentToCount: 2,
+        status,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -176,27 +196,37 @@ export const deleteReturn = async (req, res) => {
       });
     }
 
-    /** 📲 WhatsApp Notification **/
-    const messageText = `🗑 Return Deleted!\n\n🆔 Return ID: *${deletedReturn.id}*\n👤 Customer: ${deletedReturn.customer}\n🛍 Product: ${deletedReturn.product}\n🎨 Color: ${deletedReturn.color}\n📏 Qty (m): ${deletedReturn.quantityInMeters}\n💬 Reason: ${deletedReturn.returnReason}`;
-    let status = "Delivered";
-    try {
-      await sendWhatsAppMessage(
-        process.env.WHATSAPP_NOTIFICATION_NUMBER,
-        messageText
-      );
-    } catch (whatsAppError) {
-      console.error(
-        "WhatsApp Notification Failed (deleteReturn):",
-        whatsAppError
-      );
-      status = "Not Delivered";
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let returnRequestsEnabled = false;
+    if (notificationSettings) {
+      returnRequestsEnabled = notificationSettings.returnRequests;
     }
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "return_request",
-      sentToCount: 2,
-      status,
-    });
+
+    /** 📲 WhatsApp Notification **/
+    if (returnRequestsEnabled) {
+      const messageText = `🗑 Return Deleted!\n\n🆔 Return ID: *${deletedReturn.id}*\n👤 Customer: ${deletedReturn.customer}\n🛍 Product: ${deletedReturn.product}\n🎨 Color: ${deletedReturn.color}\n📏 Qty (m): ${deletedReturn.quantityInMeters}\n💬 Reason: ${deletedReturn.returnReason}`;
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(
+          process.env.WHATSAPP_NOTIFICATION_NUMBER,
+          messageText
+        );
+      } catch (whatsAppError) {
+        console.error(
+          "WhatsApp Notification Failed (deleteReturn):",
+          whatsAppError
+        );
+        status = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "return_request",
+        sentToCount: 2,
+        status,
+      });
+    }
 
     res.status(200).json({
       success: true,

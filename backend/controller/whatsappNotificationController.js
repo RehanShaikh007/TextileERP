@@ -30,7 +30,8 @@ export const updateNotificationSettings = async (req, res) => {
       lowStockWarnings, 
       newCustomers, 
       dailyReports, 
-      returnRequests 
+      returnRequests,
+      productUpdates
     } = req.body;
 
     let settings = await WhatsappNotification.findOne();
@@ -45,6 +46,7 @@ export const updateNotificationSettings = async (req, res) => {
     settings.newCustomers = newCustomers ?? settings.newCustomers;
     settings.dailyReports = dailyReports ?? settings.dailyReports;
     settings.returnRequests = returnRequests ?? settings.returnRequests;
+    settings.productUpdates = productUpdates ?? settings.productUpdates;
 
     await settings.save();
 

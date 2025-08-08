@@ -26,6 +26,10 @@ const whatsappNotificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // New return requests from customers
     },
+    productUpdates: {
+      type: Boolean,
+      default: false, // create, update, or delete product notifications
+    }
   },
   { timestamps: true }
 );

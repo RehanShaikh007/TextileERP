@@ -33,6 +33,7 @@ export function WhatsAppNotifications() {
     newOrders: true,
     returns: true,
     dailyReports: false,
+    productUpdates: false,
   })
 
   const addAdminNumber = () => {
@@ -293,6 +294,18 @@ export function WhatsAppNotifications() {
                     id="daily-reports"
                     checked={notifications.dailyReports}
                     onCheckedChange={(value) => updateNotificationSetting("dailyReports", value)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="product-updates">Product Updates</Label>
+                    <p className="text-sm text-muted-foreground">Product creation, modification and deletion.</p>
+                  </div>
+                  <Switch
+                    id="daily-reports"
+                    checked={notifications.productUpdates}
+                    onCheckedChange={(value) => updateNotificationSetting("productUpdates", value)}
                   />
                 </div>
               </div>

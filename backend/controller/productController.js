@@ -10,23 +10,34 @@ export const createProduct = async (req, res) => {
 
     console.log("New Product Created:", newProduct);
 
-    const messageText = `🆕 New product added!\n\n📦 Product: *${newProduct.productName}*\n🆔 SKU: ${newProduct.sku}\n📂 Category: ${newProduct.category}\n\nView details: ${process.env.CLIENT_URL}/products/${newProduct._id}`;
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
 
-    let status = "Delivered";
-    try {
-      await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
-    } catch (whatsAppError) {
-      console.error("WhatsApp Notification Failed (createProduct):", whatsAppError);
-      status = "Not Delivered";
+    let productUpdatesEnabled = false;
+    if (notificationSettings) {
+      productUpdatesEnabled = notificationSettings.productUpdates;
     }
 
-    // Save message log
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "product_update",
-      sentToCount: 2, // or dynamically get from your admin list
-      status,
-    });
+    /** 📲 WhatsApp Notification **/
+    if (productUpdatesEnabled) {
+      const messageText = `🆕 New product added!\n\n📦 Product: *${newProduct.productName}*\n🆔 SKU: ${newProduct.sku}\n📂 Category: ${newProduct.category}\n\nView details: ${process.env.CLIENT_URL}/products/${newProduct._id}`;
+
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (createProduct):", whatsAppError);
+        status = "Not Delivered";
+      }
+
+      // Save message log
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "product_update",
+        sentToCount: 2, // or dynamically get from your admin list
+        status,
+      });
+    }
 
     res.status(201).json({
       success: true,
@@ -69,23 +80,34 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    const messageText = `✏️ Product Updated!\n\n📦 Product: *${updatedProduct.productName}*\n🆔 SKU: ${updatedProduct.sku}\n📂 Category: ${updatedProduct.category}\n\nCheck the changes here: ${process.env.CLIENT_URL}/products/${updatedProduct._id}`;
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
 
-    let status = "Delivered";
-    try {
-      await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
-    } catch (whatsAppError) {
-      console.error("WhatsApp Notification Failed (updateProduct):", whatsAppError);
-      status = "Not Delivered";
+    let productUpdatesEnabled = false;
+    if (notificationSettings) {
+      productUpdatesEnabled = notificationSettings.productUpdates;
     }
 
-    // Save message log
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "product_update",
-      sentToCount: 2,
-      status,
-    });
+    /** 📲 WhatsApp Notification **/
+    if (productUpdatesEnabled) {
+      const messageText = `✏️ Product Updated!\n\n📦 Product: *${updatedProduct.productName}*\n🆔 SKU: ${updatedProduct.sku}\n📂 Category: ${updatedProduct.category}\n\nCheck the changes here: ${process.env.CLIENT_URL}/products/${updatedProduct._id}`;
+
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (updateProduct):", whatsAppError);
+        status = "Not Delivered";
+      }
+
+      // Save message log
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "product_update",
+        sentToCount: 2,
+        status,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -105,23 +127,34 @@ export const deleteProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    const messageText = `🗑️ Product Deleted!\n\n📦 Product: *${deletedProduct.productName}*\n🆔 SKU: ${deletedProduct.sku}\n📂 Category: ${deletedProduct.category}`;
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
 
-    let status = "Delivered";
-    try {
-      await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
-    } catch (whatsAppError) {
-      console.error("WhatsApp Notification Failed (deleteProduct):", whatsAppError);
-      status = "Not Delivered";
+    let productUpdatesEnabled = false;
+    if (notificationSettings) {
+      productUpdatesEnabled = notificationSettings.productUpdates;
     }
 
-    // Save message log
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "product_update",
-      sentToCount: 2,
-      status,
-    });
+    /** 📲 WhatsApp Notification **/
+    if (productUpdatesEnabled) {
+      const messageText = `🗑️ Product Deleted!\n\n📦 Product: *${deletedProduct.productName}*\n🆔 SKU: ${deletedProduct.sku}\n📂 Category: ${deletedProduct.category}`;
+
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (deleteProduct):", whatsAppError);
+        status = "Not Delivered";
+      }
+
+      // Save message log
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "product_update",
+        sentToCount: 2,
+        status,
+      });
+    }
 
     res.status(200).json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
