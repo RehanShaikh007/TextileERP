@@ -1,5 +1,8 @@
 import Customer from "../models/customerSchema.js";
+import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 
+import WhatsappMessages from "../models/whatsappMessages.js";
 export const createCustomer = async (req, res) => {
   try {
     const {
@@ -31,6 +34,32 @@ export const createCustomer = async (req, res) => {
       creditLimit,
       address,
     });
+
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let customerAlertsEnabled = false;
+    if (notificationSettings) {
+      customerAlertsEnabled = notificationSettings.newCustomers;
+    }
+
+    /** 📲 WhatsApp Notification **/
+    if (customerAlertsEnabled) {
+      const messageText = `🆕 New Customer Added!\n\n👤 Name: ${newCustomer.customerName}\n🏷 Type: ${newCustomer.customerType}\n📧 Email: ${newCustomer.email}\n📞 Phone: ${newCustomer.phone}\n🏙 City: ${newCustomer.city}\n💳 Credit Limit: ${newCustomer.creditLimit}\n📍 Address: ${newCustomer.address}\n\nView details: ${process.env.CLIENT_URL}/customers/${newCustomer._id}`;
+      let statusMsg = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (createCustomer):", whatsAppError);
+        statusMsg = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "product_update",
+        sentToCount: 2,
+        status: statusMsg,
+      });
+    }
 
     res.status(201).json({
       success: true,

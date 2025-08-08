@@ -1,6 +1,7 @@
 import { sendWhatsAppMessage } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Stock from "../models/stockScehma.js";
+import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 
 export const createStock = async (req, res) => {
   try {
@@ -21,23 +22,31 @@ export const createStock = async (req, res) => {
       addtionalInfo,
     });
 
-    /** 📲 WhatsApp Notification **/
-    const messageText = `📦 New Stock Added!\n\n🏷 Stock Type: ${newStock.stockType}\n📋 Status: ${newStock.status}\n🎨 Variants: ${newStock.variants
-      .map(v => `${v.color} (${v.quantity} ${v.unit})`)
-      .join(", ")}\n\nView details: ${process.env.CLIENT_URL}/stock/${newStock._id}`;
-    let statusMsg = "Delivered";
-    try {
-      await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
-    } catch (whatsAppError) {
-      console.error("WhatsApp Notification Failed (createStock):", whatsAppError);
-      statusMsg = "Not Delivered";
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let stockUpdatesEnabled = false;
+    if (notificationSettings) {
+      stockUpdatesEnabled = notificationSettings.stockAlerts;
     }
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "stock_alert",
-      sentToCount: 2,
-      status: statusMsg,
-    });
+    /** 📲 WhatsApp Notification **/
+    if (stockUpdatesEnabled) {
+      const messageText = `📦 New Stock Added!\n\n🏷 Stock Type: ${newStock.stockType}\n📋 Status: ${newStock.status}\n🎨 Variants: ${newStock.variants
+        .map(v => `${v.color} (${v.quantity} ${v.unit})`)
+        .join(", ")}\n\nView details: ${process.env.CLIENT_URL}/stock/${newStock._id}`;
+      let statusMsg = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (createStock):", whatsAppError);
+        statusMsg = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "stock_alert",
+        sentToCount: 2,
+        status: statusMsg,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -104,23 +113,31 @@ export const updateStock = async (req, res) => {
       });
     }
 
-    /** 📲 WhatsApp Notification **/
-    const messageText = `✏️ Stock Updated!\n\n🏷 Stock Type: ${updatedStock.stockType}\n📋 Status: ${updatedStock.status}\n🎨 Variants: ${updatedStock.variants
-      .map(v => `${v.color} (${v.quantity} ${v.unit})`)
-      .join(", ")}\n\nView details: ${process.env.CLIENT_URL}/stock/${updatedStock._id}`;
-    let statusMsg = "Delivered";
-    try {
-      await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
-    } catch (whatsAppError) {
-      console.error("WhatsApp Notification Failed (updateStock):", whatsAppError);
-      statusMsg = "Not Delivered";
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let stockUpdatesEnabled = false;
+    if (notificationSettings) {
+      stockUpdatesEnabled = notificationSettings.stockAlerts;
     }
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "stock_alert",
-      sentToCount: 2,
-      status: statusMsg,
-    });
+    /** 📲 WhatsApp Notification **/
+    if (stockUpdatesEnabled) {
+      const messageText = `✏️ Stock Updated!\n\n🏷 Stock Type: ${updatedStock.stockType}\n📋 Status: ${updatedStock.status}\n🎨 Variants: ${updatedStock.variants
+        .map(v => `${v.color} (${v.quantity} ${v.unit})`)
+        .join(", ")}\n\nView details: ${process.env.CLIENT_URL}/stock/${updatedStock._id}`;
+      let statusMsg = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (updateStock):", whatsAppError);
+        statusMsg = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "stock_alert",
+        sentToCount: 2,
+        status: statusMsg,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -147,23 +164,31 @@ export const deleteStock = async (req, res) => {
       });
     }
 
-    /** 📲 WhatsApp Notification **/
-    const messageText = `🗑 Stock Deleted!\n\n🏷 Stock Type: ${deletedStock.stockType}\n📋 Status: ${deletedStock.status}\n🎨 Variants: ${deletedStock.variants
-      .map(v => `${v.color} (${v.quantity} ${v.unit})`)
-      .join(", ")}`;
-    let statusMsg = "Delivered";
-    try {
-      await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
-    } catch (whatsAppError) {
-      console.error("WhatsApp Notification Failed (deleteStock):", whatsAppError);
-      statusMsg = "Not Delivered";
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let stockUpdatesEnabled = false;
+    if (notificationSettings) {
+      stockUpdatesEnabled = notificationSettings.stockAlerts;
     }
-    await WhatsappMessages.create({
-      message: messageText,
-      type: "stock_alert",
-      sentToCount: 2,
-      status: statusMsg,
-    });
+    /** 📲 WhatsApp Notification **/
+    if (stockUpdatesEnabled) {
+      const messageText = `🗑 Stock Deleted!\n\n🏷 Stock Type: ${deletedStock.stockType}\n📋 Status: ${deletedStock.status}\n🎨 Variants: ${deletedStock.variants
+        .map(v => `${v.color} (${v.quantity} ${v.unit})`)
+        .join(", ")}`;
+      let statusMsg = "Delivered";
+      try {
+        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (deleteStock):", whatsAppError);
+        statusMsg = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "stock_alert",
+        sentToCount: 2,
+        status: statusMsg,
+      });
+    }
 
     res.status(200).json({
       success: true,
