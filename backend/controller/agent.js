@@ -5,11 +5,12 @@ export const createAgent = async (req, res) => {
   try {
     const { agentId, name, factory } = req.body;
 
-    if (!agentId || !name || !factory) {
-      return res.status(400).json({ success: false, message: "All fields are required" });
+    if (!name || !factory) {
+      return res.status(400).json({ success: false, message: "Name and Factory are required" });
     }
 
-    const newAgent = await Agent.create({ agentId, name, factory });
+    const newAgent = await Agent.create({ name, factory });
+
 
     res.status(201).json({
       success: true,

@@ -12,6 +12,7 @@ import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
 import whatsappNotificationRoutes from "./routes/whatsappNotificationRoutes.js";
 import WhatsappMessageRoutes from './routes/whatsappMessagesRoutes.js';
+import agentRouter from './routes/agent.js';
 
 dotenv.config()
 
@@ -39,7 +40,7 @@ app.use('/api/v1/stock', stockRouter)
 app.use('/api/v1/dashboard', dashboardRouter)
 app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
 app.use('/api/v1/whatsapp-messages', WhatsappMessageRoutes);
-
+app.use('/api/v1/agent', agentRouter);
 
 mongoose.connect(process.env.MONGO_URI)
 .then(()=>{
