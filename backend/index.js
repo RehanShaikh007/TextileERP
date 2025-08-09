@@ -6,6 +6,7 @@ import customerRouter from './routes/customerRoutes.js'
 import orderRouter from './routes/orderRoutes.js'
 import returnRouter from './routes/returnRoutes.js'
 import stockRouter from './routes/stockRoutes.js'
+import dashboardRouter from './routes/dashboardRoutes.js'
 import cors from 'cors'
 import path, { dirname } from 'path'
 import { fileURLToPath } from 'url'
@@ -35,6 +36,7 @@ app.use('/api/v1/customer', customerRouter)
 app.use('/api/v1/order', orderRouter)
 app.use('/api/v1/returns', returnRouter)
 app.use('/api/v1/stock', stockRouter)
+app.use('/api/v1/dashboard', dashboardRouter)
 app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
 app.use('/api/v1/whatsapp-messages', WhatsappMessageRoutes);
 

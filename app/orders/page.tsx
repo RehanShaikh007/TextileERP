@@ -18,6 +18,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ShoppingCart, Search, Plus, Eye, Download, Edit, Package, Clock, CheckCircle, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 // TypeScript interfaces
 interface OrderItem {
@@ -54,44 +55,102 @@ interface DisplayOrder {
 }
 
 export default function OrdersPage() {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedStatus, setSelectedStatus] = useState("all")
   const [selectedCustomer, setSelectedCustomer] = useState("all")
   const [orders, setOrders] = useState<DisplayOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
 
   // Fetch orders from backend
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        const response = await fetch('http://localhost:4000/api/v1/order')
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch orders')
-        }
-        
-        const data = await response.json()
-        
-        if (data.success && data.orders) {
-          const transformedOrders = transformOrders(data.orders)
-          setOrders(transformedOrders)
-        } else {
-          throw new Error('Invalid response format')
-        }
-      } catch (err) {
-        console.error('Error fetching orders:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load orders')
-        setOrders([])
-      } finally {
-        setLoading(false)
+  const fetchOrders = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response = await fetch('http://localhost:4000/api/v1/order')
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders')
       }
+      
+      const data = await response.json()
+      
+      if (data.success && data.orders) {
+        const transformedOrders = transformOrders(data.orders)
+        setOrders(transformedOrders)
+      } else {
+        throw new Error('Invalid response format')
+      }
+    } catch (err) {
+      console.error('Error fetching orders:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load orders')
+      setOrders([])
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchOrders()
   }, [])
+  
+  // Handle status change
+  const handleStatusChange = async (orderId: string, newStatus: string) => {
+    try {
+      setUpdatingStatus(orderId)
+      
+      // Make API call to update order status
+      const response = await fetch(`http://localhost:4000/api/v1/order/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to update order status')
+      }
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        // Update local state to reflect the change
+        setOrders(prevOrders => 
+          prevOrders.map(order => 
+            order.originalId === orderId 
+              ? { ...order, status: newStatus } 
+              : order
+          )
+        )
+        
+        // Show success toast notification
+        toast({
+          title: "Status Updated",
+          description: `Order status has been updated to ${newStatus.charAt(0).toUpperCase() + newStatus.slice(1)}`,
+          variant: "default",
+        })
+      } else {
+        throw new Error(data.message || 'Failed to update order status')
+      }
+    } catch (err) {
+      console.error('Error updating order status:', err)
+      
+      // Show error toast notification
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : 'Failed to update order status',
+        variant: "destructive",
+      })
+      
+      // Refresh orders to ensure UI is in sync with backend
+      fetchOrders()
+    } finally {
+      setUpdatingStatus(null)
+    }
+  }
 
   // Transform backend orders to display format
   const transformOrders = (backendOrders: Order[]): DisplayOrder[] => {
@@ -372,7 +431,30 @@ export default function OrdersPage() {
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             {getStatusIcon(order.status)}
-                            {getStatusBadge(order.status)}
+                            <Select 
+                              value={order.status} 
+                              onValueChange={(value) => handleStatusChange(order.originalId, value)}
+                              disabled={updatingStatus === order.originalId}
+                            >
+                              <SelectTrigger className="w-[130px] h-8">
+                                {updatingStatus === order.originalId ? (
+                                  <div className="flex items-center gap-2">
+                                    <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full"></div>
+                                    <span>Updating...</span>
+                                  </div>
+                                ) : (
+                                  <SelectValue>{getStatusBadge(order.status)}</SelectValue>
+                                )}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="confirmed">Confirmed</SelectItem>
+                                <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="shipped">Shipped</SelectItem>
+                                <SelectItem value="delivered">Delivered</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         </td>
                         <td className="p-4">
