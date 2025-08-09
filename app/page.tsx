@@ -20,7 +20,7 @@ import {
   ArrowDownRight,
 } from "lucide-react"
 import Link from "next/link"
-import React from "react"
+import React, { useEffect } from "react"
 import {
   Dialog,
   DialogTrigger,
@@ -32,13 +32,14 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getDashboardStats, getRecentOrders, getStockAlerts, getLatestProducts } from "@/lib/api"
 
 export default function Dashboard() {
-  const stats = [
+  const [stats, setStats] = React.useState([
     {
       title: "Total Products",
-      value: "156",
-      change: "+12%",
+      value: "0",
+      change: "0%",
       trend: "up",
       icon: Package,
       color: "text-blue-600",
@@ -46,8 +47,8 @@ export default function Dashboard() {
     },
     {
       title: "Active Orders",
-      value: "23",
-      change: "+8%",
+      value: "0",
+      change: "0%",
       trend: "up",
       icon: ShoppingCart,
       color: "text-green-600",
@@ -55,8 +56,8 @@ export default function Dashboard() {
     },
     {
       title: "Total Customers",
-      value: "89",
-      change: "+15%",
+      value: "0",
+      change: "0%",
       trend: "up",
       icon: Users,
       color: "text-purple-600",
@@ -64,104 +65,182 @@ export default function Dashboard() {
     },
     {
       title: "Low Stock Items",
-      value: "12",
-      change: "-3%",
+      value: "0",
+      change: "0%",
       trend: "down",
       icon: AlertTriangle,
       color: "text-red-600",
       bgColor: "bg-red-50",
     },
-  ]
+  ])
+  
+  // Fetch dashboard statistics
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await getDashboardStats();
+        if (response.success) {
+          setStats([
+            {
+              title: "Total Products",
+              value: response.data.totalProducts.toString(),
+              change: response.data.productChange,
+              trend: response.data.productTrend,
+              icon: Package,
+              color: "text-blue-600",
+              bgColor: "bg-blue-50",
+            },
+            {
+              title: "Active Orders",
+              value: response.data.activeOrders.toString(),
+              change: response.data.orderChange,
+              trend: response.data.orderTrend,
+              icon: ShoppingCart,
+              color: "text-green-600",
+              bgColor: "bg-green-50",
+            },
+            {
+              title: "Total Customers",
+              value: response.data.totalCustomers.toString(),
+              change: response.data.customerChange,
+              trend: response.data.customerTrend,
+              icon: Users,
+              color: "text-purple-600",
+              bgColor: "bg-purple-50",
+            },
+            {
+              title: "Low Stock Items",
+              value: response.data.lowStockItems.toString(),
+              change: response.data.stockChange,
+              trend: response.data.stockTrend,
+              icon: AlertTriangle,
+              color: "text-red-600",
+              bgColor: "bg-red-50",
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard statistics:', error);
+      }
+    };
+    
+    fetchDashboardStats();
+  }, []);
 
-  const recentOrders = [
+  // State for recent orders
+  const [recentOrders, setRecentOrders] = React.useState([
     {
-      id: "ORD-001",
-      customer: "Rajesh Textiles",
-      product: "Premium Cotton Blend",
-      quantity: "180m",
+      id: "loading",
+      customer: "Loading...",
+      product: "Loading...",
+      quantity: "...",
       status: "processing",
-      priority: "high",
-      amount: "₹81,000",
-    },
-    {
-      id: "ORD-002",
-      customer: "Sharma Fabrics",
-      product: "Silk Designer Print",
-      quantity: "120m",
-      status: "confirmed",
       priority: "medium",
-      amount: "₹96,000",
+      amount: "...",
     },
-    {
-      id: "ORD-003",
-      customer: "Modern Textiles",
-      product: "Polyester Mix",
-      quantity: "360m",
-      status: "shipped",
-      priority: "low",
-      amount: "₹1,15,200",
-    },
-    {
-      id: "ORD-004",
-      customer: "Elite Fabrics",
-      product: "Cotton Casual Wear",
-      quantity: "240m",
-      status: "delivered",
-      priority: "medium",
-      amount: "₹91,200",
-    },
-  ]
+  ])
+  
+  // Fetch recent orders
+  useEffect(() => {
+    const fetchRecentOrders = async () => {
+      try {
+        const response = await getRecentOrders();
+        if (response.success) {
+          setRecentOrders(response.recentOrders);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recent orders:', error);
+        // Set fallback data in case of error
+        setRecentOrders([
+          {
+            id: "error",
+            customer: "Error loading data",
+            product: "Please try again later",
+            quantity: "N/A",
+            status: "processing",
+            priority: "high",
+            amount: "N/A",
+          },
+        ]);
+      }
+    };
+    
+    fetchRecentOrders();
+  }, []);
 
-  const stockAlerts = [
+  // State for stock alerts
+  const [stockAlerts, setStockAlerts] = React.useState([
     {
-      product: "Premium Cotton Blend",
-      current: "45m",
-      minimum: "100m",
-      severity: "critical",
-    },
-    {
-      product: "Silk Designer Print",
-      current: "78m",
-      minimum: "120m",
+      product: "Loading...",
+      current: "...",
+      minimum: "...",
       severity: "warning",
+      stockType: ""
     },
-    {
-      product: "Wool Winter Blend",
-      current: "25m",
-      minimum: "80m",
-      severity: "critical",
-    },
-    {
-      product: "Linen Summer Collection",
-      current: "95m",
-      minimum: "150m",
-      severity: "warning",
-    },
-  ]
+  ])
+  
+  // Fetch stock alerts
+  useEffect(() => {
+    const fetchStockAlerts = async () => {
+      try {
+        const response = await getStockAlerts();
+        if (response.success) {
+          setStockAlerts(response.stockAlerts);
+        }
+      } catch (error) {
+        console.error('Failed to fetch stock alerts:', error);
+        // Set fallback data in case of error
+        setStockAlerts([
+          {
+            product: "Error loading data",
+            current: "N/A",
+            minimum: "N/A",
+            severity: "critical",
+            stockType: ""
+          },
+        ]);
+      }
+    };
+    
+    fetchStockAlerts();
+  }, []);
 
-  const topSellingProducts = [
+  // State for latest products
+  const [latestProducts, setLatestProducts] = React.useState([
     {
-      id: "PRD-001",
-      name: "Premium Cotton Blend",
-      sold: "2,450m",
-      revenue: "₹11,02,500",
-      growth: "+15%",
+      id: "loading",
+      name: "Loading...",
+      category: "Loading...",
+      price: "...",
+      createdAt: new Date(),
     },
-    {
-      id: "PRD-002",
-      name: "Silk Designer Print",
-      sold: "1,200m",
-      revenue: "₹9,60,000",
-      growth: "+8%",
-    },
-    {
-      id: "PRD-003",
-      name: "Polyester Mix",
-      sold: "1,800m",
-      revenue: "₹5,76,000",
-      growth: "+22%",
-    },
-  ]
+  ])
+  
+  // Fetch latest products
+  useEffect(() => {
+    const fetchLatestProducts = async () => {
+      try {
+        const response = await getLatestProducts();
+        if (response.success) {
+          setLatestProducts(response.latestProducts);
+        }
+      } catch (error) {
+        console.error('Failed to fetch latest products:', error);
+        // Set fallback data in case of error
+        setLatestProducts([
+          {
+            id: "error",
+            name: "Error loading data",
+            category: "Please try again later",
+            price: "N/A",
+            createdAt: new Date(),
+          },
+        ]);
+      }
+    };
+    
+    fetchLatestProducts();
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -235,8 +314,7 @@ export default function Dashboard() {
           </BreadcrumbList>
         </Breadcrumb>
       </header>
-
-      <div className="flex-1 space-y-6 p-4 md:p-6">
+<div className="flex-1 space-y-6 p-4 md:p-6">
         {/* Responsive: Add extra padding on mobile, reduce on desktop */}
         {/* All grids/flex layouts already use responsive classes. */}
         {/* --- Demo: Pending/Delivered Orders, Filter Removal, Advanced Filter --- */}
@@ -368,27 +446,33 @@ export default function Dashboard() {
             <CardContent>
               <div className="space-y-4">
                 {/* Responsive: Add min-w-0 to prevent overflow */}
-                {filteredOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 min-w-0"
-                  >
-                    <Link href={`/orders/${order.id}`} className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-sm">{order.id}</p>
-                        {getPriorityBadge(order.priority)}
-                      </div>
-                      <p className="text-sm text-muted-foreground">{order.customer}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {order.product} • {order.quantity}
-                      </p>
-                    </Link>
-                    <div className="text-right">
-                      <p className="font-medium text-sm">{order.amount}</p>
-                      {getStatusBadge(order.status)}
-                    </div>
+                {filteredOrders.length === 0 ? (
+                  <div className="p-3 text-center text-muted-foreground">
+                    No orders match your filter criteria
                   </div>
-                ))}
+                ) : (
+                  filteredOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 min-w-0"
+                    >
+                      <Link href={`/orders/${order.originalId || order.id}`} className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm">{order.id}</p>
+                          {getPriorityBadge(order.priority)}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{order.customer}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {order.product} • {order.quantity}
+                        </p>
+                      </Link>
+                      <div className="text-right">
+                        <p className="font-medium text-sm">{order.amount}</p>
+                        {getStatusBadge(order.status)}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -416,10 +500,11 @@ export default function Dashboard() {
                     key={index}
                     className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
                   >
-                    <Link href={`/stock/design`} className="flex items-center gap-3 flex-1">
+                    <Link href={`/stock/${alert.stockType ? alert.stockType.toLowerCase().replace(" stock", "") : "design"}`} className="flex items-center gap-3 flex-1">
                       {getSeverityIcon(alert.severity)}
                       <div>
-                        <p className="font-medium text-sm">{alert.product}</p>
+                        <p className="font-medium text-sm">{alert.stockTypeLabel}</p>
+                        <p className="text-xs text-muted-foreground">{alert.product}</p>
                         <p className="text-xs text-muted-foreground">
                           Current: {alert.current} • Min: {alert.minimum}
                         </p>
@@ -439,8 +524,8 @@ export default function Dashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Top Selling Products</CardTitle>
-                  <CardDescription>Best performing products this month</CardDescription>
+                  <CardTitle>Latest Products</CardTitle>
+                  <CardDescription>Recently added products</CardDescription>
                 </div>
                 <Link href="/products">
                   <Button variant="outline" size="sm">
@@ -452,18 +537,17 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topSellingProducts.map((product) => (
+                {latestProducts.map((product) => (
                   <div
                     key={product.id}
                     className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
                   >
                     <Link href={`/products/${product.id}`} className="flex-1">
                       <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">Sold: {product.sold}</p>
+                      <p className="text-xs text-muted-foreground">Category: {product.category}</p>
                     </Link>
                     <div className="text-right">
-                      <p className="font-medium text-sm">{product.revenue}</p>
-                      <p className="text-xs text-green-600">{product.growth}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(product.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
                 ))}
@@ -471,8 +555,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Quick Actions */}
+         {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>

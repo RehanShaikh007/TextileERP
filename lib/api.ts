@@ -1,5 +1,65 @@
 const API_BASE_URL = 'http://localhost:4000/api/v1'; 
 
+export const getDashboardStats = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/dashboard/stats`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch dashboard statistics');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching dashboard statistics:', error);
+    throw error;
+  }
+};
+
+export const getRecentOrders = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/dashboard/recent-orders`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch recent orders');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching recent orders:', error);
+    throw error;
+  }
+};
+
+export const getStockAlerts = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/dashboard/stock-alerts`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch stock alerts');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching stock alerts:', error);
+    throw error;
+  }
+};
+
+export const getLatestProducts = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/dashboard/latest-products`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch latest products');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching latest products:', error);
+    throw error;
+  }
+};
+
 export const createProduct = async (productData) => {
   try {
     const response = await fetch(`${API_BASE_URL}/products/addProduct`, {
