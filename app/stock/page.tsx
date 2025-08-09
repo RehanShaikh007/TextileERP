@@ -31,8 +31,10 @@ import {
   Eye,
   Edit,
   Loader2,
+  Save,
 } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 // Stock interfaces based on backend schema
 interface StockVariant {
@@ -97,11 +99,13 @@ interface DisplayStock {
 export default function StockPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedFilter, setSelectedFilter] = useState("all")
+  const { toast } = useToast()
 
   // Backend data states
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<{[key: string]: boolean}>({});
 
   // Fetch stocks from backend
   useEffect(() => {
@@ -197,6 +201,55 @@ export default function StockPage() {
   const getProductName = (productId: string) => {
     const product = products.find(p => p._id === productId);
     return product ? product.productName : productId;
+  };
+
+  // Handle status change
+  const handleStatusChange = async (stockId: string, newStatus: string) => {
+    try {
+      // Mark this stock as updating
+      setUpdatingStatus(prev => ({ ...prev, [stockId]: true }));
+      
+      const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update status: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update the stock in our local state
+        setStocks(prevStocks => 
+          prevStocks.map(stock => 
+            stock._id === stockId ? { ...stock, status: newStatus } : stock
+          )
+        );
+        
+        toast({
+          title: "Status Updated",
+          description: `Stock status has been updated to ${newStatus}`,
+          variant: "default",
+        });
+      } else {
+        throw new Error(data.message || "Failed to update stock status");
+      }
+    } catch (err) {
+      console.error("Error updating stock status:", err);
+      toast({
+        title: "Update Failed",
+        description: err instanceof Error ? err.message : "Failed to update stock status",
+        variant: "destructive",
+      });
+    } finally {
+      // Mark this stock as no longer updating
+      setUpdatingStatus(prev => ({ ...prev, [stockId]: false }));
+    }
   };
 
   // Transform backend data to frontend display format
@@ -570,7 +623,23 @@ export default function StockPage() {
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {getStatusIcon(item.status)}
-                              {getStatusBadge(item.status)}
+                              <Select
+                                value={item.status}
+                                onValueChange={(value) => handleStatusChange(item.id, value)}
+                                disabled={updatingStatus[item.id]}
+                              >
+                                <SelectTrigger className="w-[130px]">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="available">Available</SelectItem>
+                                  <SelectItem value="low">Low Stock</SelectItem>
+                                  <SelectItem value="out">Out of Stock</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="quality_check">Quality Check</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {updatingStatus[item.id] && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                             </div>
                           </td>
                           <td className="p-4">
@@ -635,7 +704,23 @@ export default function StockPage() {
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {getStatusIcon(item.status)}
-                              {getStatusBadge(item.status)}
+                              <Select
+                                value={item.status}
+                                onValueChange={(value) => handleStatusChange(item.id, value)}
+                                disabled={updatingStatus[item.id]}
+                              >
+                                <SelectTrigger className="w-[130px]">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="available">Available</SelectItem>
+                                  <SelectItem value="low">Low Stock</SelectItem>
+                                  <SelectItem value="out">Out of Stock</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="quality_check">Quality Check</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {updatingStatus[item.id] && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                             </div>
                           </td>
                           <td className="p-4">
@@ -708,7 +793,23 @@ export default function StockPage() {
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {getStatusIcon(item.status)}
-                              {getStatusBadge(item.status)}
+                              <Select
+                                value={item.status}
+                                onValueChange={(value) => handleStatusChange(item.id, value)}
+                                disabled={updatingStatus[item.id]}
+                              >
+                                <SelectTrigger className="w-[130px]">
+                                  <SelectValue placeholder="Select status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="available">Available</SelectItem>
+                                  <SelectItem value="low">Low Stock</SelectItem>
+                                  <SelectItem value="out">Out of Stock</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="quality_check">Quality Check</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {updatingStatus[item.id] && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
                             </div>
                           </td>
                           <td className="p-4">
