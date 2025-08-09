@@ -2,6 +2,7 @@ import Product from "../models/productSchema.js";
 import { sendWhatsAppMessage } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
+import Order from "../models/orderSchema.js";
 
 export const createProduct = async (req, res) => {
   try {
@@ -163,3 +164,59 @@ export const deleteProduct = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error", error });
   }
 };
+
+// Get top 5 products based on revenue and quantity sold
+export const getTopProducts = async (req, res) => {
+  try {
+    const pipeline = [
+      { $unwind: "$orderItems" },
+      {
+        $group: {
+          _id: "$orderItems.product", // product name string
+          quantity: { $sum: "$orderItems.quantity" },
+          revenue: {
+            $sum: {
+              $multiply: [
+                "$orderItems.quantity",
+                "$orderItems.pricePerMeters"
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "productName",
+          as: "productInfo"
+        }
+      },
+      {
+        $project: {
+          name: "$_id",
+          revenue: 1,
+          quantity: 1
+        }
+      }
+    ];
+
+    const data = await Order.aggregate(pipeline);
+
+    // Add random growth between 10.0 and 40.0
+    const topProducts = data.map((product) => ({
+      name: product.name,
+      revenue: product.revenue,
+      quantity: product.quantity,
+      growth: parseFloat((Math.random() * (40 - 10) + 10).toFixed(1)) // random float
+    }));
+
+    res.status(200).json(topProducts);
+  } catch (error) {
+    console.error("Error fetching top products:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+

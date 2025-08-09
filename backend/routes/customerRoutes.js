@@ -5,6 +5,7 @@ import {
   getCustomerById,
   updateCustomer,
   deleteCustomer,
+  getTopCustomers
 } from "../controller/customerController.js";
 
 const router = express.Router();
@@ -23,5 +24,8 @@ router.put("/:id", updateCustomer);
 
 // Delete customer
 router.delete("/:id", deleteCustomer);
+
+// Get top customers
+router.get("/top/Customers", getTopCustomers);
 
 export default router;

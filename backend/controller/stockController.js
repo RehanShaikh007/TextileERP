@@ -203,3 +203,49 @@ export const deleteStock = async (req, res) => {
     });
   }
 };
+
+// Utility: Calculate total stock value (dummy formula)
+const calculateStockValue = (stocks) => {
+  // Assuming each variant quantity represents "value" in Rs 100 per unit
+  return stocks.reduce((total, stock) => {
+    const variantsValue = stock.variants.reduce((sum, v) => {
+      return sum + (v.quantity * 100); // You can replace 100 with actual price per unit
+    }, 0);
+    return total + variantsValue;
+  }, 0);
+};
+
+// Utility: Calculate stock turnover (dummy formula)
+const calculateStockTurnover = () => {
+  // Static for now, but can be derived from sales/orders in a given period
+  return 4.2;
+};
+
+export const getStockSummary = async (req, res) => {
+  try {
+    const allStocks = await Stock.find();
+
+    const totalStockValue = calculateStockValue(allStocks);
+    const stockTurnover = calculateStockTurnover();
+
+    // Low stock items = any variant with quantity < threshold (e.g., 10)
+    const lowStockItems = allStocks.filter((stock) =>
+      stock.variants.some((v) => v.quantity < 10 && v.quantity > 0)
+    ).length;
+
+    // Out of stock items = all variants with quantity === 0
+    const outOfStockItems = allStocks.filter((stock) =>
+      stock.variants.every((v) => v.quantity === 0)
+    ).length;
+
+    res.json({
+      totalStockValue,
+      stockTurnover,
+      lowStockItems,
+      outOfStockItems,
+    });
+  } catch (error) {
+    console.error("Error fetching stock summary:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};

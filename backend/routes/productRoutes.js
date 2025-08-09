@@ -1,9 +1,5 @@
 import express from 'express';
-import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct } from "../controller/productController.js";
-import { createStock, getAllStocks, getStockById, updateStock, deleteStock } from '../controller/stockController.js';
-import { createOrder, getAllOrders, getOrderById, updateOrder, deleteOrder } from '../controller/orderController.js';
-import { createCustomer, getAllCustomers, getCustomerById, updateCustomer, deleteCustomer } from '../controller/customerController.js';
-import { createReturn, getAllReturns, getReturnById, updateReturn, deleteReturn } from '../controller/returnController.js';
+import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts } from "../controller/productController.js";
 import { uploadImages } from '../controller/imageController.js';
 import { upload } from '../middleware/uploadMiddleware.js';
 
@@ -17,6 +13,7 @@ router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
 
 router.post('/upload-images', upload.array('images', 5), uploadImages);
+router.get('/top/Products', getTopProducts);
 
 // // Stock Routes
 // router.post('/stock/addStock', createStock);

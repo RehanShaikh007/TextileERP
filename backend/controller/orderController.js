@@ -235,3 +235,34 @@ export const deleteOrder = async (req, res) => {
     });
   }
 };
+
+// Get total revenue from all orders
+export const getTotalRevenue = async (req, res) => {
+  try {
+    const orders = await Order.find({ status: "delivered" });
+
+    // Calculate total revenue
+    const totalRevenue = orders.reduce((orderSum, order) => {
+      const orderTotal = order.orderItems.reduce((sum, item) => {
+        return sum + (item.quantity * item.pricePerMeters);
+      }, 0);
+      return orderSum + orderTotal;
+    }, 0);
+
+    res.json({ totalRevenue });
+  } catch (error) {
+    console.error("Error calculating total revenue:", error);
+    res.status(500).json({ error: "Failed to calculate total revenue" });
+  }
+};
+
+// Get count of delivered orders
+export const getDeliveredOrdersCount = async (req, res) => {
+  try {
+    const count = await Order.countDocuments({ status: "delivered" });
+    res.json({ deliveredOrdersCount: count });
+  } catch (error) {
+    console.error("Error counting delivered orders:", error);
+    res.status(500).json({ error: "Failed to count delivered orders" });
+  }
+};

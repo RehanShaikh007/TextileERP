@@ -1,8 +1,9 @@
 import Customer from "../models/customerSchema.js";
 import { sendWhatsAppMessage } from "../utils/whatsappService.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
-
 import WhatsappMessages from "../models/whatsappMessages.js";
+import Order from "../models/orderSchema.js";
+
 export const createCustomer = async (req, res) => {
   try {
     const {
@@ -160,5 +161,55 @@ export const deleteCustomer = async (req, res) => {
       message: 'Server Error',
       error,
     });
+  }
+};
+
+// Get top customers based on order count and revenue
+export const getTopCustomers = async (req, res) => {
+  try {
+    const topCustomers = await Order.aggregate([
+      { $unwind: "$orderItems" },   // Now each order item is a document
+
+      {
+        $group: {
+          _id: "$customer",      // group by customer name string
+          orders: { $sum: 1 },   // count of all order items (could do $addToSet for unique orders)
+          revenue: {
+            $sum: {              // sum over each order item
+              $multiply: [
+                "$orderItems.quantity",
+                "$orderItems.pricePerMeters"
+              ]
+            }
+          }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 10 },
+      // Join city using $lookup
+      {
+        $lookup: {
+          from: "customers",        // collection name in MongoDB
+          localField: "_id",        // customer name from Order
+          foreignField: "customerName", // customer name from Customer
+          as: "customerInfo"
+        }
+      },
+      { $unwind: { path: "$customerInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          name: "$_id",
+          orders: 1,
+          revenue: 1,
+          city: { $ifNull: ["$customerInfo.city", "Unknown"] }
+        }
+      }
+    ]);
+
+    res.status(200).json(topCustomers);
+  } catch (error) {
+    console.error("Error fetching top customers:", error);
+    res.status(500).json({ message: "Server error", error });
   }
 };

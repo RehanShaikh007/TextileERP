@@ -4,7 +4,9 @@ import {
   getAllOrders, 
   getOrderById, 
   updateOrder, 
-  deleteOrder 
+  deleteOrder,
+  getTotalRevenue,
+  getDeliveredOrdersCount
 } from '../controller/orderController.js'
 
 const router = express.Router()
@@ -23,5 +25,11 @@ router.put('/:id', updateOrder)
 
 // Delete order
 router.delete('/:id', deleteOrder)
+
+// Get total revenue from all orders
+router.get('/total/revenue', getTotalRevenue)
+
+// Get count of delivered orders
+router.get('/count/delivered', getDeliveredOrdersCount)
 
 export default router

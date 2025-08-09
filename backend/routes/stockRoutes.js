@@ -4,7 +4,8 @@ import {
   getAllStocks, 
   getStockById, 
   updateStock, 
-  deleteStock 
+  deleteStock,
+  getStockSummary
 } from '../controller/stockController.js'
 
 const router = express.Router()
@@ -23,5 +24,8 @@ router.put('/:id', updateStock)
 
 // Delete stock
 router.delete('/:id', deleteStock)
+
+// Get stock summary
+router.get('/get/summary', getStockSummary)
 
 export default router
