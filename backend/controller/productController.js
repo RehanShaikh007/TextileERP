@@ -1,6 +1,7 @@
 import Product from "../models/productSchema.js";
 import { sendWhatsAppMessage } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
+import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 
 export const createProduct = async (req, res) => {
   try {
