@@ -161,80 +161,57 @@ export const getStockAlerts = async (req, res) => {
     const stockAlerts = await Stock.find({
       status: { $in: ["low", "out"] }
     })
-      .sort({ updatedAt: -1 }) // Sort by update date, newest first
-      .limit(5); // Limit to 5 results
+      .sort({ updatedAt: -1 })
+      .limit(5);
 
-    // Format the stock alerts for the frontend
     const formattedAlerts = stockAlerts.map(stock => {
-      // Get the actual product name from stockDetails if available
       let productName = "Unknown Product";
       let stockTypeLabel = "";
-      
-      // Log the stock details for debugging
-      console.log('Stock Type:', stock.stockType);
-      console.log('Stock Details:', JSON.stringify(stock.stockDetails));
-      console.log('Stock Document:', JSON.stringify(stock.toObject()));
-      
+
       try {
-        // Get the stock details as a plain JavaScript object
         const stockObj = stock.toObject();
         const details = stockObj.stockDetails || {};
-        
-        // Extract product name based on stock type
+
         if (stock.stockType === "Gray Stock") {
-          // For Gray Stock
           productName = details.product || "Unknown Product";
           stockTypeLabel = `${details.factory || ""} Gray Stock`;
         } else if (stock.stockType === "Design Stock") {
-          // For Design Stock
           productName = details.product || "Unknown Product";
           stockTypeLabel = `${details.design || ""} Design`;
         } else if (stock.stockType === "Factory Stock") {
-          // For Factory Stock
           productName = details.product || "Unknown Product";
           stockTypeLabel = `${details.processingFactory || ""} Factory Stock`;
         } else {
-          // Default case
-          productName = "Unknown Product";
           stockTypeLabel = stock.stockType;
         }
-        
-        // If product name is still unknown, try to find it in other places
+
         if (productName === "Unknown Product") {
-          // Try to get product from variants
-          if (stockObj.variants && stockObj.variants.length > 0 && stockObj.variants[0].product) {
+          if (stockObj.variants?.length > 0 && stockObj.variants[0].product) {
             productName = stockObj.variants[0].product;
-          }
-          
-          // Try to get from additionalInfo
-          if (productName === "Unknown Product" && stockObj.addtionalInfo && stockObj.addtionalInfo.product) {
+          } else if (stockObj.addtionalInfo?.product) {
             productName = stockObj.addtionalInfo.product;
-          }
-          
-          // Last resort: use one of the predefined products
-          if (productName === "Unknown Product") {
+          } else {
             productName = "Premium Cotton Base";
           }
         }
       } catch (error) {
         console.error('Error extracting product name:', error);
-        productName = "Premium Cotton Base"; // Default to a known product
+        productName = "Premium Cotton Base";
         stockTypeLabel = stock.stockType || "Unknown Type";
       }
-      
-      // Get quantity and unit from the first variant if available
-      let quantity = "0";
-      let unit = "";
-      if (stock.variants && stock.variants.length > 0) {
-        quantity = stock.variants[0].quantity.toString();
-        unit = stock.variants[0].unit;
-      }
-      
+
+      // Get all variants stock info
+      const variantsDetails = stock.variants?.map(v => ({
+        color: v.color,
+        quantity: v.quantity,
+        unit: v.unit
+      })) || [];
+
       return {
         product: productName,
-        stockTypeLabel: stockTypeLabel,
-        current: `${quantity}${unit}`,
-        minimum: "100", // Hardcoded minimum for now
+        stockTypeLabel,
+        variantsDetails,  // includes all colors and quantities
+        minimum: "100",   // hardcoded minimum for now
         severity: stock.status === "out" ? "critical" : "warning",
         stockType: stock.stockType
       };
@@ -244,6 +221,7 @@ export const getStockAlerts = async (req, res) => {
       success: true,
       stockAlerts: formattedAlerts
     });
+
   } catch (error) {
     console.error("Error fetching stock alerts:", error);
     res.status(500).json({
@@ -252,4 +230,4 @@ export const getStockAlerts = async (req, res) => {
       error
     });
   }
-}
+};

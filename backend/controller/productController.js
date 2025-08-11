@@ -220,3 +220,54 @@ export const getTopProducts = async (req, res) => {
   }
 };
 
+// GET recent orders for a particular product
+export const getRecentOrdersByProduct = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const limit = parseInt(req.query.limit) || 5;
+
+    if (!productId) {
+      return res.status(400).json({
+        success: false,
+        message: "Product ID is required",
+      });
+    }
+
+    // Find the product name from Product collection
+    const product = await Product.findById(productId).select("productName");
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Fetch recent orders containing this product
+    const orders = await Order.find({
+      "orderItems.product": product.productName
+    })
+      .sort({ orderDate: -1 }) // most recent first
+      .limit(limit)
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      product: product.productName,
+      recentOrders: orders.map(order => ({
+        orderId: order._id,
+        customer: order.customer,
+        status: order.status,
+        orderDate: order.orderDate,
+        deliveryDate: order.deliveryDate,
+        items: order.orderItems.filter(item => item.product === product.productName)
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching recent orders by product:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};

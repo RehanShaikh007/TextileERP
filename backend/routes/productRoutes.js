@@ -1,5 +1,5 @@
 import express from 'express';
-import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts } from "../controller/productController.js";
+import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts, getRecentOrdersByProduct } from "../controller/productController.js";
 import { uploadImages } from '../controller/imageController.js';
 import { upload } from '../middleware/uploadMiddleware.js';
 
@@ -14,6 +14,7 @@ router.delete('/:id', deleteProduct);
 
 router.post('/upload-images', upload.array('images', 5), uploadImages);
 router.get('/top/Products', getTopProducts);
+router.get('/recent/orders/:productId', getRecentOrdersByProduct);
 
 // // Stock Routes
 // router.post('/stock/addStock', createStock);

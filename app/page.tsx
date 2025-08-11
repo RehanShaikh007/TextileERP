@@ -1,11 +1,22 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 import {
   Package,
   ShoppingCart,
@@ -18,9 +29,9 @@ import {
   Eye,
   ArrowUpRight,
   ArrowDownRight,
-} from "lucide-react"
-import Link from "next/link"
-import React, { useEffect } from "react"
+} from "lucide-react";
+import Link from "next/link";
+import React, { useEffect } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -29,10 +40,21 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getDashboardStats, getRecentOrders, getStockAlerts, getLatestProducts } from "@/lib/api"
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  getDashboardStats,
+  getRecentOrders,
+  getStockAlerts,
+  getLatestProducts,
+} from "@/lib/api";
 
 export default function Dashboard() {
   const [stats, setStats] = React.useState([
@@ -72,8 +94,8 @@ export default function Dashboard() {
       color: "text-red-600",
       bgColor: "bg-red-50",
     },
-  ])
-  
+  ]);
+
   // Fetch dashboard statistics
   useEffect(() => {
     const fetchDashboardStats = async () => {
@@ -120,10 +142,10 @@ export default function Dashboard() {
           ]);
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard statistics:', error);
+        console.error("Failed to fetch dashboard statistics:", error);
       }
     };
-    
+
     fetchDashboardStats();
   }, []);
 
@@ -138,8 +160,8 @@ export default function Dashboard() {
       priority: "medium",
       amount: "...",
     },
-  ])
-  
+  ]);
+
   // Fetch recent orders
   useEffect(() => {
     const fetchRecentOrders = async () => {
@@ -149,7 +171,7 @@ export default function Dashboard() {
           setRecentOrders(response.recentOrders);
         }
       } catch (error) {
-        console.error('Failed to fetch recent orders:', error);
+        console.error("Failed to fetch recent orders:", error);
         // Set fallback data in case of error
         setRecentOrders([
           {
@@ -164,7 +186,7 @@ export default function Dashboard() {
         ]);
       }
     };
-    
+
     fetchRecentOrders();
   }, []);
 
@@ -175,10 +197,10 @@ export default function Dashboard() {
       current: "...",
       minimum: "...",
       severity: "warning",
-      stockType: ""
+      stockType: "",
     },
-  ])
-  
+  ]);
+
   // Fetch stock alerts
   useEffect(() => {
     const fetchStockAlerts = async () => {
@@ -188,7 +210,7 @@ export default function Dashboard() {
           setStockAlerts(response.stockAlerts);
         }
       } catch (error) {
-        console.error('Failed to fetch stock alerts:', error);
+        console.error("Failed to fetch stock alerts:", error);
         // Set fallback data in case of error
         setStockAlerts([
           {
@@ -196,12 +218,12 @@ export default function Dashboard() {
             current: "N/A",
             minimum: "N/A",
             severity: "critical",
-            stockType: ""
+            stockType: "",
           },
         ]);
       }
     };
-    
+
     fetchStockAlerts();
   }, []);
 
@@ -214,8 +236,8 @@ export default function Dashboard() {
       price: "...",
       createdAt: new Date(),
     },
-  ])
-  
+  ]);
+
   // Fetch latest products
   useEffect(() => {
     const fetchLatestProducts = async () => {
@@ -225,7 +247,7 @@ export default function Dashboard() {
           setLatestProducts(response.latestProducts);
         }
       } catch (error) {
-        console.error('Failed to fetch latest products:', error);
+        console.error("Failed to fetch latest products:", error);
         // Set fallback data in case of error
         setLatestProducts([
           {
@@ -238,68 +260,69 @@ export default function Dashboard() {
         ]);
       }
     };
-    
+
     fetchLatestProducts();
   }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "processing":
-        return <Badge variant="secondary">Processing</Badge>
+        return <Badge variant="secondary">Processing</Badge>;
       case "confirmed":
-        return <Badge variant="default">Confirmed</Badge>
+        return <Badge variant="default">Confirmed</Badge>;
       case "shipped":
-        return <Badge className="bg-blue-100 text-blue-800">Shipped</Badge>
+        return <Badge className="bg-blue-100 text-blue-800">Shipped</Badge>;
       case "delivered":
-        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>
+        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>;
     }
-  }
+  };
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "high":
-        return <Badge variant="destructive">High</Badge>
+        return <Badge variant="destructive">High</Badge>;
       case "medium":
-        return <Badge variant="secondary">Medium</Badge>
+        return <Badge variant="secondary">Medium</Badge>;
       case "low":
-        return <Badge variant="outline">Low</Badge>
+        return <Badge variant="outline">Low</Badge>;
       default:
-        return <Badge variant="outline">{priority}</Badge>
+        return <Badge variant="outline">{priority}</Badge>;
     }
-  }
+  };
 
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
       case "critical":
-        return <AlertTriangle className="h-4 w-4 text-red-500" />
+        return <AlertTriangle className="h-4 w-4 text-red-500" />;
       case "warning":
-        return <Clock className="h-4 w-4 text-yellow-500" />
+        return <Clock className="h-4 w-4 text-yellow-500" />;
       default:
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
     }
-  }
+  };
 
-  const [filterOpen, setFilterOpen] = React.useState(false)
-  const [filterStatus, setFilterStatus] = React.useState("all")
-  const [filterCustomer, setFilterCustomer] = React.useState("all")
-  const [filterFrom, setFilterFrom] = React.useState("")
-  const [filterTo, setFilterTo] = React.useState("")
+  const [filterOpen, setFilterOpen] = React.useState(false);
+  const [filterStatus, setFilterStatus] = React.useState("all");
+  const [filterCustomer, setFilterCustomer] = React.useState("all");
+  const [filterFrom, setFilterFrom] = React.useState("");
+  const [filterTo, setFilterTo] = React.useState("");
 
   const customers = [
     "Rajesh Textiles",
     "Sharma Fabrics",
     "Modern Textiles",
     "Elite Fabrics",
-  ]
+  ];
 
   const filteredOrders = recentOrders.filter((order) => {
-    const statusMatch = filterStatus === "all" || order.status === filterStatus
-    const customerMatch = filterCustomer === "all" || order.customer === filterCustomer
+    const statusMatch = filterStatus === "all" || order.status === filterStatus;
+    const customerMatch =
+      filterCustomer === "all" || order.customer === filterCustomer;
     // For demo, date range is not implemented as mock data has no date
-    return statusMatch && customerMatch
-  })
+    return statusMatch && customerMatch;
+  });
 
   return (
     <SidebarInset>
@@ -314,30 +337,65 @@ export default function Dashboard() {
           </BreadcrumbList>
         </Breadcrumb>
       </header>
-<div className="flex-1 space-y-6 p-4 md:p-6">
+      <div className="flex-1 space-y-6 p-4 md:p-6">
         {/* Responsive: Add extra padding on mobile, reduce on desktop */}
         {/* All grids/flex layouts already use responsive classes. */}
         {/* --- Demo: Pending/Delivered Orders, Filter Removal, Advanced Filter --- */}
         <div className="bg-cyan-50 border-l-4 border-cyan-400 p-3 rounded mb-4 flex flex-col gap-2">
-          <p className="text-cyan-800 text-sm font-medium">Dashboard now shows pending and delivered orders. Use the status filter or advanced filter for more options.</p>
+          <p className="text-cyan-800 text-sm font-medium">
+            Dashboard now shows pending and delivered orders. Use the status
+            filter or advanced filter for more options.
+          </p>
           <div className="flex gap-2 mt-2">
-            <Button variant="outline" size="sm" onClick={() => { setFilterStatus("all"); setFilterCustomer("all"); }}>All Orders</Button>
-            <Button variant="outline" size="sm" onClick={() => setFilterStatus("processing")}>Pending</Button>
-            <Button variant="outline" size="sm" onClick={() => setFilterStatus("delivered")}>Delivered</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFilterStatus("all");
+                setFilterCustomer("all");
+              }}
+            >
+              All Orders
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilterStatus("processing")}
+            >
+              Pending
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilterStatus("delivered")}
+            >
+              Delivered
+            </Button>
             <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm">Advanced Filter</Button>
+                <Button variant="outline" size="sm">
+                  Advanced Filter
+                </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Advanced Filter</DialogTitle>
-                  <DialogDescription>Filter orders by status, customer, and date range.</DialogDescription>
+                  <DialogDescription>
+                    Filter orders by status, customer, and date range.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Status</label>
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger><SelectValue placeholder="All Statuses" /></SelectTrigger>
+                    <label className="block text-sm font-medium mb-1">
+                      Status
+                    </label>
+                    <Select
+                      value={filterStatus}
+                      onValueChange={setFilterStatus}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
                         <SelectItem value="processing">Processing</SelectItem>
@@ -348,23 +406,46 @@ export default function Dashboard() {
                     </Select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Customer</label>
-                    <Select value={filterCustomer} onValueChange={setFilterCustomer}>
-                      <SelectTrigger><SelectValue placeholder="All Customers" /></SelectTrigger>
+                    <label className="block text-sm font-medium mb-1">
+                      Customer
+                    </label>
+                    <Select
+                      value={filterCustomer}
+                      onValueChange={setFilterCustomer}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Customers" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
-                        {customers.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        {customers.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="flex gap-2">
                     <div>
-                      <label className="block text-sm font-medium mb-1">From</label>
-                      <Input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} />
+                      <label className="block text-sm font-medium mb-1">
+                        From
+                      </label>
+                      <Input
+                        type="date"
+                        value={filterFrom}
+                        onChange={(e) => setFilterFrom(e.target.value)}
+                      />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">To</label>
-                      <Input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} />
+                      <label className="block text-sm font-medium mb-1">
+                        To
+                      </label>
+                      <Input
+                        type="date"
+                        value={filterTo}
+                        onChange={(e) => setFilterTo(e.target.value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -381,7 +462,9 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-            <p className="text-muted-foreground">Welcome back! Here's what's happening with your business.</p>
+            <p className="text-muted-foreground">
+              Welcome back! Here's what's happening with your business.
+            </p>
           </div>
           <div className="flex gap-2">
             <Link href="/products/add">
@@ -402,9 +485,14 @@ export default function Dashboard() {
         {/* Stats Cards */}
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
-            <Card key={stat.title} className="hover:shadow-md transition-shadow">
+            <Card
+              key={stat.title}
+              className="hover:shadow-md transition-shadow"
+            >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  {stat.title}
+                </CardTitle>
                 <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                   <stat.icon className={`h-4 w-4 ${stat.color}`} />
                 </div>
@@ -417,7 +505,13 @@ export default function Dashboard() {
                   ) : (
                     <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
                   )}
-                  <span className={stat.trend === "up" ? "text-green-600" : "text-red-600"}>{stat.change}</span>
+                  <span
+                    className={
+                      stat.trend === "up" ? "text-green-600" : "text-red-600"
+                    }
+                  >
+                    {stat.change}
+                  </span>
                   <span className="ml-1">from last month</span>
                 </div>
               </CardContent>
@@ -433,7 +527,9 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Recent Orders</CardTitle>
-                  <CardDescription>Latest orders from your customers</CardDescription>
+                  <CardDescription>
+                    Latest orders from your customers
+                  </CardDescription>
                 </div>
                 <Link href="/orders">
                   <Button variant="outline" size="sm">
@@ -456,19 +552,23 @@ export default function Dashboard() {
                       key={order.id}
                       className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50 min-w-0"
                     >
-                      <Link href={`/orders/${order.originalId || order.id}`} className="flex-1">
+                      <Link
+                        href={`/orders/${order.originalId || order.id}`}
+                        className="flex-1"
+                      >
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-medium text-sm">{order.id}</p>
                           {getPriorityBadge(order.priority)}
                         </div>
-                        <p className="text-sm text-muted-foreground">{order.customer}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {order.customer}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {order.product} • {order.quantity}
                         </p>
                       </Link>
                       <div className="text-right">
                         <p className="font-medium text-sm">{order.amount}</p>
-                        {getStatusBadge(order.status)}
                       </div>
                     </div>
                   ))
@@ -483,7 +583,9 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Stock Alerts</CardTitle>
-                  <CardDescription>Products running low on inventory</CardDescription>
+                  <CardDescription>
+                    Products running low on inventory
+                  </CardDescription>
                 </div>
                 <Link href="/stock">
                   <Button variant="outline" size="sm">
@@ -498,20 +600,64 @@ export default function Dashboard() {
                 {stockAlerts.map((alert, index) => (
                   <div
                     key={index}
-                    className="flex items-center justify-between p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
+                    className="p-3 rounded-lg border cursor-pointer hover:bg-muted/50"
                   >
-                    <Link href={`/stock/${alert.stockType ? alert.stockType.toLowerCase().replace(" stock", "") : "design"}`} className="flex items-center gap-3 flex-1">
+                    <Link
+                      href={`/stock/${
+                        alert.stockType
+                          ? alert.stockType.toLowerCase().replace(" stock", "")
+                          : "design"
+                      }`}
+                      className="flex items-start gap-3 flex-1"
+                    >
                       {getSeverityIcon(alert.severity)}
-                      <div>
-                        <p className="font-medium text-sm">{alert.stockTypeLabel}</p>
-                        <p className="text-xs text-muted-foreground">{alert.product}</p>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">
+                          {alert.stockTypeLabel}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Current: {alert.current} • Min: {alert.minimum}
+                          {alert.product}
+                        </p>
+
+                        {/* ✅ List all variant quantities */}
+                        <div className="mt-1 space-y-0.5">
+                          {alert.variantsDetails &&
+                          alert.variantsDetails.length > 0 ? (
+                            alert.variantsDetails.map((variant, i) => (
+                              <p
+                                key={i}
+                                className="text-xs text-muted-foreground flex justify-between"
+                              >
+                                <span>{variant.color}</span>
+                                <span>
+                                  {variant.quantity} {variant.unit}
+                                </span>
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground italic">
+                              No variant details available
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Min stock info */}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Minimum: {alert.minimum}
                         </p>
                       </div>
                     </Link>
-                    <Badge variant={alert.severity === "critical" ? "destructive" : "secondary"}>
-                      {alert.severity === "critical" ? "Out of Stock" : "Low Stock"}
+
+                    <Badge
+                      variant={
+                        alert.severity === "critical"
+                          ? "destructive"
+                          : "secondary"
+                      }
+                    >
+                      {alert.severity === "critical"
+                        ? "Out of Stock"
+                        : "Low Stock"}
                     </Badge>
                   </div>
                 ))}
@@ -544,10 +690,14 @@ export default function Dashboard() {
                   >
                     <Link href={`/products/${product.id}`} className="flex-1">
                       <p className="font-medium text-sm">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">Category: {product.category}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Category: {product.category}
+                      </p>
                     </Link>
                     <div className="text-right">
-                      <p className="text-xs text-muted-foreground">{new Date(product.createdAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(product.createdAt).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -555,7 +705,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
-         {/* Quick Actions */}
+        {/* Quick Actions */}
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
@@ -564,25 +714,37 @@ export default function Dashboard() {
           <CardContent>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               <Link href="/products/add">
-                <Button variant="outline" className="h-20 flex-col gap-2 w-full bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col gap-2 w-full bg-transparent"
+                >
                   <Package className="h-6 w-6" />
                   <span>Add Product</span>
                 </Button>
               </Link>
               <Link href="/orders/new">
-                <Button variant="outline" className="h-20 flex-col gap-2 w-full bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col gap-2 w-full bg-transparent"
+                >
                   <ShoppingCart className="h-6 w-6" />
                   <span>Create Order</span>
                 </Button>
               </Link>
               <Link href="/stock/add">
-                <Button variant="outline" className="h-20 flex-col gap-2 w-full bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col gap-2 w-full bg-transparent"
+                >
                   <TrendingUp className="h-6 w-6" />
                   <span>Add Stock</span>
                 </Button>
               </Link>
               <Link href="/reports">
-                <Button variant="outline" className="h-20 flex-col gap-2 w-full bg-transparent">
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col gap-2 w-full bg-transparent"
+                >
                   <TrendingUp className="h-6 w-6" />
                   <span>View Reports</span>
                 </Button>
@@ -592,5 +754,5 @@ export default function Dashboard() {
         </Card>
       </div>
     </SidebarInset>
-  )
+  );
 }

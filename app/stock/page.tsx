@@ -99,6 +99,7 @@ interface DisplayStock {
 export default function StockPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedFilter, setSelectedFilter] = useState("all")
+  const [activeTab, setActiveTab] = useState("gray")
   const { toast } = useToast()
 
   // Backend data states
@@ -314,6 +315,29 @@ export default function StockPage() {
 
   const { grayStock, factoryStock, designStock } = transformStocks(stocks);
 
+  // Filter function for all stock types
+  const filterStocks = (items: DisplayStock[]) => {
+    return items.filter((item) => {
+      const matchesSearch = searchTerm === "" || 
+        item.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.factory && item.factory.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.agent && item.agent.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.orderNumber && item.orderNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.stage && item.stage.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.design && item.design.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (item.warehouse && item.warehouse.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = selectedFilter === "all" || item.status === selectedFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  };
+
+  // Filtered data for each tab
+  const filteredGrayStock = filterStocks(grayStock);
+  const filteredFactoryStock = filterStocks(factoryStock);
+  const filteredDesignStock = filterStocks(designStock);
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "available":
@@ -447,7 +471,15 @@ export default function StockPage() {
             <p className="text-muted-foreground">Track gray, factory, and design stock</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">
+            <Button 
+              variant="outline"
+              onClick={() => {
+                toast({
+                  title: "Stock Adjustment",
+                  description: "Stock adjustment feature coming soon",
+                });
+              }}
+            >
               <ArrowUpDown className="h-4 w-4 mr-2" />
               Adjustment
             </Button>
@@ -518,7 +550,16 @@ export default function StockPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer transition-colors hover:bg-muted/50"
+            onClick={() => {
+              setSelectedFilter("low");
+              toast({
+                title: "Filter Applied",
+                description: "Showing only low stock items",
+              });
+            }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
               <Clock className="h-4 w-4 text-yellow-500" />
@@ -529,7 +570,16 @@ export default function StockPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card 
+            className="cursor-pointer transition-colors hover:bg-muted/50"
+            onClick={() => {
+              setSelectedFilter("out");
+              toast({
+                title: "Filter Applied",
+                description: "Showing only out of stock items",
+              });
+            }}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-500" />
@@ -552,8 +602,34 @@ export default function StockPage() {
           </Card>
         </div>
 
+        {/* Global Filter Bar - Moved outside tabs */}
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search stock..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Select value={selectedFilter} onValueChange={setSelectedFilter}>
+            <SelectTrigger className="w-full md:w-48">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="low">Low Stock</SelectItem>
+              <SelectItem value="out">Out of Stock</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="quality_check">Quality Check</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Stock Details Tabs */}
-        <Tabs defaultValue="gray" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="gray">Gray Stock</TabsTrigger>
             <TabsTrigger value="factory">Factory Stock</TabsTrigger>
@@ -561,29 +637,6 @@ export default function StockPage() {
           </TabsList>
 
           <TabsContent value="gray" className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search gray stock..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Select value={selectedFilter} onValueChange={setSelectedFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="low">Low Stock</SelectItem>
-                  <SelectItem value="out">Out of Stock</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <Card>
               <CardHeader>
                 <CardTitle>Gray Stock Inventory</CardTitle>
@@ -605,14 +658,14 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {grayStock.length === 0 ? (
+                      {filteredGrayStock.length === 0 ? (
                         <tr>
                           <td colSpan={8} className="p-8 text-center text-muted-foreground">
                             No gray stock found
                           </td>
                         </tr>
                       ) : (
-                        grayStock.map((item) => (
+                        filteredGrayStock.map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.quantity}m</td>
@@ -687,14 +740,14 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {factoryStock.length === 0 ? (
+                      {filteredFactoryStock.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="p-8 text-center text-muted-foreground">
                             No factory stock found
                           </td>
                         </tr>
                       ) : (
-                        factoryStock.map((item) => (
+                        filteredFactoryStock.map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.quantity}m</td>
@@ -768,14 +821,14 @@ export default function StockPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {designStock.length === 0 ? (
+                      {filteredDesignStock.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="p-8 text-center text-muted-foreground">
                             No design stock found
                           </td>
                         </tr>
                       ) : (
-                        designStock.map((item) => (
+                        filteredDesignStock.map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.design}</td>

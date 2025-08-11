@@ -1,11 +1,17 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,8 +19,8 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@/components/ui/breadcrumb";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Package,
   Edit,
@@ -26,9 +32,10 @@ import {
   TrendingDown,
   User,
   MapPin,
-} from "lucide-react"
-import Link from "next/link"
-import { useParams } from "next/navigation"
+} from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { getRecentOrdersByProduct } from "@/lib/api";
 
 // Define Product type based on backend schema
 interface Product {
@@ -54,34 +61,54 @@ interface Product {
 }
 
 export default function ProductViewPage() {
-  const params = useParams()
-  const productId = params.id as string
+  const params = useParams();
+  const productId = params.id as string;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
 
+  // Fetch product
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await fetch(`http://localhost:4000/api/v1/products/${productId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch product');
-        }
+        const response = await fetch(
+          `http://localhost:4000/api/v1/products/${productId}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch product");
         const data = await response.json();
         setProduct(data.product);
       } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Unknown error');
-        }
+        setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     };
     fetchProduct();
+  }, [productId]);
+
+  // Fetch recent orders for this product
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setOrdersLoading(true);
+      try {
+        const data = await getRecentOrdersByProduct(productId, 5);
+        if (data.success) {
+          setRecentOrders(data.recentOrders);
+        } else {
+          setOrdersError("Failed to load recent orders");
+        }
+      } catch (err) {
+        setOrdersError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+    if (productId) fetchOrders();
   }, [productId]);
 
   if (loading) return <div>Loading...</div>;
@@ -90,82 +117,99 @@ export default function ProductViewPage() {
 
   // Mock stock history
   const stockHistory = [
-    { date: "2024-01-20", action: "Added", quantity: 180, balance: 540, user: "Admin" },
-    { date: "2024-01-18", action: "Sold", quantity: -120, balance: 360, user: "Sales Team" },
-    { date: "2024-01-15", action: "Added", quantity: 300, balance: 480, user: "Admin" },
-    { date: "2024-01-10", action: "Sold", quantity: -60, balance: 180, user: "Sales Team" },
-  ]
-
-  // Mock recent orders
-  const recentOrders = [
-    { id: "ORD-001", customer: "Rajesh Textiles", quantity: "60m", date: "2024-01-18", status: "delivered" },
-    { id: "ORD-005", customer: "Modern Fabrics", quantity: "120m", date: "2024-01-16", status: "shipped" },
-    { id: "ORD-012", customer: "Elite Textiles", quantity: "90m", date: "2024-01-14", status: "processing" },
-  ]
+    {
+      date: "2024-01-20",
+      action: "Added",
+      quantity: 180,
+      balance: 540,
+      user: "Admin",
+    },
+    {
+      date: "2024-01-18",
+      action: "Sold",
+      quantity: -120,
+      balance: 360,
+      user: "Sales Team",
+    },
+    {
+      date: "2024-01-15",
+      action: "Added",
+      quantity: 300,
+      balance: 480,
+      user: "Admin",
+    },
+    {
+      date: "2024-01-10",
+      action: "Sold",
+      quantity: -60,
+      balance: 180,
+      user: "Sales Team",
+    },
+  ];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "available":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
       case "low":
-        return <Clock className="h-5 w-5 text-yellow-500" />
+        return <Clock className="h-5 w-5 text-yellow-500" />;
       case "out":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />
+        return <AlertTriangle className="h-5 w-5 text-red-500" />;
       default:
-        return <Package className="h-5 w-5 text-muted-foreground" />
+        return <Package className="h-5 w-5 text-muted-foreground" />;
     }
-  }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "available":
-        return <Badge className="bg-green-100 text-green-800">Available</Badge>
+        return <Badge className="bg-green-100 text-green-800">Available</Badge>;
       case "low":
-        return <Badge variant="secondary">Low Stock</Badge>
+        return <Badge variant="secondary">Low Stock</Badge>;
       case "out":
-        return <Badge variant="destructive">Out of Stock</Badge>
+        return <Badge variant="destructive">Out of Stock</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>;
     }
-  }
+  };
 
   const getOrderStatusBadge = (status: string) => {
     switch (status) {
       case "delivered":
-        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>
+        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>;
       case "shipped":
-        return <Badge className="bg-blue-100 text-blue-800">Shipped</Badge>
+        return <Badge className="bg-blue-100 text-blue-800">Shipped</Badge>;
       case "processing":
-        return <Badge variant="secondary">Processing</Badge>
+        return <Badge variant="secondary">Processing</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>;
     }
-  }
+  };
   const setSize = product.setSize || 1; // fallback to 1 if not present
   const pricePerMeter = product.variants?.[0]?.pricePerMeters || 0;
   const setValue = pricePerMeter * setSize;
 
   const formatDateIST = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
-    
+
     const date = new Date(dateString);
-    
+
     // Convert to IST (UTC+5:30)
     const istOffset = 330 * 60 * 1000; // 5 hours 30 minutes in milliseconds
     const istDate = new Date(date.getTime() + istOffset);
-    
+
     // Format date as DD/MM/YYYY
-    const day = String(istDate.getUTCDate()).padStart(2, '0');
-    const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(istDate.getUTCDate()).padStart(2, "0");
+    const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
     const year = istDate.getUTCFullYear();
-    
+
     // Format time as HH:MM AM/PM
     let hours = istDate.getUTCHours();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12;
     hours = hours ? hours : 12; // the hour '0' should be '12'
-    const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
-    
+    const minutes = String(istDate.getUTCMinutes()).padStart(2, "0");
+
     return `${day}/${month}/${year} ${hours}:${minutes} ${ampm} IST`;
   };
   return (
@@ -213,7 +257,10 @@ export default function ProductViewPage() {
                 Edit Product
               </Button>
             </Link>
-            <Button variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
+            <Button
+              variant="outline"
+              className="text-red-600 hover:text-red-700 bg-transparent"
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
             </Button>
@@ -241,7 +288,9 @@ export default function ProductViewPage() {
                       key={index}
                       onClick={() => setSelectedImage(index)}
                       className={`aspect-square bg-muted rounded-lg overflow-hidden border-2 ${
-                        selectedImage === index ? "border-primary" : "border-transparent"
+                        selectedImage === index
+                          ? "border-primary"
+                          : "border-transparent"
                       }`}
                     >
                       <img
@@ -274,28 +323,43 @@ export default function ProductViewPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Price per Meter</span>
-                        <span className="text-lg font-bold"> ₹{product.variants?.[0]?.pricePerMeters ?? "N/A"}</span>
+                        <span className="text-sm font-medium">
+                          Price per Meter
+                        </span>
+                        <span className="text-lg font-bold">
+                          {" "}
+                          ₹{product.variants?.[0]?.pricePerMeters ?? "N/A"}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium">Set Size</span>
                         <span>{product.setSize} meters</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Current Stock</span>
-                        <span className="font-medium">{product.variants
-      ? product.variants.reduce((sum, v) => sum + (v.stockInMeters || 0), 0)
-      : 0}m</span>
+                        <span className="text-sm font-medium">
+                          Current Stock
+                        </span>
+                        <span className="font-medium">
+                          {product.variants
+                            ? product.variants.reduce(
+                                (sum, v) => sum + (v.stockInMeters || 0),
+                                0
+                              )
+                            : 0}
+                          m
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Minimum Stock</span>
+                        <span className="text-sm font-medium">
+                          Minimum Stock
+                        </span>
                         <span>{product.stockInfo?.minimumStock ?? "N/A"}m</span>
                       </div>
                       <div className="pt-2 border-t">
                         <div className="flex justify-between items-center">
                           <span className="text-sm font-medium">Set Value</span>
                           <span className="text-lg font-bold">
-                          ₹{setValue.toLocaleString()}
+                            ₹{setValue.toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -309,13 +373,19 @@ export default function ProductViewPage() {
                     <CardContent className="space-y-4">
                       <div>
                         <span className="text-sm font-medium">Description</span>
-                        <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {product.description}
+                        </p>
                       </div>
                       <div>
                         <span className="text-sm font-medium">Tags</span>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {product.tags.map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="text-xs"
+                            >
                               {tag}
                             </Badge>
                           ))}
@@ -324,11 +394,15 @@ export default function ProductViewPage() {
                       <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                         <div>
                           <span className="text-sm font-medium">Created</span>
-                          <p className="text-sm text-muted-foreground">{formatDateIST(product.createdAt) }</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDateIST(product.createdAt)}
+                          </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Updated</span>
-                          <p className="text-sm text-muted-foreground">{formatDateIST(product.updatedAt)}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatDateIST(product.updatedAt)}
+                          </p>
                         </div>
                       </div>
                     </CardContent>
@@ -340,32 +414,48 @@ export default function ProductViewPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Technical Specifications</CardTitle>
-                    <CardDescription>Detailed product specifications and care instructions</CardDescription>
+                    <CardDescription>
+                      Detailed product specifications and care instructions
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-4">
                         <div>
-                          <span className="text-sm font-medium">Composition</span>
-                          <p className="text-sm text-muted-foreground">{product.specifications?.composition}</p>
+                          <span className="text-sm font-medium">
+                            Composition
+                          </span>
+                          <p className="text-sm text-muted-foreground">
+                            {product.specifications?.composition}
+                          </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Weight</span>
-                          <p className="text-sm text-muted-foreground">{product.specifications?.weight}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {product.specifications?.weight}
+                          </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Width</span>
-                          <p className="text-sm text-muted-foreground">{product.specifications?.width}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {product.specifications?.width}
+                          </p>
                         </div>
                       </div>
                       <div className="space-y-4">
                         <div>
-                          <span className="text-sm font-medium">Care Instructions</span>
-                          <p className="text-sm text-muted-foreground">{product.specifications?.care}</p>
+                          <span className="text-sm font-medium">
+                            Care Instructions
+                          </span>
+                          <p className="text-sm text-muted-foreground">
+                            {product.specifications?.care}
+                          </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Origin</span>
-                          <p className="text-sm text-muted-foreground">{product.specifications?.origin}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {product.specifications?.origin}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -380,15 +470,23 @@ export default function ProductViewPage() {
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{product.supplier?.name}</span>
+                        <span className="font-medium">
+                          {product.supplier?.name}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Contact:</span>
-                        <span className="text-sm">{product.supplier?.contact}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Contact:
+                        </span>
+                        <span className="text-sm">
+                          {product.supplier?.contact}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{product.supplier?.location}</span>
+                        <span className="text-sm">
+                          {product.supplier?.location}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -399,12 +497,17 @@ export default function ProductViewPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Stock Movement History</CardTitle>
-                    <CardDescription>Track all stock additions and sales</CardDescription>
+                    <CardDescription>
+                      Track all stock additions and sales
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       {stockHistory.map((entry, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div
+                          key={index}
+                          className="flex items-center justify-between p-3 border rounded-lg"
+                        >
                           <div className="flex items-center gap-3">
                             {entry.action === "Added" ? (
                               <TrendingUp className="h-4 w-4 text-green-500" />
@@ -415,12 +518,18 @@ export default function ProductViewPage() {
                               <p className="font-medium text-sm">
                                 {entry.action} {Math.abs(entry.quantity)}m
                               </p>
-                              <p className="text-xs text-muted-foreground">by {entry.user}</p>
+                              <p className="text-xs text-muted-foreground">
+                                by {entry.user}
+                              </p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="font-medium text-sm">{entry.balance}m</p>
-                            <p className="text-xs text-muted-foreground">{entry.date}</p>
+                            <p className="font-medium text-sm">
+                              {entry.balance}m
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {entry.date}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -433,23 +542,55 @@ export default function ProductViewPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Recent Orders</CardTitle>
-                    <CardDescription>Orders containing this product</CardDescription>
+                    <CardDescription>
+                      Orders containing this product
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {recentOrders.map((order) => (
-                        <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium text-sm">{order.id}</p>
-                            <p className="text-sm text-muted-foreground">{order.customer}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {order.quantity} • {order.date}
-                            </p>
-                          </div>
-                          <div className="text-right">{getOrderStatusBadge(order.status)}</div>
-                        </div>
-                      ))}
-                    </div>
+                    {ordersLoading ? (
+                      <p className="text-sm text-muted-foreground">
+                        Loading recent orders...
+                      </p>
+                    ) : ordersError ? (
+                      <p className="text-sm text-red-500">{ordersError}</p>
+                    ) : recentOrders.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No recent orders found for this product.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {recentOrders.map((order) => (
+                          <Link
+                            key={order.orderId}
+                            href={`/orders/${order.orderId}`}
+                            className="block"
+                          >
+                            <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
+                              <div>
+                                <p className="font-medium text-sm">
+                                  Order {order.orderId}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {order.customer}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {order.items
+                                    .map(
+                                      (i) =>
+                                        `${i.color} - ${i.quantity} ${i.unit}`
+                                    )
+                                    .join(", ")}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatDateIST(order.orderDate)}
+                                </p>
+                              </div>
+                              <div>{getOrderStatusBadge(order.status)}</div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -458,5 +599,5 @@ export default function ProductViewPage() {
         </div>
       </div>
     </SidebarInset>
-  )
+  );
 }

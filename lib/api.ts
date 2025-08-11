@@ -32,15 +32,18 @@ export const getRecentOrders = async () => {
 
 export const getStockAlerts = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/dashboard/stock-alerts`);
-    
+    const response = await fetch(`${API_BASE_URL}/dashboard/stock-alerts`, {
+      cache: "no-store", // Always fetch fresh data
+    });
+
     if (!response.ok) {
-      throw new Error('Failed to fetch stock alerts');
+      throw new Error("Failed to fetch stock alerts");
     }
-    
-    return await response.json();
+
+    const data = await response.json();
+    return data; // { success: boolean, stockAlerts: [...] }
   } catch (error) {
-    console.error('Error fetching stock alerts:', error);
+    console.error("Error fetching stock alerts:", error);
     throw error;
   }
 };
@@ -102,6 +105,24 @@ export const uploadProductImages = async (files) => {
     return await response.json();
   } catch (error) {
     console.error('Image upload error:', error);
+    throw error;
+  }
+};
+
+export const getRecentOrdersByProduct = async (productId: string, limit = 5) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/products/recent/orders/${productId}?limit=${limit}`,
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch recent orders for product");
+    }
+
+    return await response.json(); // { success, product, recentOrders: [...] }
+  } catch (error) {
+    console.error("Error fetching recent product orders:", error);
     throw error;
   }
 };
