@@ -352,7 +352,6 @@ export default function AddProductPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline">Save as Draft</Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>Saving...</>

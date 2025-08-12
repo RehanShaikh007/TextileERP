@@ -278,7 +278,6 @@ export default function NewOrderPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" disabled={saving}>Save as Draft</Button>
             <Button onClick={handleCreateOrder} disabled={saving}>
               {saving ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</>) : (<><Save className="h-4 w-4 mr-2" />Create Order</>)}
             </Button>

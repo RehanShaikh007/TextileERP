@@ -32,12 +32,12 @@ app.use(cors({
 
 
 // Mount all routes under /api/v1
-app.use('/api/v1/products', productRouter)
-app.use('/api/v1/customer', customerRouter)
-app.use('/api/v1/order', orderRouter)
-app.use('/api/v1/returns', returnRouter)
-app.use('/api/v1/stock', stockRouter)
-app.use('/api/v1/dashboard', dashboardRouter)
+app.use('/api/v1/products', productRouter);
+app.use('/api/v1/customer', customerRouter);
+app.use('/api/v1/order', orderRouter);
+app.use('/api/v1/returns', returnRouter);
+app.use('/api/v1/stock', stockRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
 app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
 app.use('/api/v1/whatsapp-messages', WhatsappMessageRoutes);
 app.use('/api/v1/agent', agentRouter);
