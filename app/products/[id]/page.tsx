@@ -35,15 +35,22 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getRecentOrdersByProduct } from "@/lib/api";
+import { API_BASE_URL, getRecentOrdersByProduct } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 // Define Product type based on backend schema
+interface ProductVariant {
+  color: string;
+  pricePerMeters: number;
+  stockInMeters: number;
+}
+
 interface Product {
   _id: string;
   productName: string;
   category: string;
   tags: string[];
-  variants: any[];
+  variants: ProductVariant[];
   images?: string[];
   status?: string;
   stockInfo?: {
@@ -53,14 +60,15 @@ interface Product {
   };
   unit?: string;
   description?: string;
-  price?: number;
   setSize?: number;
   createdAt?: string;
   updatedAt?: string;
+  sku?: string;
   [key: string]: any;
 }
 
 export default function ProductViewPage() {
+  const { toast } = useToast()
   const params = useParams();
   const productId = params.id as string;
 
@@ -72,12 +80,15 @@ export default function ProductViewPage() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
 
+  // Mock API base URL - replace with your actual API
+  const API_BASE_URL = "http://localhost:4000/api/v1";
+
   // Fetch product
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         const response = await fetch(
-          `http://localhost:4000/api/v1/products/${productId}`
+          `${API_BASE_URL}/products/${productId}`
         );
         if (!response.ok) throw new Error("Failed to fetch product");
         const data = await response.json();
@@ -110,7 +121,6 @@ export default function ProductViewPage() {
     };
     if (productId) fetchOrders();
   }, [productId]);
-
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!product) return <div>Product not found.</div>;
@@ -185,9 +195,6 @@ export default function ProductViewPage() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-  const setSize = product.setSize || 1; // fallback to 1 if not present
-  const pricePerMeter = product.variants?.[0]?.pricePerMeters || 0;
-  const setValue = pricePerMeter * setSize;
 
   const formatDateIST = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
@@ -212,6 +219,45 @@ export default function ProductViewPage() {
 
     return `${day}/${month}/${year} ${hours}:${minutes} ${ampm} IST`;
   };
+  
+  const deleteProduct = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/products/${productId}`,
+        {
+          method: "DELETE",
+        }
+      );
+      if (!response.ok) {
+        toast({
+          title: "Delete Failed",
+          description:'Failed to delete product',
+          variant: "destructive",
+        })
+        return;
+      }
+      toast({
+        title: "Product Deleted",
+        description: `Product ${product.productName} has been deleted successfully.`,
+        variant: "default",
+      })
+      // Redirect or show success message
+      window.location.href = "/products";
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast({
+        title: "Delete Failed",
+        description: "An error occurred while deleting the product",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const totalStock = product.variants?.reduce(
+    (sum, v) => sum + (v.stockInMeters || 0),
+    0
+  ) || 0;
+
   return (
     <SidebarInset>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -242,16 +288,16 @@ export default function ProductViewPage() {
             <div>
               <h1 className="text-3xl font-bold">{product.productName}</h1>
               <p className="text-muted-foreground">
-                {product.category} • ID: {product.id}
+                {product.category} • SKU: {product.sku}
               </p>
               <div className="flex items-center gap-2 mt-2">
                 {getStatusBadge(product.status || "unknown")}
-                {/* Removed variants display as per user request */}
+                <Badge variant="outline">{product.variants?.length || 0} variants</Badge>
               </div>
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/products/${product.id}/edit`}>
+            <Link href={`/products/${productId}/edit`}>
               <Button>
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Product
@@ -260,6 +306,7 @@ export default function ProductViewPage() {
             <Button
               variant="outline"
               className="text-red-600 hover:text-red-700 bg-transparent"
+              onClick={() => {deleteProduct()}}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete
@@ -282,25 +329,27 @@ export default function ProductViewPage() {
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {product.images?.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedImage(index)}
-                      className={`aspect-square bg-muted rounded-lg overflow-hidden border-2 ${
-                        selectedImage === index
-                          ? "border-primary"
-                          : "border-transparent"
-                      }`}
-                    >
-                      <img
-                        src={image || "/placeholder.svg"}
-                        alt={`${product.productName} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
+                {product.images && product.images.length > 1 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {product.images.map((image, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setSelectedImage(index)}
+                        className={`aspect-square bg-muted rounded-lg overflow-hidden border-2 ${
+                          selectedImage === index
+                            ? "border-primary"
+                            : "border-transparent"
+                        }`}
+                      >
+                        <img
+                          src={image || "/placeholder.svg"}
+                          alt={`${product.productName} ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -310,6 +359,7 @@ export default function ProductViewPage() {
             <Tabs defaultValue="overview" className="space-y-4">
               <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="variants">Variants</TabsTrigger>
                 <TabsTrigger value="specifications">Specifications</TabsTrigger>
                 <TabsTrigger value="stock">Stock History</TabsTrigger>
                 <TabsTrigger value="orders">Recent Orders</TabsTrigger>
@@ -319,47 +369,31 @@ export default function ProductViewPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Pricing & Stock</CardTitle>
+                      <CardTitle>Stock Summary</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">
-                          Price per Meter
-                        </span>
-                        <span className="text-lg font-bold">
-                          {" "}
-                          ₹{product.variants?.[0]?.pricePerMeters ?? "N/A"}
-                        </span>
+                        <span className="text-sm font-medium">Unit</span>
+                        <span>{product.unit || "METERS"}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">Set Size</span>
-                        <span>{product.setSize} meters</span>
+                        <span className="text-sm font-medium">Total Stock</span>
+                        <span className="font-medium">{totalStock}m</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">
-                          Current Stock
-                        </span>
-                        <span className="font-medium">
-                          {product.variants
-                            ? product.variants.reduce(
-                                (sum, v) => sum + (v.stockInMeters || 0),
-                                0
-                              )
-                            : 0}
-                          m
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium">
-                          Minimum Stock
-                        </span>
+                        <span className="text-sm font-medium">Minimum Stock</span>
                         <span>{product.stockInfo?.minimumStock ?? "N/A"}m</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">Variants Available</span>
+                        <span className="font-medium">{product.variants?.length || 0}</span>
                       </div>
                       <div className="pt-2 border-t">
                         <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium">Set Value</span>
+                          <span className="text-sm font-medium">Price Range</span>
                           <span className="text-lg font-bold">
-                            ₹{setValue.toLocaleString()}
+                            ₹{Math.min(...(product.variants?.map(v => v.pricePerMeters) || [0]))} - 
+                            ₹{Math.max(...(product.variants?.map(v => v.pricePerMeters) || [0]))}
                           </span>
                         </div>
                       </div>
@@ -380,7 +414,7 @@ export default function ProductViewPage() {
                       <div>
                         <span className="text-sm font-medium">Tags</span>
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {product.tags.map((tag) => (
+                          {product.tags?.map((tag) => (
                             <Badge
                               key={tag}
                               variant="outline"
@@ -410,6 +444,55 @@ export default function ProductViewPage() {
                 </div>
               </TabsContent>
 
+              <TabsContent value="variants" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Product Variants</CardTitle>
+                    <CardDescription>
+                      All available colors and their pricing details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {product.variants && product.variants.length > 0 ? (
+                      <div className="space-y-4">
+                        {product.variants.map((variant, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-4 h-4 rounded-full bg-muted border"></div>
+                                <div>
+                                  <p className="font-medium">{variant.color}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Stock: {variant.stockInMeters}m
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold">
+                                ₹{variant.pricePerMeters?.toLocaleString()}
+                              </p>
+                              <p className="text-sm text-muted-foreground">per meter</p>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">Total Stock Across All Variants</span>
+                            <span className="text-lg font-bold">{totalStock}m</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground">No variants available</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               <TabsContent value="specifications" className="space-y-4">
                 <Card>
                   <CardHeader>
@@ -426,19 +509,19 @@ export default function ProductViewPage() {
                             Composition
                           </span>
                           <p className="text-sm text-muted-foreground">
-                            {product.specifications?.composition}
+                            {product.specifications?.composition || "Not specified"}
                           </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Weight</span>
                           <p className="text-sm text-muted-foreground">
-                            {product.specifications?.weight}
+                            {product.specifications?.weight || "Not specified"}
                           </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Width</span>
                           <p className="text-sm text-muted-foreground">
-                            {product.specifications?.width}
+                            {product.specifications?.width || "Not specified"}
                           </p>
                         </div>
                       </div>
@@ -448,13 +531,13 @@ export default function ProductViewPage() {
                             Care Instructions
                           </span>
                           <p className="text-sm text-muted-foreground">
-                            {product.specifications?.care}
+                            {product.specifications?.care || "Not specified"}
                           </p>
                         </div>
                         <div>
                           <span className="text-sm font-medium">Origin</span>
                           <p className="text-sm text-muted-foreground">
-                            {product.specifications?.origin}
+                            {product.specifications?.origin || "Not specified"}
                           </p>
                         </div>
                       </div>
@@ -471,7 +554,7 @@ export default function ProductViewPage() {
                       <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">
-                          {product.supplier?.name}
+                          {product.supplier?.name || "Not specified"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -479,13 +562,13 @@ export default function ProductViewPage() {
                           Contact:
                         </span>
                         <span className="text-sm">
-                          {product.supplier?.contact}
+                          {product.supplier?.contact || "Not specified"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                         <span className="text-sm">
-                          {product.supplier?.location}
+                          {product.supplier?.location || "Not specified"}
                         </span>
                       </div>
                     </div>
@@ -575,8 +658,8 @@ export default function ProductViewPage() {
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {order.items
-                                    .map(
-                                      (i) =>
+                                    ?.map(
+                                      (i: any) =>
                                         `${i.color} - ${i.quantity} ${i.unit}`
                                     )
                                     .join(", ")}
