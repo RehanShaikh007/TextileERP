@@ -20,8 +20,9 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Package, ArrowLeft, Save, Factory, Palette, Plus, Loader2 } from "lucide-react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 // Product interface based on backend schema
 interface Product {
@@ -47,8 +48,20 @@ interface Product {
   updatedAt: string;
 }
 
+// Agent interface based on API response
+interface Agent {
+  _id: string;
+  name: string;
+  factory: string;
+  createdAt: string;
+  updatedAt: string;
+  agentId: string;
+  __v: number;
+}
+
 export default function AddStockPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [stockType, setStockType] = useState("gray")
   const [selectedProduct, setSelectedProduct] = useState("")
   const [variants, setVariants] = useState([{ color: "", quantity: "", unit: "meters" }])
@@ -60,6 +73,11 @@ export default function AddStockPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  
+  // Add state for agents fetching
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
   
   // Add state for required fields
   const [stockDetails, setStockDetails] = useState({
@@ -100,19 +118,75 @@ export default function AddStockPage() {
         
         if (data.success) {
           setProducts(data.products || []);
+          toast({
+            title: "Products loaded",
+            description: `Loaded ${data.products?.length || 0} products successfully`,
+            variant: "default",
+          });
         } else {
           throw new Error(data.message || "Failed to fetch products");
         }
       } catch (err) {
         console.error("Error fetching products:", err);
         setProductsError(err instanceof Error ? err.message : "Failed to fetch products");
+        toast({
+          title: "Failed to load products",
+          description: err instanceof Error ? err.message : 'Failed to fetch products',
+          variant: "destructive",
+        });
       } finally {
         setProductsLoading(false);
       }
     };
 
     fetchProducts();
-  }, []);
+  }, [toast]);
+
+  // Fetch agents from backend on component mount
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        setAgentsLoading(true);
+        setAgentsError(null);
+        
+        const response = await fetch("http://localhost:4000/api/v1/agent/", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setAgents(data.agents || []);
+          toast({
+            title: "Agents loaded",
+            description: `Loaded ${data.agents?.length || 0} agents successfully`,
+            variant: "default",
+          });
+        } else {
+          throw new Error(data.message || "Failed to fetch agents");
+        }
+      } catch (err) {
+        console.error("Error fetching agents:", err);
+        setAgentsError(err instanceof Error ? err.message : "Failed to fetch agents");
+        toast({
+          title: "Failed to load agents",
+          description: err instanceof Error ? err.message : 'Failed to fetch agents',
+          variant: "destructive",
+        });
+      } finally {
+        setAgentsLoading(false);
+      }
+    };
+
+    fetchAgents();
+  }, [toast]);
 
   // Clear selected product when products change (in case the selected product was deleted)
   useEffect(() => {
@@ -124,19 +198,21 @@ export default function AddStockPage() {
     }
   }, [products, selectedProduct]);
 
-  const factories = [
-    { id: "FAC-001", name: "Textile Mills Ltd", location: "Mumbai" },
-    { id: "FAC-002", name: "Silk Weavers Co", location: "Bangalore" },
-    { id: "FAC-003", name: "Modern Textiles", location: "Chennai" },
-    { id: "FAC-004", name: "Premium Fabrics", location: "Delhi" },
-  ]
+  // Get unique factories from agents
+  const factories = agents.reduce((uniqueFactories: Array<{name: string, agentCount: number}>, agent) => {
+    const existingFactory = uniqueFactories.find(f => f.name === agent.factory);
+    if (existingFactory) {
+      existingFactory.agentCount += 1;
+    } else {
+      uniqueFactories.push({ name: agent.factory, agentCount: 1 });
+    }
+    return uniqueFactories;
+  }, []);
 
-  const agents = [
-    { id: "AGT-001", name: "Ramesh Kumar", factory: "FAC-001" },
-    { id: "AGT-002", name: "Priya Sharma", factory: "FAC-002" },
-    { id: "AGT-003", name: "Suresh Patel", factory: "FAC-003" },
-    { id: "AGT-004", name: "Kavita Singh", factory: "FAC-004" },
-  ]
+  // Filter agents by selected factory
+  const getAgentsByFactory = (factoryName: string) => {
+    return agents.filter(agent => agent.factory === factoryName);
+  };
 
   const designs = [
     { id: "DES-001", name: "Floral Print", category: "printed" },
@@ -205,14 +281,66 @@ export default function AddStockPage() {
       
       if (data.success) {
         setProducts(data.products || []);
+        toast({
+          title: "Products loaded",
+          description: `Loaded ${data.products?.length || 0} products successfully`,
+          variant: "default",
+        });
       } else {
         throw new Error(data.message || "Failed to fetch products");
       }
     } catch (err) {
       console.error("Error fetching products:", err);
       setProductsError(err instanceof Error ? err.message : "Failed to fetch products");
+      toast({
+        title: "Failed to load products",
+        description: err instanceof Error ? err.message : 'Failed to fetch products',
+        variant: "destructive",
+      });
     } finally {
       setProductsLoading(false);
+    }
+  };
+
+  // Helper function to retry fetching agents
+  const retryFetchAgents = async () => {
+    try {
+      setAgentsLoading(true);
+      setAgentsError(null);
+      
+      const response = await fetch("http://localhost:4000/api/v1/agent/", {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch agents: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setAgents(data.agents || []);
+        toast({
+          title: "Agents loaded",
+          description: `Loaded ${data.agents?.length || 0} agents successfully`,
+          variant: "default",
+        });
+      } else {
+        throw new Error(data.message || "Failed to fetch agents");
+      }
+    } catch (err) {
+      console.error("Error fetching agents:", err);
+      setAgentsError(err instanceof Error ? err.message : "Failed to fetch agents");
+      toast({
+        title: "Failed to load agents",
+        description: err instanceof Error ? err.message : 'Failed to fetch agents',
+        variant: "destructive",
+      });
+    } finally {
+      setAgentsLoading(false);
     }
   };
 
@@ -227,6 +355,11 @@ export default function AddStockPage() {
     if (!selectedProduct) {
       setError("Please select a product");
       setLoading(false);
+      toast({
+        title: "Validation Error",
+        description: "Please select a product",
+        variant: "destructive",
+      });
       return;
     }
     
@@ -305,6 +438,12 @@ export default function AddStockPage() {
       console.log("Success:", result); // Debug log
       
       setSuccess(true);
+      toast({
+        title: "Stock Added Successfully",
+        description: `${stockType.charAt(0).toUpperCase() + stockType.slice(1)} stock has been added to inventory`,
+        variant: "default",
+      });
+      
       // Redirect to stock list after a short delay
       setTimeout(() => {
         router.push("/stock");
@@ -312,11 +451,13 @@ export default function AddStockPage() {
       
     } catch (err) {
       console.error("Error:", err); // Debug log
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unknown error");
-      }
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      setError(errorMessage);
+      toast({
+        title: "Failed to add stock",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -433,16 +574,41 @@ export default function AddStockPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="factory">Factory</Label>
-                          <Select value={stockDetails.factory} onValueChange={(value) => setStockDetails({ ...stockDetails, factory: value })}>
+                          <Select value={stockDetails.factory} onValueChange={(value) => {
+                            setStockDetails({ ...stockDetails, factory: value, agent: "" });
+                          }}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select factory" />
                             </SelectTrigger>
                             <SelectContent>
-                              {factories.map((factory) => (
-                                <SelectItem key={factory.id} value={factory.name}>
-                                  {factory.name} - {factory.location}
-                                </SelectItem>
-                              ))}
+                              {agentsLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span>Loading factories...</span>
+                                </div>
+                              ) : agentsError ? (
+                                <div className="p-4 text-red-500 text-sm">
+                                  <div>Error: {agentsError}</div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="mt-2"
+                                    onClick={retryFetchAgents}
+                                  >
+                                    Retry
+                                  </Button>
+                                </div>
+                              ) : factories.length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  No factories available
+                                </div>
+                              ) : (
+                                factories.map((factory) => (
+                                  <SelectItem key={factory.name} value={factory.name}>
+                                    {factory.name} ({factory.agentCount} agents)
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -451,16 +617,26 @@ export default function AddStockPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="agent">Agent</Label>
-                          <Select value={stockDetails.agent} onValueChange={(value) => setStockDetails({ ...stockDetails, agent: value })}>
+                          <Select value={stockDetails.agent} onValueChange={(value) => setStockDetails({ ...stockDetails, agent: value })} disabled={!stockDetails.factory}>
                             <SelectTrigger>
                               <SelectValue placeholder="Select agent" />
                             </SelectTrigger>
                             <SelectContent>
-                              {agents.map((agent) => (
-                                <SelectItem key={agent.id} value={agent.name}>
-                                  {agent.name}
-                                </SelectItem>
-                              ))}
+                              {!stockDetails.factory ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  Please select a factory first
+                                </div>
+                              ) : getAgentsByFactory(stockDetails.factory).length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  No agents available for this factory
+                                </div>
+                              ) : (
+                                getAgentsByFactory(stockDetails.factory).map((agent) => (
+                                  <SelectItem key={agent._id} value={agent.name}>
+                                    {agent.name} ({agent.agentId})
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
@@ -518,11 +694,34 @@ export default function AddStockPage() {
                               <SelectValue placeholder="Select factory" />
                             </SelectTrigger>
                             <SelectContent>
-                              {factories.map((factory) => (
-                                <SelectItem key={factory.id} value={factory.name}>
-                                  {factory.name} - {factory.location}
-                                </SelectItem>
-                              ))}
+                              {agentsLoading ? (
+                                <div className="flex items-center justify-center p-4">
+                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                  <span>Loading factories...</span>
+                                </div>
+                              ) : agentsError ? (
+                                <div className="p-4 text-red-500 text-sm">
+                                  <div>Error: {agentsError}</div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="mt-2"
+                                    onClick={retryFetchAgents}
+                                  >
+                                    Retry
+                                  </Button>
+                                </div>
+                              ) : factories.length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  No factories available
+                                </div>
+                              ) : (
+                                factories.map((factory) => (
+                                  <SelectItem key={factory.name} value={factory.name}>
+                                    {factory.name} ({factory.agentCount} agents)
+                                  </SelectItem>
+                                ))
+                              )}
                             </SelectContent>
                           </Select>
                         </div>
