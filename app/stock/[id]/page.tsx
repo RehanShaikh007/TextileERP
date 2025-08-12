@@ -1,4 +1,5 @@
 "use client"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,7 +13,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Package,
   Edit,
@@ -25,92 +25,80 @@ import {
   Clock,
   MapPin,
   User,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { API_BASE_URL } from "@/lib/api"
+
+interface StockVariant {
+  color: string
+  quantity: number
+  unit: string
+}
+
+interface StockDetails {
+  product: string
+  factory: string
+  agent: string
+  orderNumber: string
+}
+
+interface AdditionalInfo {
+  batchNumber: string
+  qualityGrade: string
+  notes: string
+}
+
+interface Stock {
+  _id: string
+  stockType: string
+  status: string
+  variants: StockVariant[]
+  stockDetails: StockDetails
+  addtionalInfo: AdditionalInfo
+  createdAt: string
+  updatedAt: string
+}
+
+interface StockResponse {
+  success: boolean
+  stock: Stock
+}
 
 export default function StockViewPage() {
-  const params = useParams()
-  const stockId = params.id as string
+  const { id: stockId } = useParams()
+  const { toast } = useToast()
+  const [stockData, setStockData] = useState<StockResponse | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Mock stock data - in real app, fetch based on stockId
-  const stockItem = {
-    id: "GRY-001",
-    product: "Premium Cotton Base",
-    type: "gray", // gray, factory, design
-    quantity: 450,
-    factory: "Textile Mills Ltd",
-    agent: "Ramesh Kumar",
-    date: "2024-01-15",
-    orderNumber: "PO-2024-001",
-    status: "available",
-    unitPrice: 120,
-    totalValue: 54000,
-    location: "Warehouse A - Section 2",
-    batchNumber: "BTH-2024-001",
-    qualityGrade: "A+",
-    specifications: {
-      material: "100% Cotton",
-      weight: "200 GSM",
-      width: "44 inches",
-      color: "Natural White",
-      finish: "Unfinished",
-    },
-    supplier: {
-      name: "Cotton Mills India",
-      contact: "+91 98765 43210",
-      address: "Industrial Area, Coimbatore",
-    },
-  }
+  useEffect(() => {
+    const fetchStockData = async () => {
+      try {
+        setIsLoading(true)
+        const response = await fetch(`${API_BASE_URL}/stock/${stockId}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch stock data')
+        }
+        const data: StockResponse = await response.json()
+        setStockData(data)
+      } catch (err) {
+        toast({
+          title: "Fetch Failed",
+          description: err instanceof Error ? err.message : 'Failed to load stock data',
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-  const stockMovements = [
-    {
-      id: "MOV-001",
-      date: "2024-01-15",
-      type: "in",
-      quantity: 450,
-      reason: "New Purchase",
-      reference: "PO-2024-001",
-      user: "Admin",
-    },
-    {
-      id: "MOV-002",
-      date: "2024-01-12",
-      type: "out",
-      quantity: 50,
-      reason: "Quality Check",
-      reference: "QC-001",
-      user: "Quality Team",
-    },
-    {
-      id: "MOV-003",
-      date: "2024-01-10",
-      type: "adjustment",
-      quantity: -5,
-      reason: "Damage",
-      reference: "ADJ-001",
-      user: "Warehouse Manager",
-    },
-  ]
-
-  const qualityChecks = [
-    {
-      id: "QC-001",
-      date: "2024-01-16",
-      inspector: "Quality Team",
-      grade: "A+",
-      notes: "Excellent quality, no defects found",
-      status: "passed",
-    },
-    {
-      id: "QC-002",
-      date: "2024-01-15",
-      inspector: "Ramesh Kumar",
-      grade: "A+",
-      notes: "Initial inspection on arrival",
-      status: "passed",
-    },
-  ]
+    if (stockId) {
+      fetchStockData()
+    }
+  }, [stockId, toast])
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -133,18 +121,78 @@ export default function StockViewPage() {
         return <Badge variant="secondary">Low Stock</Badge>
       case "out":
         return <Badge variant="destructive">Out of Stock</Badge>
-      case "passed":
-        return <Badge variant="default">Passed</Badge>
-      case "in":
-        return <Badge variant="default">Stock In</Badge>
-      case "out":
-        return <Badge variant="destructive">Stock Out</Badge>
-      case "adjustment":
-        return <Badge variant="outline">Adjustment</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
   }
+
+  const getTotalQuantity = (variants: StockVariant[]) => {
+    return variants.reduce((total, variant) => total + variant.quantity, 0)
+  }
+
+  if (isLoading) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/stock">Stock</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Loading...</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </SidebarInset>
+    )
+  }
+
+  if (!stockData?.success) {
+    return (
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/stock">Stock</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Error</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </header>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+            <p className="text-muted-foreground">Failed to load stock data</p>
+          </div>
+        </div>
+      </SidebarInset>
+    )
+  }
+
+  const stock = stockData.stock
+  const totalQuantity = getTotalQuantity(stock.variants)
 
   return (
     <SidebarInset>
@@ -162,7 +210,7 @@ export default function StockViewPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{stockItem.product}</BreadcrumbPage>
+              <BreadcrumbPage>{stock.stockType}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -179,10 +227,10 @@ export default function StockViewPage() {
               </Button>
             </Link>
             <div>
-              <h2 className="text-2xl font-bold">{stockItem.product}</h2>
+              <h2 className="text-2xl font-bold">{stock.stockType}</h2>
               <p className="text-muted-foreground flex items-center gap-2">
                 <Package className="h-4 w-4" />
-                {stockItem.id} • {stockItem.type.charAt(0).toUpperCase() + stockItem.type.slice(1)} Stock
+                ID: {stock._id}
               </p>
             </div>
           </div>
@@ -204,33 +252,33 @@ export default function StockViewPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stockItem.quantity}m</div>
+              <div className="text-2xl font-bold">{totalQuantity} {stock.variants[0]?.unit?.toLowerCase() || 'units'}</div>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                {getStatusIcon(stockItem.status)}
-                {stockItem.status}
+                {getStatusIcon(stock.status)}
+                {stock.status}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Unit Price</CardTitle>
+              <CardTitle className="text-sm font-medium">Order Number</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{stockItem.unitPrice}</div>
-              <p className="text-xs text-muted-foreground">Per meter</p>
+              <div className="text-2xl font-bold">{stock.stockDetails.orderNumber}</div>
+              <p className="text-xs text-muted-foreground">Purchase order</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Batch Number</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{stockItem.totalValue.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Current value</p>
+              <div className="text-2xl font-bold">{stock.addtionalInfo.batchNumber}</div>
+              <p className="text-xs text-muted-foreground">Batch reference</p>
             </CardContent>
           </Card>
 
@@ -240,13 +288,13 @@ export default function StockViewPage() {
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">{stockItem.qualityGrade}</div>
+              <div className="text-2xl font-bold text-green-500">{stock.addtionalInfo.qualityGrade}</div>
               <p className="text-xs text-muted-foreground">Quality rating</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Stock Details and Tabs */}
+        {/* Stock Details and Variants */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Stock Information */}
           <Card>
@@ -257,25 +305,21 @@ export default function StockViewPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Status</span>
-                {getStatusBadge(stockItem.status)}
+                {getStatusBadge(stock.status)}
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                   <Factory className="h-4 w-4 text-muted-foreground" />
-                  <span>{stockItem.factory}</span>
+                  <span>{stock.stockDetails.factory}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{stockItem.agent}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span>{stockItem.location}</span>
+                  <span>{stock.stockDetails.agent}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>{stockItem.date}</span>
+                  <span>{new Date(stock.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
 
@@ -283,118 +327,83 @@ export default function StockViewPage() {
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Stock Type</span>
+                  <span className="font-medium">{stock.stockType}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Order Number</span>
-                  <span className="font-medium">{stockItem.orderNumber}</span>
+                  <span className="font-medium">{stock.stockDetails.orderNumber}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Batch Number</span>
-                  <span className="font-medium">{stockItem.batchNumber}</span>
+                  <span className="font-medium">{stock.addtionalInfo.batchNumber}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Material</span>
-                  <span className="font-medium">{stockItem.specifications.material}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Weight</span>
-                  <span className="font-medium">{stockItem.specifications.weight}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Width</span>
-                  <span className="font-medium">{stockItem.specifications.width}</span>
+                  <span className="text-muted-foreground">Quality Grade</span>
+                  <span className="font-medium">{stock.addtionalInfo.qualityGrade}</span>
                 </div>
               </div>
+
+              {stock.addtionalInfo.notes && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium">Notes</span>
+                    <p className="text-sm text-muted-foreground">{stock.addtionalInfo.notes}</p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
 
-          {/* Stock History and Quality */}
+          {/* Stock Variants */}
           <div className="lg:col-span-2">
-            <Tabs defaultValue="movements" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="movements">Stock Movements</TabsTrigger>
-                <TabsTrigger value="quality">Quality Checks</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="movements">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Stock Movements</CardTitle>
-                    <CardDescription>History of stock in/out movements</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="border-b">
-                          <tr>
-                            <th className="text-left p-4 font-medium">Date</th>
-                            <th className="text-left p-4 font-medium">Type</th>
-                            <th className="text-left p-4 font-medium">Quantity</th>
-                            <th className="text-left p-4 font-medium">Reason</th>
-                            <th className="text-left p-4 font-medium">Reference</th>
-                            <th className="text-left p-4 font-medium">User</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stockMovements.map((movement) => (
-                            <tr key={movement.id} className="border-b hover:bg-muted/50">
-                              <td className="p-4">{movement.date}</td>
-                              <td className="p-4">{getStatusBadge(movement.type)}</td>
-                              <td className="p-4">
-                                <span
-                                  className={
-                                    movement.type === "out" || movement.quantity < 0 ? "text-red-500" : "text-green-500"
-                                  }
-                                >
-                                  {movement.type === "out" ? "-" : movement.quantity < 0 ? "" : "+"}
-                                  {Math.abs(movement.quantity)}m
-                                </span>
-                              </td>
-                              <td className="p-4">{movement.reason}</td>
-                              <td className="p-4 font-medium">{movement.reference}</td>
-                              <td className="p-4">{movement.user}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="quality">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quality Checks</CardTitle>
-                    <CardDescription>Quality inspection history</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="border-b">
-                          <tr>
-                            <th className="text-left p-4 font-medium">Date</th>
-                            <th className="text-left p-4 font-medium">Inspector</th>
-                            <th className="text-left p-4 font-medium">Grade</th>
-                            <th className="text-left p-4 font-medium">Status</th>
-                            <th className="text-left p-4 font-medium">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {qualityChecks.map((check) => (
-                            <tr key={check.id} className="border-b hover:bg-muted/50">
-                              <td className="p-4">{check.date}</td>
-                              <td className="p-4">{check.inspector}</td>
-                              <td className="p-4 font-medium text-green-500">{check.grade}</td>
-                              <td className="p-4">{getStatusBadge(check.status)}</td>
-                              <td className="p-4">{check.notes}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
+            <Card>
+              <CardHeader>
+                <CardTitle>Stock Variants</CardTitle>
+                <CardDescription>Available colors and quantities</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left p-4 font-medium">Color</th>
+                        <th className="text-left p-4 font-medium">Quantity</th>
+                        <th className="text-left p-4 font-medium">Unit</th>
+                        <th className="text-left p-4 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stock.variants.map((variant, index) => (
+                        <tr key={index} className="border-b hover:bg-muted/50">
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              {/* <div 
+                                className="w-4 h-4 rounded-full border border-border"
+                                style={{ backgroundColor: variant.color === 'black' ? '#000000' : variant.color }}
+                              /> */}
+                              <span className="capitalize">{variant.color}</span>
+                            </div>
+                          </td>
+                          <td className="p-4 font-medium">{variant.quantity}</td>
+                          <td className="p-4">{variant.unit}</td>
+                          <td className="p-4">
+                            {variant.quantity > 10 ? (
+                              <Badge variant="default">In Stock</Badge>
+                            ) : variant.quantity > 0 ? (
+                              <Badge variant="secondary">Low Stock</Badge>
+                            ) : (
+                              <Badge variant="destructive">Out of Stock</Badge>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
