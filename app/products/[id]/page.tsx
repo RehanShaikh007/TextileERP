@@ -125,38 +125,6 @@ export default function ProductViewPage() {
   if (error) return <div>Error: {error}</div>;
   if (!product) return <div>Product not found.</div>;
 
-  // Mock stock history
-  const stockHistory = [
-    {
-      date: "2024-01-20",
-      action: "Added",
-      quantity: 180,
-      balance: 540,
-      user: "Admin",
-    },
-    {
-      date: "2024-01-18",
-      action: "Sold",
-      quantity: -120,
-      balance: 360,
-      user: "Sales Team",
-    },
-    {
-      date: "2024-01-15",
-      action: "Added",
-      quantity: 300,
-      balance: 480,
-      user: "Admin",
-    },
-    {
-      date: "2024-01-10",
-      action: "Sold",
-      quantity: -60,
-      balance: 180,
-      user: "Sales Team",
-    },
-  ];
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "available":
@@ -360,8 +328,7 @@ export default function ProductViewPage() {
               <TabsList>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="variants">Variants</TabsTrigger>
-                <TabsTrigger value="specifications">Specifications</TabsTrigger>
-                <TabsTrigger value="stock">Stock History</TabsTrigger>
+                {/* <TabsTrigger value="stock">Stock History</TabsTrigger> */}
                 <TabsTrigger value="orders">Recent Orders</TabsTrigger>
               </TabsList>
 
@@ -462,7 +429,7 @@ export default function ProductViewPage() {
                           >
                             <div className="flex items-center gap-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-4 h-4 rounded-full bg-muted border"></div>
+                                {/* <div className="w-4 h-4 rounded-full bg-muted border"></div> */}
                                 <div>
                                   <p className="font-medium">{variant.color}</p>
                                   <p className="text-sm text-muted-foreground">
@@ -489,134 +456,6 @@ export default function ProductViewPage() {
                     ) : (
                       <p className="text-muted-foreground">No variants available</p>
                     )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="specifications" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Technical Specifications</CardTitle>
-                    <CardDescription>
-                      Detailed product specifications and care instructions
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-4">
-                        <div>
-                          <span className="text-sm font-medium">
-                            Composition
-                          </span>
-                          <p className="text-sm text-muted-foreground">
-                            {product.specifications?.composition || "Not specified"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">Weight</span>
-                          <p className="text-sm text-muted-foreground">
-                            {product.specifications?.weight || "Not specified"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">Width</span>
-                          <p className="text-sm text-muted-foreground">
-                            {product.specifications?.width || "Not specified"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <div>
-                          <span className="text-sm font-medium">
-                            Care Instructions
-                          </span>
-                          <p className="text-sm text-muted-foreground">
-                            {product.specifications?.care || "Not specified"}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium">Origin</span>
-                          <p className="text-sm text-muted-foreground">
-                            {product.specifications?.origin || "Not specified"}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Supplier Information</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">
-                          {product.supplier?.name || "Not specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          Contact:
-                        </span>
-                        <span className="text-sm">
-                          {product.supplier?.contact || "Not specified"}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">
-                          {product.supplier?.location || "Not specified"}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="stock" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Stock Movement History</CardTitle>
-                    <CardDescription>
-                      Track all stock additions and sales
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {stockHistory.map((entry, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 border rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            {entry.action === "Added" ? (
-                              <TrendingUp className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <TrendingDown className="h-4 w-4 text-red-500" />
-                            )}
-                            <div>
-                              <p className="font-medium text-sm">
-                                {entry.action} {Math.abs(entry.quantity)}m
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                by {entry.user}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-medium text-sm">
-                              {entry.balance}m
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {entry.date}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

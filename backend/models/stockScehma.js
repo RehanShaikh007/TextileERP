@@ -2,19 +2,6 @@ import mongoose from "mongoose";
 
 const STOCK_TYPES = ["Gray Stock", "Factory Stock", "Design Stock"];
 const STOCK_STATUSES = ["available", "low", "out", "processing", "quality_check"];
-const PRODUCTS = [
-  "Premium Cotton Base",
-  "Silk Blend Base",
-  "Polyester Mix Blend",
-  "Cotton Designer Print",
-];
-const FACTORIES = [
-  "Textile Mills Ltd - Mumbai",
-  "Silk Weavers Co - Bangalore",
-  "Modern Textiles - Chennai",
-  "Premium Fabrics - Delhi",
-];
-const AGENTS = ["Ramesh Kumar", "Priya Sharma", "Suresh Patel", "Kavita Singh"];
 const PROCESSING_STAGES = ["Dyeing", "Printing", "Finishing", "Quality Check"];
 const DESIGNS = [
   "Floral Print",
@@ -74,17 +61,14 @@ const grayStockSchema = new mongoose.Schema(
   {
     product: {
       type: String,
-      enum: PRODUCTS,
       required: true,
     },
     factory: {
       type: String,
-      enum: FACTORIES,
       required: true,
     },
     agent: {
       type: String,
-      enum: AGENTS,
       required: true,
     },
     orderNumber: {
@@ -100,12 +84,10 @@ const factoryStockSchema = new mongoose.Schema(
   {
     product: {
       type: String,
-      enum: PRODUCTS,
       required: true,
     },
     processingFactory: {
       type: String,
-      enum: FACTORIES,
       required: true,
     },
     processingStage: {
@@ -126,7 +108,6 @@ const designStockSchema = new mongoose.Schema(
   {
     product: {
       type: String,
-      enum: PRODUCTS,
       required: true,
     },
     design: {

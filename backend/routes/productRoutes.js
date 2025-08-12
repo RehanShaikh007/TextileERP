@@ -1,5 +1,5 @@
 import express from 'express';
-import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts, getRecentOrdersByProduct } from "../controller/productController.js";
+import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts, getRecentOrdersByProduct, getAllProductNames } from "../controller/productController.js";
 import { uploadImages } from '../controller/imageController.js';
 import { upload } from '../middleware/uploadMiddleware.js';
 
@@ -8,6 +8,7 @@ const router = express.Router();
 // Product Routes
 router.post('/addProduct', createProduct);
 router.get('/', getAllProducts);
+router.get('/all/names', getAllProductNames);
 router.get('/:id', getProductById);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
   Breadcrumb,
@@ -18,7 +17,6 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
-import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 
 // Stock interfaces based on backend schema
@@ -90,6 +88,16 @@ interface StockFormData {
   notes: string;
 }
 
+// Agent interface based on API response
+interface Agent {
+  _id: string;
+  name: string;
+  factory: string;
+  agentId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function StockEditPage() {
   const params = useParams()
   const router = useRouter()
@@ -124,6 +132,11 @@ export default function StockEditPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  // Add state for agents fetching
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [agentsLoading, setAgentsLoading] = useState(true);
+    const [factories, setFactories] = useState<string[]>([]);
 
   // Fetch stock data from backend
   useEffect(() => {
@@ -162,6 +175,38 @@ export default function StockEditPage() {
     if (stockId) {
       fetchStock()
     }
+
+    const fetchAgentsAndFactories = async () => {
+      try {
+        setAgentsLoading(true);
+        const response = await fetch("http://localhost:4000/api/v1/agent/", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch agents: ${response.status} ${response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          setAgents(data.agents || []);
+          // Extract unique factory names from agents
+          const uniqueFactories = [...new Set(data.agents.map((agent: Agent) => agent.factory))] as string[];
+          setFactories(uniqueFactories);
+        }
+      } catch (err) {
+        console.error("Error fetching agents:", err);
+      } finally {
+        setAgentsLoading(false);
+      }
+    };
+    fetchAgentsAndFactories();
   }, [stockId])
 
   // Transform backend stock data to form data
@@ -251,8 +296,6 @@ export default function StockEditPage() {
     }
   }
 
-  const factories = ["Textile Mills Ltd", "Silk Weavers Co", "Modern Textiles", "Synthetic Mills", "Premium Fabrics"]
-  const agents = ["Ramesh Kumar", "Priya Sharma", "Suresh Patel", "Kavita Singh", "Amit Gupta"]
   const locations = [
     "Warehouse A - Section 1",
     "Warehouse A - Section 2",
@@ -260,7 +303,7 @@ export default function StockEditPage() {
     "Factory Floor",
     "Quality Check Area",
   ]
-  const qualityGrades = ["A+", "A", "B+", "B", "C"]
+  const qualityGrades = ["A+", "A", "B+", "B"]
   const statuses = ["available", "low", "out", "processing", "quality_check"]
 
   const handleInputChange = (field: string, value: string | number) => {
@@ -312,10 +355,8 @@ export default function StockEditPage() {
   // Loading state
   if (loading) {
     return (
-      <SidebarInset>
+      <div className="min-h-screen bg-background">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -339,17 +380,15 @@ export default function StockEditPage() {
             <span>Loading stock data...</span>
           </div>
         </div>
-      </SidebarInset>
+      </div>
     )
   }
 
   // Error state
   if (error) {
     return (
-      <SidebarInset>
+      <div className="min-h-screen bg-background">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -369,7 +408,7 @@ export default function StockEditPage() {
 
         <div className="flex-1 flex items-center justify-center p-4 md:p-6">
           <div className="text-center">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Failed to load stock data</h3>
             <p className="text-muted-foreground mb-4">{error}</p>
             <div className="flex gap-2 justify-center">
@@ -379,23 +418,22 @@ export default function StockEditPage() {
               >
                 Retry
               </Button>
-              <Link href="/stock">
-                <Button variant="outline">
-                  Back to Stock List
-                </Button>
-              </Link>
+              <Button 
+                onClick={() => router.push("/stock")}
+                variant="outline"
+              >
+                Back to Stock List
+              </Button>
             </div>
           </div>
         </div>
-      </SidebarInset>
+      </div>
     )
   }
 
   return (
-    <SidebarInset>
+    <div className="min-h-screen bg-background">
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -421,24 +459,27 @@ export default function StockEditPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href={`/stock/${stockId}`}>
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => router.push(`/stock/${stockId}`)}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
             <div>
               <h2 className="text-2xl font-bold">Edit Stock Item</h2>
               <p className="text-muted-foreground">Update stock information</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/stock/${stockId}`}>
-              <Button variant="outline">
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            </Link>
+            <Button 
+              variant="outline"
+              onClick={() => router.push(`/stock/${stockId}`)}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel
+            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? (
                 <>
@@ -544,8 +585,8 @@ export default function StockEditPage() {
                     </SelectTrigger>
                     <SelectContent>
                       {agents.map((agent) => (
-                        <SelectItem key={agent} value={agent}>
-                          {agent}
+                        <SelectItem key={agent._id} value={agent.name}>
+                          {agent.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -730,12 +771,13 @@ export default function StockEditPage() {
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-4">
-          <Link href={`/stock/${stockId}`}>
-            <Button variant="outline">
-              <X className="h-4 w-4 mr-2" />
-              Cancel
-            </Button>
-          </Link>
+          <Button 
+            variant="outline"
+            onClick={() => router.push(`/stock/${stockId}`)}
+          >
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
           <Button onClick={handleSave} disabled={saving}>
             {saving ? (
               <>
@@ -751,6 +793,6 @@ export default function StockEditPage() {
           </Button>
         </div>
       </div>
-    </SidebarInset>
+    </div>
   )
 }

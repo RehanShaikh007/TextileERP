@@ -168,28 +168,6 @@ export default function OrderViewPage() {
     lastUpdated: new Date(order.updatedAt).toLocaleDateString(),
   } : null
 
-  // Mock status history
-  const statusHistory = [
-    { date: "2024-01-20", status: "Processing", description: "Order moved to production", user: "Production Team" },
-    {
-      date: "2024-01-18",
-      status: "Confirmed",
-      description: "Payment received, order confirmed",
-      user: "Accounts Team",
-    },
-    {
-      date: "2024-01-15",
-      status: "Pending",
-      description: "Order created and awaiting confirmation",
-      user: "Sales Team",
-    },
-  ]
-
-  // Mock payment history
-  const paymentHistory = [
-    { date: "2024-01-18", amount: 20000, method: "Bank Transfer", reference: "TXN123456", status: "completed" },
-  ]
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "delivered":
@@ -358,8 +336,6 @@ export default function OrderViewPage() {
               <TabsList>
                 <TabsTrigger value="items">Order Items</TabsTrigger>
                 <TabsTrigger value="customer">Customer Info</TabsTrigger>
-                <TabsTrigger value="status">Status History</TabsTrigger>
-                <TabsTrigger value="payments">Payments</TabsTrigger>
               </TabsList>
 
               <TabsContent value="items" className="space-y-4">
@@ -471,66 +447,6 @@ export default function OrderViewPage() {
                         </div>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="status" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Status History</CardTitle>
-                    <CardDescription>Track order progress and updates</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {statusHistory.map((entry, index) => (
-                        <div key={index} className="flex items-start gap-3 p-3 border rounded-lg">
-                          {getStatusIcon(entry.status.toLowerCase())}
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium">{entry.status}</p>
-                              <p className="text-sm text-muted-foreground">{entry.date}</p>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{entry.description}</p>
-                            <p className="text-xs text-muted-foreground">Updated by {entry.user}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="payments" className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Payment History</CardTitle>
-                    <CardDescription>Track all payments for this order</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {paymentHistory.map((payment, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">₹{payment.amount.toLocaleString()}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {payment.method} • {payment.reference}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{payment.date}</p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-800">Completed</Badge>
-                        </div>
-                      ))}
-                      {dynamicOrder.balanceAmount > 0 && (
-                        <div className="flex items-center justify-between p-3 border-2 border-dashed border-orange-200 rounded-lg">
-                          <div>
-                            <p className="font-medium text-orange-600">₹{dynamicOrder.balanceAmount.toLocaleString()}</p>
-                            <p className="text-sm text-muted-foreground">Pending Payment</p>
-                          </div>
-                          <Button size="sm">Record Payment</Button>
-                        </div>
-                      )}
-                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

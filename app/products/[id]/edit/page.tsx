@@ -58,18 +58,6 @@ interface ProductFormData {
   stockInfo: StockInfo;
   unit: 'METERS' | 'SETS';
   images?: string[];
-  specifications?: {
-    composition?: string;
-    weight?: string;
-    width?: string;
-    care?: string;
-    origin?: string;
-  };
-  supplier?: {
-    name?: string;
-    contact?: string;
-    location?: string;
-  };
   isActive: boolean;
   minStock?: number;
   reorderPoint?: number;
@@ -91,18 +79,6 @@ interface Product {
   };
   unit?: string;
   description?: string;
-  specifications?: {
-    composition?: string;
-    weight?: string;
-    width?: string;
-    care?: string;
-    origin?: string;
-  };
-  supplier?: {
-    name?: string;
-    contact?: string;
-    location?: string;
-  };
   [key: string]: any;
 }
 
@@ -118,7 +94,6 @@ export default function EditProductPage() {
     variants: [],
     images: [],
     isActive: true,
-    specifications: {},
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,8 +117,6 @@ export default function EditProductPage() {
           variants: data.product.variants || [],
           name: data.product.productName,
           minStock: data.product.stockInfo?.minimumStock,
-          specifications: data.product.specifications || {},
-          supplier: data.product.supplier || {},
         });
       } catch (err) {
         if (err instanceof Error) {
@@ -297,8 +270,6 @@ export default function EditProductPage() {
         },
         unit: formData.unit || 'METERS',
         images: formData.images || [],
-        specifications: formData.specifications || {},
-        supplier: formData.supplier || {},
         isActive: formData.isActive
       };
   
@@ -528,135 +499,6 @@ export default function EditProductPage() {
               </CardContent>
             </Card>
           </div>
-
-          {/* Specifications */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Technical Specifications</CardTitle>
-              <CardDescription>Detailed product specifications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="composition">Composition</Label>
-                    <Input
-                      id="composition"
-                      value={formData.specifications.composition}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "specifications.composition",
-                          e.target.value
-                        )
-                      }
-                      placeholder="e.g., 60% Cotton, 40% Polyester"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="weight">Weight (GSM)</Label>
-                    <Input
-                      id="weight"
-                      type="number"
-                      value={formData.specifications.weight}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "specifications.weight",
-                          e.target.value
-                        )
-                      }
-                      placeholder="180"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="width">Width (inches)</Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      value={formData.specifications.width}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "specifications.width",
-                          e.target.value
-                        )
-                      }
-                      placeholder="58"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="care">Care Instructions</Label>
-                    <Textarea
-                      id="care"
-                      value={formData.specifications.care}
-                      onChange={(e) =>
-                        handleInputChange("specifications.care", e.target.value)
-                      }
-                      placeholder="Machine wash cold, tumble dry low"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="origin">Origin</Label>
-                    <Input
-                      id="origin"
-                      value={formData.specifications.origin}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "specifications.origin",
-                          e.target.value
-                        )
-                      }
-                      placeholder="India"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Supplier Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Supplier Information</CardTitle>
-              <CardDescription>
-                Supplier details and contact information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="supplierName">Supplier Name</Label>
-                  <Input
-                    id="supplierName"
-                    value={formData.supplier.name}
-                    onChange={(e) =>
-                      handleInputChange("supplier.name", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="supplierContact">Contact</Label>
-                  <Input
-                    id="supplierContact"
-                    value={formData.supplier.contact}
-                    onChange={(e) =>
-                      handleInputChange("supplier.contact", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="supplierLocation">Location</Label>
-                  <Input
-                    id="supplierLocation"
-                    value={formData.supplier.location}
-                    onChange={(e) =>
-                      handleInputChange("supplier.location", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Tags */}
           <Card>

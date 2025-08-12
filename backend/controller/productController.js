@@ -271,3 +271,15 @@ export const getRecentOrdersByProduct = async (req, res) => {
     });
   }
 };
+
+// Controller to get all product names
+export const getAllProductNames = async (req, res) => {
+    try {
+        const products = await Product.find({}, 'productName'); // Only fetch the productName field
+        const productNames = products.map(product => product.productName);
+        res.status(200).json({ productNames });
+    } catch (error) {
+        console.error('Error fetching product names:', error);
+        res.status(500).json({ message: 'Server Error: Unable to fetch product names.' });
+    }
+};

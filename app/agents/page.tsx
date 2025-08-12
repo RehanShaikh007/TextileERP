@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -22,167 +23,145 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Plus, Search, Eye, Edit, Loader2, AlertTriangle, CheckCircle, Factory, User } from "lucide-react"
+import { Plus, Search, User, Factory, Eye, Edit, Loader2, CheckCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
-// Agent backend schema
+// Agent interface based on API response
 interface Agent {
-  _id: string
-  agentId: string
-  name: string
-  factory: string
-  createdAt: string
-  updatedAt: string
-}
-
-interface AgentFormData {
-  name: string
-  factory: string
+  _id: string;
+  name: string;
+  factory: string;
+  createdAt: string;
+  updatedAt: string;
+  agentId: string;
+  __v: number;
 }
 
 export default function AgentsPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [agents, setAgents] = useState<Agent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Add agent dialog states
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [addingAgent, setAddingAgent] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
-  const [addSuccess, setAddSuccess] = useState(false)
-
-  const [formData, setFormData] = useState<AgentFormData>({
+  const { toast } = useToast();
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [addingAgent, setAddingAgent] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+  const [formData, setFormData] = useState({
     name: "",
     factory: "",
-  })
+  });
 
-  // Fetch agents
+  // Fetch agents from backend on component mount
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        setLoading(true)
-        const res = await fetch("http://localhost:4000/api/v1/agent")
-        if (!res.ok) throw new Error(`Failed to fetch agents: ${res.status}`)
-        const data = await res.json()
+        setAgentsLoading(true);
+        setAgentsError(null);
+        
+        const response = await fetch("http://localhost:4000/api/v1/agent/", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agents: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
         if (data.success) {
-          setAgents(data.agents || [])
+          setAgents(data.agents || []);
+          toast({
+            title: "Agents loaded",
+            description: `Loaded ${data.agents?.length || 0} agents successfully`,
+            variant: "default",
+          });
         } else {
-          throw new Error(data.message || "Failed to fetch agents")
+          throw new Error(data.message || "Failed to fetch agents");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch agents")
+        console.error("Error fetching agents:", err);
+        setAgentsError(err instanceof Error ? err.message : "Failed to fetch agents");
+        toast({
+          title: "Failed to load agents",
+          description: err instanceof Error ? err.message : 'Failed to fetch agents',
+          variant: "destructive",
+        });
       } finally {
-        setLoading(false)
+        setAgentsLoading(false);
       }
-    }
-    fetchAgents()
-  }, [])
+    };
 
-  // Handle add agent form change
-  const handleInputChange = (field: keyof AgentFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    fetchAgents();
+  }, [toast]);
 
-  // Handle add agent submission
-  const handleAddAgent = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAddingAgent(true)
-    setAddError(null)
-    setAddSuccess(false)
-
-    try {
-      if (!formData.name || !formData.factory) {
-        throw new Error("All fields are required")
-      }
-
-      const payload = {
-        name: formData.name,
-        factory: formData.factory,
-      }
-
-      const res = await fetch("http://localhost:4000/api/v1/agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.message || "Failed to add agent")
-      }
-
-      setAddSuccess(true)
-      // refresh agent list
-      const refreshRes = await fetch("http://localhost:4000/api/v1/agent")
-      if (refreshRes.ok) {
-        const refreshData = await refreshRes.json()
-        if (refreshData.success) setAgents(refreshData.agents || [])
-      }
-
-      // reset & close dialog
-      setFormData({ name: "", factory: "" })
-      setTimeout(() => {
-        setIsAddDialogOpen(false)
-        setAddSuccess(false)
-      }, 1500)
-    } catch (err) {
-      setAddError(err instanceof Error ? err.message : "Failed to add agent")
-    } finally {
-      setAddingAgent(false)
-    }
-  }
-
+  // Filter agents based on search term
   const filteredAgents = agents.filter(
     (agent) =>
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.agentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.factory.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+      agent.factory.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      agent.agentId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  if (loading) {
-    return (
-      <SidebarInset>
-        <header className="flex h-16 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem><BreadcrumbLink href="/">Dashboard</BreadcrumbLink></BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem><BreadcrumbPage>Agents</BreadcrumbPage></BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading agents...
-        </div>
-      </SidebarInset>
-    )
-  }
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
-  if (error) {
-    return (
-      <SidebarInset>
-        <header className="flex h-16 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem><BreadcrumbLink href="/">Dashboard</BreadcrumbLink></BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem><BreadcrumbPage>Agents</BreadcrumbPage></BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-6">
-          <AlertTriangle className="h-10 w-10 text-red-500 mx-auto mb-2" />
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
-      </SidebarInset>
-    )
-  }
+  const handleAddAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingAgent(true);
+    setAddError(null);
+    setAddSuccess(false);
+
+    try {
+      const response = await fetch("http://localhost:4000/api/v1/agent/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to add agent");
+      }
+
+      const result = await response.json();
+      
+      setAddSuccess(true);
+      toast({
+        title: "Agent Added Successfully",
+        description: `Agent ${formData.name} has been added`,
+        variant: "default",
+      });
+
+      // Add the new agent to the list
+      setAgents(prev => [...prev, result.agent]);
+      
+      // Reset form
+      setFormData({ name: "", factory: "" });
+      
+      // Close dialog after a short delay
+      setTimeout(() => {
+        setIsAddDialogOpen(false);
+        setAddSuccess(false);
+      }, 1500);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      setAddError(errorMessage);
+      toast({
+        title: "Failed to add agent",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setAddingAgent(false);
+    }
+  };
 
   return (
     <SidebarInset>
@@ -260,45 +239,71 @@ export default function AgentsPage() {
             <CardDescription>All registered agents</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-3 text-left">Agent ID</th>
-                  <th className="p-3 text-left">Name</th>
-                  <th className="p-3 text-left">Factory</th>
-                  <th className="p-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAgents.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="p-6 text-center text-muted-foreground">
-                      No agents found
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="text-left font-medium p-4 min-w-[120px]">Agent ID</th>
+                    <th className="text-left font-medium p-4 min-w-[180px]">Name</th>
+                    <th className="text-left font-medium p-4 min-w-[180px]">Factory</th>
+                    <th className="text-left font-medium p-4 min-w-[120px]">Actions</th>
                   </tr>
-                ) : (
-                  filteredAgents.map((agent) => (
-                    <tr key={agent._id} className="border-b hover:bg-muted/50">
-                      <td className="p-3 font-medium">{agent.agentId}</td>
-                      <td className="p-3 flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" /> {agent.name}
-                      </td>
-                      <td className="p-3 flex items-center gap-2">
-                        <Factory className="h-4 w-4 text-muted-foreground" /> {agent.factory}
-                      </td>
-                      <td className="p-3 flex gap-2">
-                        <Link href={`/agents/${agent._id}`}>
-                          <Button size="sm" variant="outline"><Eye className="h-4 w-4" /></Button>
-                        </Link>
-                        <Link href={`/agents/${agent._id}/edit`}>
-                          <Button size="sm"><Edit className="h-4 w-4" /></Button>
-                        </Link>
+                </thead>
+                <tbody>
+                  {agentsLoading ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Loading agents...</span>
+                        </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : agentsError ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-destructive">
+                        Error: {agentsError}
+                      </td>
+                    </tr>
+                  ) : filteredAgents.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-6 text-center text-muted-foreground">
+                        No agents found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAgents.map((agent) => (
+                      <tr key={agent._id} className="border-b hover:bg-muted/30 transition-colors">
+                        <td className="p-4">
+                          <span className="font-medium">{agent.agentId}</span>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{agent.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Factory className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{agent.factory}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <Link href={`/agents/${agent._id}/edit`}>
+                              <Button size="sm">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       </div>
