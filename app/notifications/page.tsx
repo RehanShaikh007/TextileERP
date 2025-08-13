@@ -240,8 +240,18 @@ export default function NotificationsPage() {
       );
       if (!res.ok) throw new Error("Failed to save settings");
       console.log("Settings saved successfully");
+      toast({
+        title: "Settings Saved",
+        description: "Notification settings updated successfully",
+        variant: "default",
+      });
     } catch (err) {
       console.error("Error saving settings:", err);
+      toast({
+        title: "Error",
+        description: "Failed to save notification settings",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }

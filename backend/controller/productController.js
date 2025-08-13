@@ -26,7 +26,7 @@ export const createProduct = async (req, res) => {
 
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (createProduct):", whatsAppError);
         status = "Not Delivered";
@@ -96,7 +96,7 @@ export const updateProduct = async (req, res) => {
 
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (updateProduct):", whatsAppError);
         status = "Not Delivered";
@@ -143,7 +143,7 @@ export const deleteProduct = async (req, res) => {
 
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (deleteProduct):", whatsAppError);
         status = "Not Delivered";
@@ -274,12 +274,12 @@ export const getRecentOrdersByProduct = async (req, res) => {
 
 // Controller to get all product names
 export const getAllProductNames = async (req, res) => {
-    try {
-        const products = await Product.find({}, 'productName'); // Only fetch the productName field
-        const productNames = products.map(product => product.productName);
-        res.status(200).json({ productNames });
-    } catch (error) {
-        console.error('Error fetching product names:', error);
-        res.status(500).json({ message: 'Server Error: Unable to fetch product names.' });
-    }
+  try {
+    const products = await Product.find({}, 'productName'); // Only fetch the productName field
+    const productNames = products.map(product => product.productName);
+    res.status(200).json({ productNames });
+  } catch (error) {
+    console.error('Error fetching product names:', error);
+    res.status(500).json({ message: 'Server Error: Unable to fetch product names.' });
+  }
 };

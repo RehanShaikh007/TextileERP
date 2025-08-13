@@ -2,7 +2,7 @@ import { sendWhatsAppMessage } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Return from "../models/returnSchema.js";
 import Order from "../models/orderSchema.js";
-import {WhatsappNotification} from "../models/whatsappNotificationSchema.js";
+import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 
 
 export const createReturn = async (req, res) => {
@@ -54,7 +54,6 @@ export const createReturn = async (req, res) => {
       let status = "Delivered";
       try {
         await sendWhatsAppMessage(
-          process.env.WHATSAPP_NOTIFICATION_NUMBER,
           messageText
         );
       } catch (whatsAppError) {
@@ -155,7 +154,6 @@ export const updateReturn = async (req, res) => {
       let status = "Delivered";
       try {
         await sendWhatsAppMessage(
-          process.env.WHATSAPP_NOTIFICATION_NUMBER,
           messageText
         );
       } catch (whatsAppError) {
@@ -212,7 +210,6 @@ export const deleteReturn = async (req, res) => {
       let status = "Delivered";
       try {
         await sendWhatsAppMessage(
-          process.env.WHATSAPP_NOTIFICATION_NUMBER,
           messageText
         );
       } catch (whatsAppError) {

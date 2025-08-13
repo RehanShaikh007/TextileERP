@@ -49,7 +49,7 @@ export const createCustomer = async (req, res) => {
       const messageText = `🆕 New Customer Added!\n\n👤 Name: ${newCustomer.customerName}\n🏷 Type: ${newCustomer.customerType}\n📧 Email: ${newCustomer.email}\n📞 Phone: ${newCustomer.phone}\n🏙 City: ${newCustomer.city}\n💳 Credit Limit: ${newCustomer.creditLimit}\n📍 Address: ${newCustomer.address}\n\nView details: ${process.env.CLIENT_URL}/customers/${newCustomer._id}`;
       let statusMsg = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (createCustomer):", whatsAppError);
         statusMsg = "Not Delivered";

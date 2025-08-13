@@ -44,7 +44,6 @@ export const createOrder = async (req, res) => {
       let statusMsg = "Delivered";
       try {
         await sendWhatsAppMessage(
-          process.env.WHATSAPP_NOTIFICATION_NUMBER,
           messageText
         );
       } catch (whatsAppError) {
@@ -146,7 +145,6 @@ export const updateOrder = async (req, res) => {
       let statusMsg = "Delivered";
       try {
         await sendWhatsAppMessage(
-          process.env.WHATSAPP_NOTIFICATION_NUMBER,
           messageText
         );
       } catch (whatsAppError) {
@@ -204,7 +202,6 @@ export const deleteOrder = async (req, res) => {
       let statusMsg = "Delivered";
       try {
         await sendWhatsAppMessage(
-          process.env.WHATSAPP_NOTIFICATION_NUMBER,
           messageText
         );
       } catch (whatsAppError) {
