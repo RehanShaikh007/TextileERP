@@ -230,14 +230,14 @@ export default function StockEditPage() {
       location: (stock.stockDetails as any).warehouse || "Warehouse A - Section 2",
       batchNumber: stock.addtionalInfo.batchNumber,
       qualityGrade: stock.addtionalInfo.qualityGrade,
-      material: "100% Cotton", // Default value, not in backend schema
-      weight: "200 GSM", // Default value, not in backend schema
-      width: "44 inches", // Default value, not in backend schema
-      color: mainColor,
-      finish: "Unfinished", // Default value, not in backend schema
-      supplierName: "Cotton Mills India", // Default value, not in backend schema
-      supplierContact: "+91 98765 43210", // Default value, not in backend schema
-      supplierAddress: "Industrial Area, Coimbatore", // Default value, not in backend schema
+      // material: "100% Cotton", // Default value, not in backend schema
+      // weight: "200 GSM", // Default value, not in backend schema
+      // width: "44 inches", // Default value, not in backend schema
+      // color: mainColor,
+      // finish: "Unfinished", // Default value, not in backend schema
+      // supplierName: "Cotton Mills India", // Default value, not in backend schema
+      // supplierContact: "+91 98765 43210", // Default value, not in backend schema
+      // supplierAddress: "Industrial Area, Coimbatore", // Default value, not in backend schema
       notes: stock.addtionalInfo.notes || "",
     }
 
@@ -432,7 +432,7 @@ export default function StockEditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="w-full min-h-screen bg-background">
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
         <Breadcrumb>
           <BreadcrumbList>
@@ -518,7 +518,7 @@ export default function StockEditPage() {
         )}
 
         {/* Edit Form */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="w-full">
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -536,7 +536,7 @@ export default function StockEditPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="w-full grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="quantity">Quantity (m) *</Label>
                   <Input
@@ -548,7 +548,7 @@ export default function StockEditPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                   <Label htmlFor="unitPrice">Unit Price (₹) *</Label>
                   <Input
                     id="unitPrice"
@@ -557,7 +557,7 @@ export default function StockEditPage() {
                     onChange={(e) => handleInputChange("unitPrice", Number.parseInt(e.target.value) || 0)}
                     placeholder="Enter unit price"
                   />
-                </div>
+                </div> */}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -662,7 +662,7 @@ export default function StockEditPage() {
           </Card>
 
           {/* Specifications & Supplier */}
-          <Card>
+          {/* <Card>
             <CardHeader>
               <CardTitle>Specifications & Supplier</CardTitle>
               <CardDescription>Product specifications and supplier information</CardDescription>
@@ -766,11 +766,11 @@ export default function StockEditPage() {
                 />
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-4">
+        {/* <div className="flex justify-end gap-4">
           <Button 
             variant="outline"
             onClick={() => router.push(`/stock/${stockId}`)}
@@ -791,7 +791,7 @@ export default function StockEditPage() {
               </>
             )}
           </Button>
-        </div>
+        </div> */}
       </div>
     </div>
   )

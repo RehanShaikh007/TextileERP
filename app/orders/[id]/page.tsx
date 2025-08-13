@@ -170,12 +170,8 @@ export default function OrderViewPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "delivered":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
-      case "processing":
-        return <Clock className="h-5 w-5 text-blue-500" />
       case "confirmed":
-        return <Package className="h-5 w-5 text-purple-500" />
+        return <CheckCircle className="h-5 w-5 text-green-500" />
       case "pending":
         return <AlertCircle className="h-5 w-5 text-orange-500" />
       default:
@@ -185,12 +181,8 @@ export default function OrderViewPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "delivered":
-        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>
-      case "processing":
-        return <Badge className="bg-blue-100 text-blue-800">Processing</Badge>
       case "confirmed":
-        return <Badge className="bg-purple-100 text-purple-800">Confirmed</Badge>
+        return <Badge className="bg-green-100 text-green-800">Confirmed</Badge>
       case "pending":
         return <Badge className="bg-orange-100 text-orange-800">Pending</Badge>
       default:

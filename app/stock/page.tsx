@@ -32,6 +32,10 @@ import {
   Edit,
   Loader2,
   Save,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
@@ -94,6 +98,7 @@ interface DisplayStock {
   colors?: string[];
   warehouse?: string;
   status: string;
+  createdAt: string; // Add creation date for sorting and display
 }
 
 export default function StockPage() {
@@ -108,39 +113,72 @@ export default function StockPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<{[key: string]: boolean}>({});
 
-  // Fetch stocks from backend
-  useEffect(() => {
-    const fetchStocks = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch("http://localhost:4000/api/v1/stock", {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch stocks: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-          setStocks(data.stocks || []);
-        } else {
-          throw new Error(data.message || "Failed to fetch stocks");
-        }
-      } catch (err) {
-        console.error("Error fetching stocks:", err);
-        setError(err instanceof Error ? err.message : "Failed to fetch stocks");
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Pagination states for each stock type
+  const [grayStockPage, setGrayStockPage] = useState(1);
+  const [factoryStockPage, setFactoryStockPage] = useState(1);
+  const [designStockPage, setDesignStockPage] = useState(1);
+  const itemsPerPage = 10; // Number of items per page
 
+  // Pagination state for all stocks
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 20, // Increased from 10 to show more items per page
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+
+  // Fetch stocks from backend with pagination
+  const fetchStocks = async (page: number = 1, limit: number = pagination.itemsPerPage) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`http://localhost:4000/api/v1/stock?page=${page}&limit=${limit}&sort=-createdAt`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stocks: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setStocks(data.stocks || []);
+        // Update pagination info if available from API
+        if (data.pagination) {
+          setPagination(data.pagination);
+        } else {
+          // Calculate pagination manually if not provided by API
+          const totalItems = data.stocks?.length || 0;
+          const totalPages = Math.ceil(totalItems / limit);
+          setPagination({
+            currentPage: page,
+            totalPages,
+            totalItems,
+            itemsPerPage: limit,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1
+          });
+        }
+      } else {
+        throw new Error(data.message || "Failed to fetch stocks");
+      }
+    } catch (err) {
+      console.error("Error fetching stocks:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch stocks");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on component mount
+  useEffect(() => {
     fetchStocks();
   }, []);
 
@@ -280,6 +318,7 @@ export default function StockPage() {
         product: productName,
         quantity: totalQuantity,
         status,
+        createdAt: stock.createdAt, // Add creation date
       };
 
       if (stock.stockType === "Gray Stock") {
@@ -310,7 +349,16 @@ export default function StockPage() {
       }
     });
 
-    return { grayStock, factoryStock, designStock };
+    // Sort all stock types by creation date (latest first)
+    const sortByDate = (a: DisplayStock, b: DisplayStock) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    };
+
+    return {
+      grayStock: grayStock.sort(sortByDate),
+      factoryStock: factoryStock.sort(sortByDate),
+      designStock: designStock.sort(sortByDate),
+    };
   };
 
   const { grayStock, factoryStock, designStock } = transformStocks(stocks);
@@ -337,6 +385,131 @@ export default function StockPage() {
   const filteredGrayStock = filterStocks(grayStock);
   const filteredFactoryStock = filterStocks(factoryStock);
   const filteredDesignStock = filterStocks(designStock);
+
+  // Pagination functions
+  const getPaginatedData = (data: DisplayStock[], currentPage: number) => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return data.slice(startIndex, endIndex);
+  };
+
+  const getTotalPages = (data: DisplayStock[]) => {
+    return Math.ceil(data.length / itemsPerPage);
+  };
+  
+  // Handle page change for pagination
+  const handlePageChange = (newPage: number) => {
+    fetchStocks(newPage, pagination.itemsPerPage);
+  };
+  
+  // Handle page change for specific stock type tabs
+  const handleTabPageChange = (page: number, setPage: React.Dispatch<React.SetStateAction<number>>) => {
+    setPage(page);
+  };
+  
+  // Handle items per page change
+  const handleItemsPerPageChange = (newLimit: number) => {
+    fetchStocks(1, newLimit);
+  };
+
+  // Reset pagination when filter changes
+  useEffect(() => {
+    setGrayStockPage(1);
+    setFactoryStockPage(1);
+    setDesignStockPage(1);
+    // Also reset the main pagination and refetch data
+    fetchStocks(1, pagination.itemsPerPage);
+  }, [searchTerm, selectedFilter, activeTab]);
+
+  // Reset pagination when tab changes
+  useEffect(() => {
+    setGrayStockPage(1);
+    setFactoryStockPage(1);
+    setDesignStockPage(1);
+  }, [activeTab]);
+
+  // Pagination component
+  const Pagination = ({ 
+    currentPage, 
+    totalPages, 
+    onPageChange, 
+    dataLength 
+  }: { 
+    currentPage: number; 
+    totalPages: number; 
+    onPageChange: (page: number) => void;
+    dataLength: number;
+  }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 border-t">
+        <div className="text-sm text-muted-foreground">
+          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, dataLength)} of {dataLength} results
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <Button
+                  key={pageNum}
+                  variant={currentPage === pageNum ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => onPageChange(pageNum)}
+                  className="w-8 h-8"
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -471,18 +644,12 @@ export default function StockPage() {
             <p className="text-muted-foreground">Track gray, factory, and design stock</p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={() => {
-                toast({
-                  title: "Stock Adjustment",
-                  description: "Stock adjustment feature coming soon",
-                });
-              }}
-            >
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              Adjustment
-            </Button>
+            <Link href="/stock/adjustments">
+              <Button variant="outline">
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                Adjustments
+              </Button>
+            </Link>
             <Link href="/stock/add">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -491,6 +658,7 @@ export default function StockPage() {
             </Link>
           </div>
         </div>
+      
 
         {/* Stock Overview Cards */}
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -665,14 +833,14 @@ export default function StockPage() {
                           </td>
                         </tr>
                       ) : (
-                        filteredGrayStock.map((item) => (
+                        getPaginatedData(filteredGrayStock, grayStockPage).map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.quantity}m</td>
                           <td className="p-4">{item.factory}</td>
                           <td className="p-4">{item.agent}</td>
                           <td className="p-4">{item.orderNumber}</td>
-                            <td className="p-4">{new Date().toLocaleDateString()}</td>
+                            <td className="p-4">{new Date(item.createdAt).toLocaleDateString()}</td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
                               {getStatusIcon(item.status)}
@@ -715,6 +883,12 @@ export default function StockPage() {
                     </tbody>
                   </table>
                 </div>
+                <Pagination
+                  currentPage={grayStockPage}
+                  totalPages={getTotalPages(filteredGrayStock)}
+                  onPageChange={(page) => handleTabPageChange(page, setGrayStockPage)}
+                  dataLength={filteredGrayStock.length}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -747,7 +921,7 @@ export default function StockPage() {
                           </td>
                         </tr>
                       ) : (
-                        filteredFactoryStock.map((item) => (
+                        getPaginatedData(filteredFactoryStock, factoryStockPage).map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.quantity}m</td>
@@ -796,6 +970,12 @@ export default function StockPage() {
                     </tbody>
                   </table>
                 </div>
+                <Pagination
+                  currentPage={factoryStockPage}
+                  totalPages={getTotalPages(filteredFactoryStock)}
+                  onPageChange={(page) => handleTabPageChange(page, setFactoryStockPage)}
+                  dataLength={filteredFactoryStock.length}
+                />
               </CardContent>
             </Card>
           </TabsContent>
@@ -828,7 +1008,7 @@ export default function StockPage() {
                           </td>
                         </tr>
                       ) : (
-                        filteredDesignStock.map((item) => (
+                        getPaginatedData(filteredDesignStock, designStockPage).map((item) => (
                         <tr key={item.id} className="border-b hover:bg-muted/50">
                           <td className="p-4 font-medium">{item.product}</td>
                           <td className="p-4">{item.design}</td>
@@ -885,6 +1065,12 @@ export default function StockPage() {
                     </tbody>
                   </table>
                 </div>
+                <Pagination
+                  currentPage={designStockPage}
+                  totalPages={getTotalPages(filteredDesignStock)}
+                  onPageChange={(page) => handleTabPageChange(page, setDesignStockPage)}
+                  dataLength={filteredDesignStock.length}
+                />
               </CardContent>
             </Card>
           </TabsContent>

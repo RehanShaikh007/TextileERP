@@ -23,9 +23,13 @@ const orderItemsSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  stockId: {
+    type: String,
+    required: true,
+  },
 }, { _id: false });
 
-const ORDER_STATUSES = ["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"];
+const ORDER_STATUSES = ["pending", "confirmed"];
 
 const orderSchema = new mongoose.Schema({
   // Customer Information

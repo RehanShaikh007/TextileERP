@@ -45,6 +45,7 @@ export default function ProductsPage() {
   const [selectedTag, setSelectedTag] = useState("all")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [expandedImage, setExpandedImage] = useState<string | null>(null)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [masterOpen, setMasterOpen] = React.useState(false)
   const categories = ["Cotton Fabrics", "Silk Fabrics", "Polyester Fabrics", "Blended Fabrics"]
   const tags = ["Premium", "Cotton", "Silk", "Polyester", "Designer", "Casual", "Printed", "Solid"]
@@ -138,52 +139,6 @@ export default function ProductsPage() {
       </header>
 
       <div className="flex-1 space-y-6 p-4 md:p-6">
-        {/* Responsive: Add extra padding on mobile, reduce on desktop */}
-        {/* --- Demo: Product Variants & Tags/Category Master --- */}
-        <div className="bg-purple-50 border-l-4 border-purple-400 p-3 rounded mb-4 flex flex-col gap-2">
-          <p className="text-purple-800 text-sm font-medium">You can enter a product with one color, but the system stores multiple color variants in the backend. Tags and categories are managed via a master list.</p>
-          <Button variant="outline" size="sm" className="w-max" onClick={() => setMasterOpen(true)}>Manage Tags & Categories (Master)</Button>
-          <Dialog open={masterOpen} onOpenChange={setMasterOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Tags & Category Master</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-semibold mb-2">Categories</h4>
-                  <div className="flex gap-2 mb-2">
-                    <Input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="Add new category" />
-                    <Button size="sm" onClick={() => { if (newCategory && !categoriesState.includes(newCategory)) { setCategoriesState([...categoriesState, newCategory]); setNewCategory(""); } }}>Add</Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {categoriesState.map((cat, idx) => (
-                      <span key={cat} className="flex items-center bg-gray-100 rounded px-2 py-1 text-sm">
-                        {cat}
-                        <Button size="sm" variant="ghost" className="ml-1 p-0" onClick={() => setCategoriesState(categoriesState.filter((c, i) => i !== idx))}><X className="h-3 w-3" /></Button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-2">Tags</h4>
-                  <div className="flex gap-2 mb-2">
-                    <Input value={newTag} onChange={e => setNewTag(e.target.value)} placeholder="Add new tag" />
-                    <Button size="sm" onClick={() => { if (newTag && !tagsState.includes(newTag)) { setTagsState([...tagsState, newTag]); setNewTag(""); } }}>Add</Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {tagsState.map((tag, idx) => (
-                      <span key={tag} className="flex items-center bg-gray-100 rounded px-2 py-1 text-sm">
-                        {tag}
-                        <Button size="sm" variant="ghost" className="ml-1 p-0" onClick={() => setTagsState(tagsState.filter((t, i) => i !== idx))}><X className="h-3 w-3" /></Button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-        {/* --- End Demo --- */}
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
           <div>
@@ -306,7 +261,10 @@ export default function ProductsPage() {
                         src={product.images?.[0] || "/placeholder.svg"}
                         alt={product.productName}
                         className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        onClick={() => setExpandedImage(product.images?.[0] ?? "")}
+                        onClick={() => {
+                          setExpandedImage(product.images?.[0] ?? "")
+                          setCurrentImageIndex(0)
+                        }}
                       />
                       <div className="absolute top-2 right-2">{getStatusIcon(product.status || "unknown")}</div>
                     </div>
@@ -314,7 +272,7 @@ export default function ProductsPage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-sm">{product.productName}</h3>
-                        {getStatusBadge(product.status || "unknown")}
+                        {/* {getStatusBadge(product.status || "unknown")} */}
                       </div>
 
                       <p className="text-xs text-muted-foreground">{product.category}</p>
@@ -333,10 +291,10 @@ export default function ProductsPage() {
                       </div>
 
                       <div className="text-sm">
-                        <p className="font-medium">
+                        {/* <p className="font-medium">
                           {Array.isArray(product.variants) ? product.variants.reduce((sum, v) => sum + (v.stockInMeters || v.stock || 0), 0) : 0} {product.unit || "units"} total
-                        </p>
-                        <p className="text-muted-foreground">
+                        </p> */}
+                        <p className="font-medium">
                           {product.variants.length} color{product.variants.length !== 1 ? "s" : ""}
                         </p>
                       </div>
@@ -389,7 +347,10 @@ export default function ProductsPage() {
                               src={product.images?.[0] || "/placeholder.svg"}
                               alt={product.productName}
                               className="w-12 h-12 object-cover rounded cursor-pointer"
-                              onClick={() => setExpandedImage(product.images?.[0] ?? "")}
+                              onClick={() => {
+                                setExpandedImage(product.images?.[0] ?? "")
+                                setCurrentImageIndex(0)
+                              }}
                             />
                             <div>
                               <p className="font-medium">{product.productName}</p>
@@ -462,25 +423,115 @@ export default function ProductsPage() {
 
         {/* Image Expansion Modal */}
         {expandedImage && (
-          <Dialog open={!!expandedImage} onOpenChange={() => setExpandedImage(null)}>
-            <DialogContent className="max-w-3xl">
+          <Dialog open={!!expandedImage} onOpenChange={() => {
+            setExpandedImage(null)
+            setCurrentImageIndex(0)
+          }}>
+            <DialogContent className="max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Product Image</DialogTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="absolute right-4 top-4 bg-transparent"
-                  onClick={() => setExpandedImage(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <DialogTitle>Product Images</DialogTitle>
               </DialogHeader>
-              <div className="flex justify-center">
-                <img
-                  src={expandedImage || "/placeholder.svg"}
-                  alt="Expanded product"
-                  className="max-w-full max-h-96 object-contain rounded-lg"
-                />
+              <div className="relative">
+                {/* Main Image */}
+                <div className="flex justify-center mb-4">
+                  <img
+                    src={expandedImage || "/placeholder.svg"}
+                    alt="Expanded product"
+                    className="max-w-full max-h-96 object-contain rounded-lg"
+                  />
+                </div>
+
+                {/* Navigation Arrows */}
+                {(() => {
+                  // Find the current product
+                  const currentProduct = products.find(p => 
+                    p.images?.includes(expandedImage) || 
+                    (p.images?.length === 0 && expandedImage === "/placeholder.svg")
+                  )
+                  const productImages = currentProduct?.images || []
+                  
+                  if (productImages.length > 1) {
+                    return (
+                      <>
+                        {/* Previous Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                          onClick={() => {
+                            const newIndex = currentImageIndex > 0 ? currentImageIndex - 1 : productImages.length - 1
+                            setCurrentImageIndex(newIndex)
+                            setExpandedImage(productImages[newIndex])
+                          }}
+                        >
+                          ←
+                        </Button>
+
+                        {/* Next Button */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white"
+                          onClick={() => {
+                            const newIndex = currentImageIndex < productImages.length - 1 ? currentImageIndex + 1 : 0
+                            setCurrentImageIndex(newIndex)
+                            setExpandedImage(productImages[newIndex])
+                          }}
+                        >
+                          →
+                        </Button>
+
+                        {/* Image Indicators */}
+                        <div className="flex justify-center gap-2 mt-4">
+                          {productImages.map((_, index) => (
+                            <button
+                              key={index}
+                              className={`w-3 h-3 rounded-full transition-colors ${
+                                index === currentImageIndex 
+                                  ? 'bg-primary' 
+                                  : 'bg-muted hover:bg-muted-foreground'
+                              }`}
+                              onClick={() => {
+                                setCurrentImageIndex(index)
+                                setExpandedImage(productImages[index])
+                              }}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Image Counter */}
+                        <div className="text-center text-sm text-muted-foreground mt-2">
+                          {currentImageIndex + 1} of {productImages.length}
+                        </div>
+
+                        {/* Thumbnail Strip */}
+                        <div className="flex justify-center gap-2 mt-4">
+                          {productImages.map((image, index) => (
+                            <button
+                              key={index}
+                              className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                                index === currentImageIndex 
+                                  ? 'border-primary scale-105' 
+                                  : 'border-transparent hover:border-muted-foreground'
+                              }`}
+                              onClick={() => {
+                                setCurrentImageIndex(index)
+                                setExpandedImage(image)
+                              }}
+                            >
+                              <img
+                                src={image || "/placeholder.svg"}
+                                alt={`Thumbnail ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </DialogContent>
           </Dialog>

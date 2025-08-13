@@ -31,8 +31,20 @@ import Link from "next/link"
 
 // Backend interfaces
 interface Customer { _id: string; customerName: string; city: string; customerType: "Wholesale" | "Retail"; }
+interface StockVariant { color: string; quantity: number; unit: string; }
+interface StockDetails { product: string; factory?: string; agent?: string; orderNumber?: string; processingFactory?: string; processingStage?: string; expectedCompletion?: string; design?: string; warehouse?: string; }
+interface Stock { _id: string; stockType: "Gray Stock" | "Factory Stock" | "Design Stock"; status: string; variants: StockVariant[]; stockDetails: StockDetails; addtionalInfo: any; createdAt: string; updatedAt: string; }
+
+// Product interface for order items (derived from stocks)
 interface ProductVariant { color: string; pricePerMeters: number; stockInMeters: number }
-interface Product { _id: string; productName: string; variants: ProductVariant[]; unit: "METERS" | "SETS" }
+interface Product { 
+  _id: string; 
+  productName: string; 
+  variants: ProductVariant[]; 
+  unit: "METERS" | "SETS";
+  stockType?: "Gray Stock" | "Factory Stock" | "Design Stock";
+  stockDetails?: StockDetails;
+}
 
 export default function NewOrderPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState("")
@@ -65,22 +77,86 @@ export default function NewOrderPage() {
         if (!custData.success) throw new Error(custData.message || "Failed to fetch customers")
         setCustomers(custData.customers || [])
 
-        // Fetch products (support both /api/v1/products and /api/v1/products/products)
+        // Fetch all products for name lookup
+        const allProductsRes = await fetch("http://localhost:4000/api/v1/products")
+        let allProducts: { _id: string; productName: string; unit?: "METERS" | "SETS"; variants?: { color: string; pricePerMeters: number }[] }[] = []
+        if (allProductsRes.ok) {
+          const data = await allProductsRes.json()
+          if (data.success && Array.isArray(data.products)) {
+            allProducts = data.products.map((p: any) => ({ _id: p._id, productName: p.productName, unit: p.unit, variants: Array.isArray(p.variants) ? p.variants.map((v:any)=>({ color: v.color, pricePerMeters: v.pricePerMeters })) : [] }))
+          }
+        }
+
+        // Fetch products from stocks API (only products that are in stock)
         let productsData: any = null
-        let prodRes = await fetch("http://localhost:4000/api/v1/products")
+        let prodRes = await fetch("http://localhost:4000/api/v1/stock")
         if (prodRes.ok) {
           const data = await prodRes.json()
-          if (data?.success && Array.isArray(data.products)) {
-            productsData = data.products
+          if (data?.success && Array.isArray(data.stocks)) {
+            // Transform stock data to product format
+            productsData = data.stocks
+              .filter((stock: Stock) => stock.status === "available") // Only available stocks
+              .map((stock: Stock) => {
+                let productName = stock.stockDetails.product
+                let foundProduct = undefined as undefined | typeof allProducts[number]
+                // If product looks like ID, resolve by _id, else by name
+                if (/^[a-f\d]{24}$/i.test(productName)) {
+                  foundProduct = allProducts.find((p) => p._id === productName)
+                  if (foundProduct) productName = foundProduct.productName
+                } else {
+                  foundProduct = allProducts.find((p) => p.productName === productName)
+                }
+                return {
+                  _id: stock._id,
+                  productName,
+                  variants: stock.variants.map((variant: StockVariant) => {
+                    const price = foundProduct?.variants?.find((v) => v.color === variant.color)?.pricePerMeters ?? 0
+                    return {
+                      color: variant.color,
+                      pricePerMeters: price,
+                      stockInMeters: variant.quantity,
+                    }
+                  }),
+                  unit: (foundProduct?.unit === "SETS" ? "SETS" : "METERS"),
+                  stockType: stock.stockType,
+                  stockDetails: stock.stockDetails,
+                }
+              })
           }
         }
         if (!productsData) {
-          // Try fallback route if backend is mounted at /api/v1/products
-          prodRes = await fetch("http://localhost:4000/api/v1/products/products")
-          if (!prodRes.ok) throw new Error(`Products fetch failed: ${prodRes.status}`)
+          // Try fallback route if needed
+          prodRes = await fetch("http://localhost:4000/api/v1/stock")
+          if (!prodRes.ok) throw new Error(`Stocks fetch failed: ${prodRes.status}`)
           const data = await prodRes.json()
-          if (!data.success) throw new Error(data.message || "Failed to fetch products")
-          productsData = data.products || []
+          if (!data.success) throw new Error(data.message || "Failed to fetch stocks")
+          productsData = data.stocks
+            .filter((stock: Stock) => stock.status === "available")
+            .map((stock: Stock) => {
+              let productName = stock.stockDetails.product
+              let foundProduct = undefined as undefined | typeof allProducts[number]
+              if (/^[a-f\d]{24}$/i.test(productName)) {
+                foundProduct = allProducts.find((p) => p._id === productName)
+                if (foundProduct) productName = foundProduct.productName
+              } else {
+                foundProduct = allProducts.find((p) => p.productName === productName)
+              }
+              return {
+                _id: stock._id,
+                productName,
+                variants: stock.variants.map((variant: StockVariant) => {
+                  const price = foundProduct?.variants?.find((v) => v.color === variant.color)?.pricePerMeters ?? 0
+                  return {
+                    color: variant.color,
+                    pricePerMeters: price,
+                    stockInMeters: variant.quantity,
+                  }
+                }),
+                unit: (foundProduct?.unit === "SETS" ? "SETS" : "METERS"),
+                stockType: stock.stockType,
+                stockDetails: stock.stockDetails,
+              }
+            })
         }
         setProducts(productsData)
       } catch (e) {
@@ -91,6 +167,23 @@ export default function NewOrderPage() {
     }
     fetchAll()
   }, [])
+
+  // Ensure delivery date is always after order date
+  const nextDay = (dateStr: string) => {
+    if (!dateStr) return ""
+    const d = new Date(`${dateStr}T00:00:00`)
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split("T")[0]
+  }
+
+  useEffect(() => {
+    if (!orderDate || !deliveryDate) return
+    const orderD = new Date(`${orderDate}T00:00:00`)
+    const deliveryD = new Date(`${deliveryDate}T00:00:00`)
+    if (deliveryD <= orderD) {
+      setDeliveryDate("")
+    }
+  }, [orderDate])
 
   const addOrderItem = () => {
     const newItem = { id: Date.now(), productId: "", color: "", quantity: "", unit: "meters", price: "", total: 0 }
@@ -115,10 +208,10 @@ export default function NewOrderPage() {
         // Auto price from product variant
         if (field === "productId" || field === "color") {
           const product = products.find((p) => p._id === (field === "productId" ? value : item.productId))
-            const color = field === "color" ? value : item.color
+          const color = field === "color" ? value : item.color
           const variant = product?.variants.find((v) => v.color === color)
-          if (variant) updated.price = String(variant.pricePerMeters)
-          }
+          updated.price = variant ? String(variant.pricePerMeters) : "0"
+        }
 
           // Calculate total
         if (updated.quantity && updated.price) {
@@ -141,6 +234,14 @@ export default function NewOrderPage() {
   const calculateTax = () => calculateOrderTotal() * 0.18 // 18% GST
   const calculateGrandTotal = () => calculateOrderTotal() + calculateTax()
 
+  // Lookup available meters for a given selected stock (productId) and color
+  const getAvailableMeters = (productId: string, color: string): number => {
+    const product = products.find((p) => p._id === productId)
+    if (!product) return 0
+    const v = product.variants.find((vv) => vv.color === color)
+    return v?.stockInMeters ?? 0
+  }
+
   const handleCreateOrder = async () => {
     try {
       setSaving(true)
@@ -150,8 +251,26 @@ export default function NewOrderPage() {
       // Basic validation
       if (!selectedCustomerId) throw new Error("Please select a customer")
       if (!orderDate || !deliveryDate) throw new Error("Please select order and delivery dates")
+      {
+        const orderD = new Date(`${orderDate}T00:00:00`)
+        const deliveryD = new Date(`${deliveryDate}T00:00:00`)
+        if (!(deliveryD > orderD)) {
+          throw new Error("Expected delivery date must be after order date")
+        }
+      }
       if (orderItems.some((i) => !i.productId || !i.color || !i.quantity || !i.price)) {
         throw new Error("Please complete all order item fields")
+      }
+
+      // Stock availability validation
+      for (const i of orderItems) {
+        const neededMeters = (i.unit === "sets" ? (parseFloat(i.quantity) || 0) * 60 : parseFloat(i.quantity) || 0)
+        const availableMeters = getAvailableMeters(i.productId, i.color)
+        if (neededMeters > availableMeters) {
+          const product = products.find((p) => p._id === i.productId)
+          const productName = product?.productName || "Selected Stock"
+          throw new Error(`Insufficient stock: ${productName} - ${i.color}. Available: ${availableMeters} m, Requested: ${neededMeters} m`)
+        }
       }
 
       const customer = customers.find((c) => c._id === selectedCustomerId)
@@ -166,6 +285,7 @@ export default function NewOrderPage() {
           quantity: i.unit === "sets" ? (parseFloat(i.quantity) || 0) * 60 : parseFloat(i.quantity) || 0,
           unit: i.unit.toUpperCase(),
           pricePerMeters: parseFloat(i.price) || 0,
+          stockId: i.productId, // pass selected stock reference for backend deduction
         }
       })
 
@@ -274,7 +394,7 @@ export default function NewOrderPage() {
             </Link>
             <div>
               <h2 className="text-2xl font-bold">Create New Order</h2>
-              <p className="text-muted-foreground">Add a new order for your customer</p>
+              <p className="text-muted-foreground">Add a new order from available stock items</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -323,7 +443,7 @@ export default function NewOrderPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="delivery-date">Expected Delivery</Label>
-                    <Input id="delivery-date" type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
+                    <Input id="delivery-date" type="date" min={orderDate ? nextDay(orderDate) : undefined} value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
                   </div>
                 </div>
               </CardContent>
@@ -335,7 +455,7 @@ export default function NewOrderPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle>Order Items</CardTitle>
-                    <CardDescription>Add products to this order</CardDescription>
+                    <CardDescription>Add stock items to this order</CardDescription>
                   </div>
                   <Button onClick={addOrderItem} size="sm">
                     <Plus className="h-4 w-4 mr-2" />
@@ -345,7 +465,7 @@ export default function NewOrderPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded mb-4">
-                  <p className="text-yellow-800 text-sm font-medium">Pricing auto-fills from product variant price. You can override.</p>
+                  <p className="text-yellow-800 text-sm font-medium">Only products available in stock are shown. Price per meter auto-fills from product variant and cannot be edited.</p>
                 </div>
                 {orderItems.map((item, index) => (
                   <div key={item.id} className="p-4 border rounded-lg space-y-4">
@@ -367,10 +487,35 @@ export default function NewOrderPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {products.map((product) => (
-                              <SelectItem key={product._id} value={product._id}>{product.productName}</SelectItem>
+                              <SelectItem key={product._id} value={product._id}>
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{product.productName}</span>
+                                  {product.stockType && (
+                                    <Badge variant="outline" className="text-xs ml-2">
+                                      {product.stockType}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
+                        {item.productId && (() => {
+                          const product = products.find((p) => p._id === item.productId)
+                          return product?.stockDetails ? (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {product.stockType === "Gray Stock" && (
+                                <span>Factory: {product.stockDetails.factory} • Agent: {product.stockDetails.agent}</span>
+                              )}
+                              {product.stockType === "Factory Stock" && (
+                                <span>Processing: {product.stockDetails.processingFactory} • Stage: {product.stockDetails.processingStage}</span>
+                              )}
+                              {product.stockType === "Design Stock" && (
+                                <span>Design: {product.stockDetails.design} • Warehouse: {product.stockDetails.warehouse}</span>
+                              )}
+                            </div>
+                          ) : null
+                        })()}
                       </div>
 
                       <div className="space-y-2">
@@ -392,6 +537,11 @@ export default function NewOrderPage() {
                       <div className="space-y-2">
                         <Label>Quantity</Label>
                         <Input type="number" placeholder="0" value={item.quantity} onChange={(e) => updateOrderItem(item.id, "quantity", e.target.value)} />
+                        {item.productId && item.color && (
+                          <div className="text-xs text-muted-foreground">
+                            Available: {getAvailableMeters(item.productId, item.color).toLocaleString()} m
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2">
@@ -409,7 +559,7 @@ export default function NewOrderPage() {
 
                       <div className="space-y-2">
                         <Label>Price per {item.unit}</Label>
-                        <Input type="number" placeholder="0" value={item.price} onChange={(e) => updateOrderItem(item.id, "price", e.target.value)} />
+                        <Input type="number" placeholder="0" value={item.price} disabled className="bg-muted" />
                       </div>
 
                       <div className="space-y-2">
@@ -421,8 +571,8 @@ export default function NewOrderPage() {
                     {item.unit === "sets" && (
                       <div className="text-sm text-muted-foreground bg-blue-50 p-2 rounded">
                         <p>1 Set = 60 meters (equivalent: {item.quantity ? (parseFloat(item.quantity) * 60).toLocaleString() : 0} meters)</p>
-                        </div>
-                      )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -449,6 +599,9 @@ export default function NewOrderPage() {
                 <CardDescription>Review order details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded mb-4">
+                  <p className="text-blue-800 text-sm font-medium">All items are from available stock inventory</p>
+                </div>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Items</span>
@@ -502,52 +655,20 @@ export default function NewOrderPage() {
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full bg-transparent">
-                      <User className="h-4 w-4 mr-2" />
-                      Add New Customer
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Customer</DialogTitle>
-                      <DialogDescription>Create a new customer profile</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input placeholder="Customer name" />
-                      <Input placeholder="Email" type="email" />
-                      <Input placeholder="Phone" />
-                      <Button className="w-full">Add Customer</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+              <CardContent className="space-y-4 flex flex-col">
+                <Link href="/customers">
+                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                    <User className="h-4 w-4 mr-2" />
+                    Add New Customer
+                  </Button>
+                </Link>
 
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-full bg-transparent">
-                      <Package className="h-4 w-4 mr-2" />
-                      Add New Product
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Product</DialogTitle>
-                      <DialogDescription>Create a new product</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Input placeholder="Product name" />
-                      <Input placeholder="Base price" type="number" />
-                      <Button className="w-full">Add Product</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-
-                <Button variant="outline" size="sm" className="w-full bg-transparent">
-                  <Calculator className="h-4 w-4 mr-2" />
-                  Price Calculator
-                </Button>
+                <Link href="/stock">
+                  <Button variant="outline" size="sm" className="w-full bg-transparent">
+                    <Package className="h-4 w-4 mr-2" />
+                    Manage Stock
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
@@ -556,4 +677,3 @@ export default function NewOrderPage() {
     </SidebarInset>
   )
 }
-

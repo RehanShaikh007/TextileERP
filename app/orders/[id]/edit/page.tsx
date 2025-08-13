@@ -72,6 +72,7 @@ interface FormOrderItem {
   quantity: number
   price: number
   total: number
+  stockId?: string
 }
 
 export default function EditOrderPage() {
@@ -94,7 +95,7 @@ export default function EditOrderPage() {
   })
 
   const [orderItems, setOrderItems] = useState<FormOrderItem[]>([
-    { id: 1, product: "", color: "", quantity: 0, price: 0, total: 0 }
+    { id: 1, product: "", color: "", quantity: 0, price: 0, total: 0, stockId: "" }
   ])
 
   // Fetch order, customers, and products on component mount
@@ -137,7 +138,8 @@ export default function EditOrderPage() {
           color: item.color,
           quantity: item.quantity,
           price: item.pricePerMeters,
-          total: item.quantity * item.pricePerMeters
+          total: item.quantity * item.pricePerMeters,
+          stockId: item.stockId // Preserve stockId
         }))
         setOrderItems(transformedItems)
 
@@ -185,10 +187,6 @@ export default function EditOrderPage() {
   const statusOptions = [
     { value: "pending", label: "Pending" },
     { value: "confirmed", label: "Confirmed" },
-    { value: "processing", label: "Processing" },
-    { value: "shipped", label: "Shipped" },
-    { value: "delivered", label: "Delivered" },
-    { value: "cancelled", label: "Cancelled" },
   ]
 
   const handleInputChange = (field: string, value: string | Date) => {
@@ -200,7 +198,7 @@ export default function EditOrderPage() {
 
   const addOrderItem = () => {
     const newId = Math.max(...orderItems.map((item) => item.id)) + 1
-    setOrderItems([...orderItems, { id: newId, product: "", color: "", quantity: 0, price: 0, total: 0 }])
+    setOrderItems([...orderItems, { id: newId, product: "", color: "", quantity: 0, price: 0, total: 0, stockId: "" }])
   }
 
   const removeOrderItem = (id: number) => {
@@ -260,7 +258,8 @@ export default function EditOrderPage() {
         color: item.color,
         quantity: item.quantity,
         unit: "METERS",
-        pricePerMeters: item.price
+        pricePerMeters: item.price,
+        stockId: item.stockId // Preserve stockId
       }))
 
       const orderData = {

@@ -1,5 +1,5 @@
 import express from 'express';
-import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts, getRecentOrdersByProduct, getAllProductNames } from "../controller/productController.js";
+import { createProduct, getAllProducts, getProductById, updateProduct, deleteProduct, getTopProducts, getRecentOrdersByProduct, getAllProductNames, fixOrdersForRenamedProducts, fixProductStockInconsistencies, syncAllStocksWithProducts } from "../controller/productController.js";
 import { uploadImages } from '../controller/imageController.js';
 import { upload } from '../middleware/uploadMiddleware.js';
 
@@ -16,6 +16,9 @@ router.delete('/:id', deleteProduct);
 router.post('/upload-images', upload.array('images', 5), uploadImages);
 router.get('/top/Products', getTopProducts);
 router.get('/recent/orders/:productId', getRecentOrdersByProduct);
+router.post('/fix-renamed-products', fixOrdersForRenamedProducts);
+router.post('/fix-stock-inconsistencies', fixProductStockInconsistencies);
+router.post('/sync-stocks-with-products', syncAllStocksWithProducts);
 
 // // Stock Routes
 // router.post('/stock/addStock', createStock);

@@ -411,7 +411,7 @@ export default function EditProductPage() {
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
+                {/* <div className="flex items-center space-x-2">
                   <Switch
                     id="active"
                     checked={formData.isActive}
@@ -420,7 +420,7 @@ export default function EditProductPage() {
                     }
                   />
                   <Label htmlFor="active">Active Product</Label>
-                </div>
+                </div> */}
               </CardContent>
             </Card>
 
@@ -465,9 +465,9 @@ export default function EditProductPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor={`stock-${index}`}>Stock (meters)</Label>
+                      {/* <Label htmlFor={`stock-${index}`}>Stock (meters)</Label> */}
                       <div className="flex gap-2">
-                        <Input
+                        {/* <Input
                           id={`stock-${index}`}
                           type="number"
                           value={variant.stockInMeters || 0}
@@ -479,7 +479,7 @@ export default function EditProductPage() {
                             )
                           }
                           required
-                        />
+                        /> */}
                         <Button
                           type="button"
                           variant="destructive"

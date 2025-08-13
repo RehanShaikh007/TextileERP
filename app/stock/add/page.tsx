@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -39,6 +39,9 @@ import {
   Palette,
   Plus,
   Loader2,
+  Search,
+  Check,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -52,6 +55,10 @@ interface Agent {
   createdAt: string;
   updatedAt: string;
 }
+
+// Product interfaces for color variants
+interface ProductVariant { color: string; pricePerMeters?: number; stockInMeters?: number }
+interface Product { _id: string; productName: string; variants: ProductVariant[] }
 
 export default function AddStockPage() {
   const router = useRouter();
@@ -68,6 +75,31 @@ export default function AddStockPage() {
   const [productNames, setProductNames] = useState<string[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  
+  // Full products list with variants for color options
+  const [productsWithVariants, setProductsWithVariants] = useState<Product[]>([]);
+  
+  // Gray Stock products for Factory Stock selection
+  const [grayStockProducts, setGrayStockProducts] = useState<Product[]>([]);
+  const [grayStockProductsLoading, setGrayStockProductsLoading] = useState(true);
+  
+  // Searchable product selector state
+  const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const productSearchRef = useRef<HTMLDivElement>(null);
+  
+  // Searchable design selector state
+  const [designSearchTerm, setDesignSearchTerm] = useState("");
+  const [showDesignSuggestions, setShowDesignSuggestions] = useState(false);
+  const [filteredDesigns, setFilteredDesigns] = useState<typeof designs>([]);
+  const designSearchRef = useRef<HTMLDivElement>(null);
+  
+  // Searchable warehouse selector state
+  const [warehouseSearchTerm, setWarehouseSearchTerm] = useState("");
+  const [showWarehouseSuggestions, setShowWarehouseSuggestions] = useState(false);
+  const [filteredWarehouses, setFilteredWarehouses] = useState<typeof warehouses>([]);
+  const warehouseSearchRef = useRef<HTMLDivElement>(null);
   
   // Add state for agents fetching
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -90,6 +122,243 @@ export default function AddStockPage() {
     qualityGrade: "",
     notes: "",
   });
+
+  // Search functionality for products
+  useEffect(() => {
+    // Use Gray Stock products for Factory Stock, all products for others
+    const availableProducts = stockType === "factory" ? grayStockProducts : productsWithVariants;
+    
+    console.log("Product search - Stock type:", stockType); // Debug log
+    console.log("Product search - Available products count:", availableProducts.length); // Debug log
+    console.log("Product search - Gray Stock products count:", grayStockProducts.length); // Debug log
+    console.log("Product search - All products count:", productsWithVariants.length); // Debug log
+    
+    if (productSearchTerm.trim() === "") {
+      setFilteredProducts(availableProducts);
+    } else {
+      const filtered = availableProducts.filter(product =>
+        product.productName.toLowerCase().includes(productSearchTerm.toLowerCase())
+      );
+      setFilteredProducts(filtered);
+    }
+  }, [productSearchTerm, productsWithVariants, grayStockProducts, stockType]);
+
+  // Search functionality for designs
+  useEffect(() => {
+    if (designSearchTerm.trim() === "") {
+      setFilteredDesigns(designs);
+    } else {
+      const filtered = designs.filter(design =>
+        design.name.toLowerCase().includes(designSearchTerm.toLowerCase())
+      );
+      setFilteredDesigns(filtered);
+    }
+  }, [designSearchTerm]);
+
+  // Search functionality for warehouses
+  useEffect(() => {
+    if (warehouseSearchTerm.trim() === "") {
+      setFilteredWarehouses(warehouses);
+    } else {
+      const filtered = warehouses.filter(warehouse =>
+        warehouse.name.toLowerCase().includes(warehouseSearchTerm.toLowerCase()) ||
+        warehouse.location.toLowerCase().includes(warehouseSearchTerm.toLowerCase())
+      );
+      setFilteredWarehouses(filtered);
+    }
+  }, [warehouseSearchTerm]);
+
+  // Refetch Gray Stock products when switching to Factory Stock
+  useEffect(() => {
+    console.log("Stock type changed to:", stockType); // Debug log
+    console.log("Products with variants length:", productsWithVariants.length); // Debug log
+    
+    if (stockType === "factory") {
+      console.log("Switching to Factory Stock, fetching Gray Stock products..."); // Debug log
+      const fetchGrayStockProducts = async () => {
+        try {
+          setGrayStockProductsLoading(true);
+          
+          // Wait for productsWithVariants to be loaded
+          if (productsWithVariants.length === 0) {
+            return;
+          }
+          
+          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Gray Stock&limit=1000", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Gray Stock API Response:", data); // Debug log
+            
+            if (data?.success && Array.isArray(data.stocks)) {
+              console.log("All Gray Stock entries:", data.stocks); // Debug log
+              
+              // Extract unique products from Gray Stock
+              const grayStockProductNames = [...new Set(data.stocks.map((stock: any) => stock.stockDetails?.product))].filter(Boolean);
+              console.log("Extracted Gray Stock product names:", grayStockProductNames); // Debug log
+              console.log("Available products with variants:", productsWithVariants); // Debug log
+              
+              // Get full product details for these products
+              const grayStockProductsData = productsWithVariants.filter(product => 
+                grayStockProductNames.includes(product.productName)
+              );
+              console.log("Final filtered Gray Stock products:", grayStockProductsData); // Debug log
+              
+              setGrayStockProducts(grayStockProductsData);
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching Gray Stock products:", err);
+        } finally {
+          setGrayStockProductsLoading(false);
+        }
+      };
+      
+      fetchGrayStockProducts();
+    }
+    
+    // Clear selected product when switching stock types
+    setSelectedProduct("");
+    setProductSearchTerm("");
+  }, [stockType, productsWithVariants]);
+
+  // Refetch Gray Stock products when productsWithVariants is loaded
+  useEffect(() => {
+    if (stockType === "factory" && productsWithVariants.length > 0 && grayStockProducts.length === 0) {
+      const fetchGrayStockProducts = async () => {
+        try {
+          setGrayStockProductsLoading(true);
+          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Gray Stock&limit=1000", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Refetch - Gray Stock API Response:", data); // Debug log
+            
+            if (data?.success && Array.isArray(data.stocks)) {
+              console.log("Refetch - All Gray Stock entries:", data.stocks); // Debug log
+              
+              const grayStockProductNames = [...new Set(data.stocks.map((stock: any) => stock.stockDetails?.product))].filter(Boolean);
+              console.log("Refetch - Extracted product names:", grayStockProductNames); // Debug log
+              console.log("Refetch - Available products with variants:", productsWithVariants); // Debug log
+              
+              const grayStockProductsData = productsWithVariants.filter(product => 
+                grayStockProductNames.includes(product.productName)
+              );
+              console.log("Refetch - Final filtered products:", grayStockProductsData); // Debug log
+              
+              setGrayStockProducts(grayStockProductsData);
+            }
+          }
+        } catch (err) {
+          console.error("Error refetching Gray Stock products:", err);
+        } finally {
+          setGrayStockProductsLoading(false);
+        }
+      };
+      
+      fetchGrayStockProducts();
+    }
+  }, [productsWithVariants, stockType, grayStockProducts.length]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (productSearchRef.current && !productSearchRef.current.contains(event.target as Node)) {
+        setShowProductSuggestions(false);
+      }
+      if (designSearchRef.current && !designSearchRef.current.contains(event.target as Node)) {
+        setShowDesignSuggestions(false);
+      }
+      if (warehouseSearchRef.current && !warehouseSearchRef.current.contains(event.target as Node)) {
+        setShowWarehouseSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleProductSelect = (product: Product) => {
+    setSelectedProduct(product.productName);
+    setProductSearchTerm(product.productName);
+    setShowProductSuggestions(false);
+  };
+
+  const handleDesignSelect = (design: typeof designs[0]) => {
+    setStockDetails({ ...stockDetails, design: design.id });
+    setDesignSearchTerm(design.name);
+    setShowDesignSuggestions(false);
+  };
+
+  const handleWarehouseSelect = (warehouse: typeof warehouses[0]) => {
+    setStockDetails({ ...stockDetails, warehouse: warehouse.id });
+    setWarehouseSearchTerm(`${warehouse.name} - ${warehouse.location}`);
+    setShowWarehouseSuggestions(false);
+  };
+
+  const handleProductSearchChange = (value: string) => {
+    setProductSearchTerm(value);
+    setShowProductSuggestions(true);
+    if (value === "") {
+      setSelectedProduct("");
+    }
+  };
+
+  const handleDesignSearchChange = (value: string) => {
+    setDesignSearchTerm(value);
+    setShowDesignSuggestions(true);
+    
+    // Allow manual entry - if user types something, set it as the design
+    if (value.trim() !== "") {
+      // Check if it matches an existing design
+      const existingDesign = designs.find(d => d.name.toLowerCase() === value.toLowerCase());
+      if (existingDesign) {
+        setStockDetails({ ...stockDetails, design: existingDesign.id });
+      } else {
+        // Allow manual entry - create a custom design ID
+        setStockDetails({ ...stockDetails, design: `CUSTOM-${Date.now()}` });
+      }
+    } else {
+      setStockDetails({ ...stockDetails, design: "" });
+    }
+  };
+
+  const handleWarehouseSearchChange = (value: string) => {
+    setWarehouseSearchTerm(value);
+    setShowWarehouseSuggestions(true);
+    
+    // Allow manual entry - if user types something, set it as the warehouse
+    if (value.trim() !== "") {
+      // Check if it matches an existing warehouse
+      const existingWarehouse = warehouses.find(w => 
+        `${w.name} - ${w.location}`.toLowerCase() === value.toLowerCase()
+      );
+      if (existingWarehouse) {
+        setStockDetails({ ...stockDetails, warehouse: existingWarehouse.id });
+      } else {
+        // Allow manual entry - create a custom warehouse ID
+        setStockDetails({ ...stockDetails, warehouse: `CUSTOM-${Date.now()}` });
+      }
+    } else {
+      setStockDetails({ ...stockDetails, warehouse: "" });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setShowProductSuggestions(false);
+      setShowDesignSuggestions(false);
+      setShowWarehouseSuggestions(false);
+    }
+  };
 
   // Fetch products and agents from backend on component mount
   useEffect(() => {
@@ -154,8 +423,39 @@ export default function AddStockPage() {
       }
     };
 
+    // Fetch full products with variants for color options
+    const fetchProductsWithVariants = async () => {
+      try {
+        const res1 = await fetch("http://localhost:4000/api/v1/products", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res1.ok) {
+          const data = await res1.json();
+          if (data?.success && Array.isArray(data.products)) {
+            setProductsWithVariants(data.products as Product[]);
+            return;
+          }
+        }
+        // Fallback
+        const res2 = await fetch("http://localhost:4000/api/v1/products/products", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res2.ok) {
+          const data = await res2.json();
+          if (data?.success && Array.isArray(data.products)) {
+            setProductsWithVariants(data.products as Product[]);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching products with variants:", err);
+      }
+    };
+
     fetchProductNames();
     fetchAgentsAndFactories();
+    fetchProductsWithVariants();
   }, []);
 
   const designs = [
@@ -197,6 +497,30 @@ export default function AddStockPage() {
       }
       return sum + qty;
     }, 0);
+  };
+
+  // Colors for the currently selected product (variant colors from product creation)
+  const getAvailableColorsForSelectedProduct = (): string[] => {
+    if (!selectedProduct) return [];
+    const product = productsWithVariants.find(p => p.productName === selectedProduct);
+    return product ? product.variants.map(v => v.color) : [];
+  };
+
+  // Colors already chosen across variants (excluding empties)
+  const getSelectedColors = (): string[] => {
+    return variants.map(v => v.color).filter((c) => !!c);
+  };
+
+  // Remaining colors for a specific variant index, keeping its current selection visible
+  const getAvailableColorsForVariant = (index: number): string[] => {
+    const allColors = getAvailableColorsForSelectedProduct();
+    if (allColors.length === 0) return [];
+    const currentColor = variants[index]?.color;
+    const selectedByOthers = variants
+      .filter((_, i) => i !== index)
+      .map(v => v.color)
+      .filter((c) => !!c);
+    return allColors.filter((color) => color === currentColor || !selectedByOthers.includes(color));
   };
 
   // Helper function to retry fetching product names
@@ -272,10 +596,32 @@ export default function AddStockPage() {
           expectedCompletion: stockDetails.expectedCompletion,
         };
       } else if (stockType === "design") {
+        // For design stock, store the actual names instead of just IDs
+        let designName = stockDetails.design;
+        let warehouseName = stockDetails.warehouse;
+        
+        // If it's a custom design (starts with CUSTOM-), use the search term
+        if (stockDetails.design.startsWith('CUSTOM-')) {
+          designName = designSearchTerm;
+        } else {
+          // Find the design name from the designs array
+          const design = designs.find(d => d.id === stockDetails.design);
+          designName = design ? design.name : stockDetails.design;
+        }
+        
+        // If it's a custom warehouse (starts with CUSTOM-), use the search term
+        if (stockDetails.warehouse.startsWith('CUSTOM-')) {
+          warehouseName = warehouseSearchTerm;
+        } else {
+          // Find the warehouse name from the warehouses array
+          const warehouse = warehouses.find(w => w.id === stockDetails.warehouse);
+          warehouseName = warehouse ? `${warehouse.name} - ${warehouse.location}` : stockDetails.warehouse;
+        }
+        
         backendStockDetails = {
           product: selectedProduct,
-          design: stockDetails.design,
-          warehouse: stockDetails.warehouse,
+          design: designName,
+          warehouse: warehouseName,
         };
       }
 
@@ -370,12 +716,11 @@ export default function AddStockPage() {
 
       <div className="flex-1 space-y-6 p-4 md:p-6">
         {/* --- Demo: Adjustment Improvements --- */}
-        <div className="bg-orange-50 border-l-4 border-orange-400 p-3 rounded mb-4">
+        {/* <div className="bg-orange-50 border-l-4 border-orange-400 p-3 rounded mb-4">
           <p className="text-orange-800 text-sm font-medium">
-            Adjustment allows searching for products (no SKU required) and
-            entering actual quantity.
+            
           </p>
-        </div>
+        </div> */}
         {/* --- End Demo --- */}
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
@@ -423,47 +768,71 @@ export default function AddStockPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="product">Product</Label>
-                          <Select
-                            value={selectedProduct}
-                            onValueChange={setSelectedProduct}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {productsLoading ? (
-                                <div className="flex items-center justify-center p-4">
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  <span>Loading products...</span>
-                                </div>
-                              ) : productsError ? (
-                                <div className="p-4 text-red-500 text-sm">
-                                  <div>Error: {productsError}</div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-2"
-                                    onClick={retryFetchProducts}
-                                  >
-                                    Retry
-                                  </Button>
-                                </div>
-                              ) : productNames.length === 0 ? (
-                                <div className="p-4 text-muted-foreground text-sm">
-                                  No products available
-                                </div>
-                              ) : (
-                                productNames.map((productName, index) => (
-                                  <SelectItem
-                                    key={index}
-                                    value={productName}
-                                  >
-                                    {productName}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative" ref={productSearchRef}>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search products..."
+                                value={productSearchTerm}
+                                onChange={(e) => handleProductSearchChange(e.target.value)}
+                                onFocus={() => setShowProductSuggestions(true)}
+                                onKeyDown={handleKeyDown}
+                                className="pl-10 pr-10"
+                              />
+                              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                            
+                            {/* Product Suggestions Dropdown */}
+                            {showProductSuggestions && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                {stockType === "factory" && grayStockProductsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading Gray Stock products...</span>
+                                  </div>
+                                ) : productsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading products...</span>
+                                  </div>
+                                ) : productsError ? (
+                                  <div className="p-4 text-red-500 text-sm">
+                                    <div>Error: {productsError}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={retryFetchProducts}
+                                    >
+                                      Retry
+                                    </Button>
+                                  </div>
+                                ) : filteredProducts.length === 0 ? (
+                                  <div className="p-4 text-muted-foreground text-sm">
+                                    {stockType === "factory" 
+                                      ? "No products found in Gray Stock. Add products to Gray Stock first."
+                                      : productSearchTerm 
+                                        ? "No products found" 
+                                        : "No products available"
+                                    }
+                                  </div>
+                                ) : (
+                                  filteredProducts.map((product) => (
+                                    <div
+                                      key={product._id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                                      onClick={() => handleProductSelect(product)}
+                                    >
+                                      <span>{product.productName}</span>
+                                      {selectedProduct === product.productName && (
+                                        <Check className="h-4 w-4 text-green-500" />
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="factory">Factory</Label>
@@ -546,47 +915,71 @@ export default function AddStockPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="product">Product</Label>
-                          <Select
-                            value={selectedProduct}
-                            onValueChange={setSelectedProduct}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {productsLoading ? (
-                                <div className="flex items-center justify-center p-4">
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  <span>Loading products...</span>
-                                </div>
-                              ) : productsError ? (
-                                <div className="p-4 text-red-500 text-sm">
-                                  <div>Error: {productsError}</div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-2"
-                                    onClick={retryFetchProducts}
-                                  >
-                                    Retry
-                                  </Button>
-                                </div>
-                              ) : productNames.length === 0 ? (
-                                <div className="p-4 text-muted-foreground text-sm">
-                                  No products available
-                                </div>
-                              ) : (
-                                productNames.map((productName, index) => (
-                                  <SelectItem
-                                    key={index}
-                                    value={productName}
-                                  >
-                                    {productName}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative" ref={productSearchRef}>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder={stockType === "factory" ? "Search Gray Stock products..." : "Search products..."}
+                                value={productSearchTerm}
+                                onChange={(e) => handleProductSearchChange(e.target.value)}
+                                onFocus={() => setShowProductSuggestions(true)}
+                                onKeyDown={handleKeyDown}
+                                className="pl-10 pr-10"
+                              />
+                              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                            
+                            {/* Product Suggestions Dropdown */}
+                            {showProductSuggestions && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                {stockType === "factory" && grayStockProductsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading Gray Stock products...</span>
+                                  </div>
+                                ) : productsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading products...</span>
+                                  </div>
+                                ) : productsError ? (
+                                  <div className="p-4 text-red-500 text-sm">
+                                    <div>Error: {productsError}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={retryFetchProducts}
+                                    >
+                                      Retry
+                                    </Button>
+                                  </div>
+                                ) : filteredProducts.length === 0 ? (
+                                  <div className="p-4 text-muted-foreground text-sm">
+                                    {stockType === "factory" 
+                                      ? "No products found in Gray Stock. Add products to Gray Stock first."
+                                      : productSearchTerm 
+                                        ? "No products found" 
+                                        : "No products available"
+                                    }
+                                  </div>
+                                ) : (
+                                  filteredProducts.map((product) => (
+                                    <div
+                                      key={product._id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                                      onClick={() => handleProductSelect(product)}
+                                    >
+                                      <span>{product.productName}</span>
+                                      {selectedProduct === product.productName && (
+                                        <Check className="h-4 w-4 text-green-500" />
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="factory">Processing Factory</Label>
@@ -670,98 +1063,221 @@ export default function AddStockPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="product">Product</Label>
-                          <Select
-                            value={selectedProduct}
-                            onValueChange={setSelectedProduct}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select product" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {productsLoading ? (
-                                <div className="flex items-center justify-center p-4">
-                                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                                  <span>Loading products...</span>
-                                </div>
-                              ) : productsError ? (
-                                <div className="p-4 text-red-500 text-sm">
-                                  <div>Error: {productsError}</div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-2"
-                                    onClick={retryFetchProducts}
-                                  >
-                                    Retry
-                                  </Button>
-                                </div>
-                              ) : productNames.length === 0 ? (
-                                <div className="p-4 text-muted-foreground text-sm">
-                                  No products available
-                                </div>
-                              ) : (
-                                productNames.map((productName, index) => (
-                                  <SelectItem
-                                    key={index}
-                                    value={productName}
-                                  >
-                                    {productName}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative" ref={productSearchRef}>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search products..."
+                                value={productSearchTerm}
+                                onChange={(e) => handleProductSearchChange(e.target.value)}
+                                onFocus={() => setShowProductSuggestions(true)}
+                                onKeyDown={handleKeyDown}
+                                className="pl-10 pr-10"
+                              />
+                              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                            
+                            {/* Product Suggestions Dropdown */}
+                            {showProductSuggestions && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                {productsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading products...</span>
+                                  </div>
+                                ) : productsError ? (
+                                  <div className="p-4 text-red-500 text-sm">
+                                    <div>Error: {productsError}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={retryFetchProducts}
+                                    >
+                                      Retry
+                                    </Button>
+                                  </div>
+                                ) : filteredProducts.length === 0 ? (
+                                  <div className="p-4 text-muted-foreground text-sm">
+                                    {productSearchTerm ? "No products found" : "No products available"}
+                                  </div>
+                                ) : (
+                                  filteredProducts.map((product) => (
+                                    <div
+                                      key={product._id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                                      onClick={() => handleProductSelect(product)}
+                                    >
+                                      <span>{product.productName}</span>
+                                      {selectedProduct === product.productName && (
+                                        <Check className="h-4 w-4 text-green-500" />
+                                      )}
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="design">Design</Label>
-                          <Select
-                            value={stockDetails.design}
-                            onValueChange={(value) =>
-                              setStockDetails({
-                                ...stockDetails,
-                                design: value,
-                              })
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select design" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {designs.map((design) => (
-                                <SelectItem key={design.id} value={design.id}>
-                                  {design.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="relative" ref={designSearchRef}>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Type design name or search existing designs..."
+                                value={designSearchTerm}
+                                onChange={(e) => handleDesignSearchChange(e.target.value)}
+                                onFocus={() => setShowDesignSuggestions(true)}
+                                onKeyDown={handleKeyDown}
+                                className="pl-10 pr-10"
+                              />
+                              <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                            
+                            {/* Design Suggestions Dropdown */}
+                            {showDesignSuggestions && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                {filteredDesigns.length === 0 ? (
+                                  <div className="p-4 text-muted-foreground text-sm">
+                                    {designSearchTerm ? "No designs found" : "No designs available"}
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* Existing Designs */}
+                                    {filteredDesigns.map((design) => (
+                                      <div
+                                        key={design.id}
+                                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                                        onClick={() => handleDesignSelect(design)}
+                                      >
+                                        <div>
+                                          <span className="font-medium">{design.name}</span>
+                                          <span className="text-xs text-muted-foreground ml-2">({design.category})</span>
+                                        </div>
+                                        {stockDetails.design === design.id && (
+                                          <Check className="h-4 w-4 text-green-500" />
+                                        )}
+                                      </div>
+                                    ))}
+                                    
+                                    {/* Add New Design Option */}
+                                    {designSearchTerm && !filteredDesigns.find(d => d.name.toLowerCase() === designSearchTerm.toLowerCase()) && (
+                                      <>
+                                        <div className="border-t border-gray-200 my-1"></div>
+                                        <div
+                                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex items-center gap-2 text-blue-600"
+                                          onClick={() => {
+                                            // Add new design to the list
+                                            const newDesign = {
+                                              id: `DES-${Date.now()}`,
+                                              name: designSearchTerm,
+                                              category: "custom"
+                                            };
+                                            // Update the designs array (you might want to persist this)
+                                            designs.push(newDesign);
+                                            handleDesignSelect(newDesign);
+                                          }}
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                          <span>Add "{designSearchTerm}" as new design</span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {/* Show when custom design is entered */}
+                          {designSearchTerm && !designs.find(d => d.name.toLowerCase() === designSearchTerm.toLowerCase()) && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              ✓ Custom design: "{designSearchTerm}"
+                            </p>
+                          )}
                         </div>
                       </div>
 
                       <div className="space-y-2">
                         <Label htmlFor="warehouse">Warehouse</Label>
-                        <Select
-                          value={stockDetails.warehouse}
-                          onValueChange={(value) =>
-                            setStockDetails({
-                              ...stockDetails,
-                              warehouse: value,
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select warehouse" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {warehouses.map((warehouse) => (
-                              <SelectItem
-                                key={warehouse.id}
-                                value={warehouse.id}
-                              >
-                                {warehouse.name} - {warehouse.location}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="relative" ref={warehouseSearchRef}>
+                          <div className="relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Type warehouse name or search existing warehouses..."
+                              value={warehouseSearchTerm}
+                              onChange={(e) => handleWarehouseSearchChange(e.target.value)}
+                              onFocus={() => setShowWarehouseSuggestions(true)}
+                              onKeyDown={handleKeyDown}
+                              className="pl-10 pr-10"
+                            />
+                            <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          </div>
+                          
+                          {/* Warehouse Suggestions Dropdown */}
+                          {showWarehouseSuggestions && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                              {filteredWarehouses.length === 0 ? (
+                                <div className="p-4 text-muted-foreground text-sm">
+                                  {warehouseSearchTerm ? "No warehouses found" : "No warehouses available"}
+                                </div>
+                              ) : (
+                                <>
+                                  {/* Existing Warehouses */}
+                                  {filteredWarehouses.map((warehouse) => (
+                                    <div
+                                      key={warehouse.id}
+                                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                                      onClick={() => handleWarehouseSelect(warehouse)}
+                                    >
+                                      <div>
+                                        <span className="font-medium">{warehouse.name}</span>
+                                        <span className="text-xs text-muted-foreground ml-2">({warehouse.location})</span>
+                                      </div>
+                                      {stockDetails.warehouse === warehouse.id && (
+                                        <Check className="h-4 w-4 text-green-500" />
+                                      )}
+                                    </div>
+                                  ))}
+                                  
+                                  {/* Add New Warehouse Option */}
+                                  {warehouseSearchTerm && !filteredWarehouses.find(w => 
+                                    `${w.name} - ${w.location}`.toLowerCase() === warehouseSearchTerm.toLowerCase()
+                                  ) && (
+                                    <>
+                                      <div className="border-t border-gray-200 my-1"></div>
+                                      <div
+                                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex items-center gap-2 text-blue-600"
+                                        onClick={() => {
+                                          // Add new warehouse to the list
+                                          const newWarehouse = {
+                                            id: `WH-${Date.now()}`,
+                                            name: warehouseSearchTerm,
+                                            location: "Custom Location"
+                                          };
+                                          // Update the warehouses array (you might want to persist this)
+                                          warehouses.push(newWarehouse);
+                                          handleWarehouseSelect(newWarehouse);
+                                        }}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                        <span>Add "{warehouseSearchTerm}" as new warehouse</span>
+                                      </div>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {/* Show when custom warehouse is entered */}
+                        {warehouseSearchTerm && !warehouses.find(w => 
+                          `${w.name} - ${w.location}`.toLowerCase() === warehouseSearchTerm.toLowerCase()
+                        ) && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            ✓ Custom warehouse: "{warehouseSearchTerm}"
+                          </p>
+                        )}
                       </div>
                     </TabsContent>
                   </Tabs>
@@ -792,13 +1308,34 @@ export default function AddStockPage() {
                     >
                       <div className="flex-1 space-y-2">
                         <Label>Color</Label>
-                        <Input
-                          placeholder="Enter color"
-                          value={variant.color}
-                          onChange={(e) =>
-                            updateVariant(index, "color", e.target.value)
-                          }
-                        />
+                        {getAvailableColorsForVariant(index).length > 0 ? (
+                          <Select
+                            value={variant.color}
+                            onValueChange={(value) =>
+                              updateVariant(index, "color", value)
+                            }
+                            disabled={!selectedProduct}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={selectedProduct ? "Select color" : "Select product first"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getAvailableColorsForVariant(index).map((color) => (
+                                <SelectItem key={color} value={color}>
+                                  {color}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            placeholder="Enter color"
+                            value={variant.color}
+                            onChange={(e) =>
+                              updateVariant(index, "color", e.target.value)
+                            }
+                          />
+                        )}
                       </div>
                       <div className="flex-1 space-y-2">
                         <Label>Quantity</Label>

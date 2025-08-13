@@ -266,14 +266,10 @@ export default function Dashboard() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "processing":
-        return <Badge variant="secondary">Processing</Badge>;
       case "confirmed":
-        return <Badge variant="default">Confirmed</Badge>;
-      case "shipped":
-        return <Badge className="bg-blue-100 text-blue-800">Shipped</Badge>;
-      case "delivered":
-        return <Badge className="bg-green-100 text-green-800">Delivered</Badge>;
+        return <Badge className="bg-green-100 text-green-800">Confirmed</Badge>;
+      case "pending":
+        return <Badge className="bg-orange-100 text-orange-800">Pending</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -343,11 +339,12 @@ export default function Dashboard() {
         {/* --- Demo: Pending/Delivered Orders, Filter Removal, Advanced Filter --- */}
         <div className="bg-cyan-50 border-l-4 border-cyan-400 p-3 rounded mb-4 flex flex-col gap-2">
           <p className="text-cyan-800 text-sm font-medium">
-            Dashboard now shows pending and delivered orders. Use the status
-            filter or advanced filter for more options.
+            Dashboard now shows the Orders, Stocks and Products.
           </p>
           <div className="flex gap-2 mt-2">
-            <Button
+            <Link href="/orders">
+
+                <Button
               variant="outline"
               size="sm"
               onClick={() => {
@@ -357,54 +354,29 @@ export default function Dashboard() {
             >
               All Orders
             </Button>
-            <Button
+            </Link>
+          <Link href="/products">
+
+           <Button
               variant="outline"
               size="sm"
               onClick={() => setFilterStatus("processing")}
             >
-              Pending
+              All Products
             </Button>
+          </Link>
+           <Link href="/stock">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setFilterStatus("delivered")}
             >
-              Delivered
+              All Stocks
             </Button>
+           </Link>       
             <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Advanced Filter
-                </Button>
-              </DialogTrigger>
               <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Advanced Filter</DialogTitle>
-                  <DialogDescription>
-                    Filter orders by status, customer, and date range.
-                  </DialogDescription>
-                </DialogHeader>
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Status
-                    </label>
-                    <Select
-                      value={filterStatus}
-                      onValueChange={setFilterStatus}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="processing">Processing</SelectItem>
-                        <SelectItem value="confirmed">Confirmed</SelectItem>
-                        <SelectItem value="shipped">Shipped</SelectItem>
-                        <SelectItem value="delivered">Delivered</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Customer
@@ -648,7 +620,7 @@ export default function Dashboard() {
                       </div>
                     </Link>
 
-                    <Badge
+                    <Badge className="mt-2"
                       variant={
                         alert.severity === "critical"
                           ? "destructive"

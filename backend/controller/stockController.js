@@ -65,10 +65,35 @@ export const createStock = async (req, res) => {
 
 export const getAllStocks = async (req, res) => {
   try {
-    const stocks = await Stock.find();
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const stockType = req.query.stockType; // Optional filter by stock type
+    const skip = (page - 1) * limit;
+
+    // Build query filter
+    const filter = {};
+    if (stockType && stockType !== 'all') {
+      filter.stockType = stockType;
+    }
+
+    const [stocks, total] = await Promise.all([
+      Stock.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Stock.countDocuments(filter)
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+    
     res.status(200).json({
       success: true,
       stocks,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems: total,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
     });
   } catch (error) {
     console.error("Error fetching stocks:", error);

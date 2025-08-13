@@ -26,6 +26,9 @@ import {
   MapPin,
   User,
   Loader2,
+  Settings,
+  Warehouse,
+  Palette,
 } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
@@ -44,6 +47,11 @@ interface StockDetails {
   factory: string
   agent: string
   orderNumber: string
+  processingFactory?: string
+  processingStage?: string
+  expectedCompletion?: string
+  warehouse?: string
+  design?: string
 }
 
 interface AdditionalInfo {
@@ -228,10 +236,7 @@ export default function StockViewPage() {
             </Link>
             <div>
               <h2 className="text-2xl font-bold">{stock.stockType}</h2>
-              <p className="text-muted-foreground flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                ID: {stock._id}
-              </p>
+              
             </div>
           </div>
           <div className="flex gap-2">
@@ -260,7 +265,7 @@ export default function StockViewPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          {/* <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Order Number</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -269,7 +274,7 @@ export default function StockViewPage() {
               <div className="text-2xl font-bold">{stock.stockDetails.orderNumber}</div>
               <p className="text-xs text-muted-foreground">Purchase order</p>
             </CardContent>
-          </Card>
+          </Card> */}
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -309,17 +314,49 @@ export default function StockViewPage() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <Factory className="h-4 w-4 text-muted-foreground" />
-                  <span>{stock.stockDetails.factory}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>{stock.stockDetails.agent}</span>
-                </div>
+                {/* Dynamic fields based on stock type */}
+                {stock.stockType === "Gray Stock" && (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Factory className="h-4 w-4 text-muted-foreground" />
+                      <span>Factory: {stock.stockDetails.factory}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>Agent: {stock.stockDetails.agent}</span>
+                    </div>
+                  </>
+                )}
+
+                {stock.stockType === "Factory Stock" && (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Factory className="h-4 w-4 text-muted-foreground" />
+                      <span>Processing Factory: {stock.stockDetails.processingFactory}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Settings className="h-4 w-4 text-muted-foreground" />
+                      <span>Processing Stage: {stock.stockDetails.processingStage}</span>
+                    </div>
+                  </>
+                )}
+
+                {stock.stockType === "Design Stock" && (
+                  <>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Warehouse className="h-4 w-4 text-muted-foreground" />
+                      <span>Warehouse: {stock.stockDetails.warehouse}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Palette className="h-4 w-4 text-muted-foreground" />
+                      <span>Design: {stock.stockDetails.design}</span>
+                    </div>
+                  </>
+                )}
+
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>{new Date(stock.createdAt).toLocaleDateString()}</span>
+                  <span>Created: {new Date(stock.createdAt).toLocaleDateString()}</span>
                 </div>
               </div>
 
@@ -330,10 +367,28 @@ export default function StockViewPage() {
                   <span className="text-muted-foreground">Stock Type</span>
                   <span className="font-medium">{stock.stockType}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Order Number</span>
-                  <span className="font-medium">{stock.stockDetails.orderNumber}</span>
-                </div>
+                
+                {/* Show order number only for Gray Stock */}
+                {stock.stockType === "Gray Stock" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Order Number</span>
+                    <span className="font-medium">{stock.stockDetails.orderNumber}</span>
+                  </div>
+                )}
+
+                {/* Show expected completion for Factory Stock */}
+                {stock.stockType === "Factory Stock" && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Expected Completion</span>
+                    <span className="font-medium">
+                      {stock.stockDetails.expectedCompletion 
+                        ? new Date(stock.stockDetails.expectedCompletion).toLocaleDateString()
+                        : 'Not set'
+                      }
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Batch Number</span>
                   <span className="font-medium">{stock.addtionalInfo.batchNumber}</span>

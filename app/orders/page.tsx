@@ -16,7 +16,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ShoppingCart, Search, Plus, Eye, Download, Edit, Package, Clock, CheckCircle, AlertCircle } from "lucide-react"
+import { ShoppingCart, Search, Plus, Eye, Download, Edit, Package, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 
@@ -54,6 +54,15 @@ interface DisplayOrder {
   products: string[]
 }
 
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 export default function OrdersPage() {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
@@ -63,13 +72,21 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null)
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
 
-  // Fetch orders from backend
-  const fetchOrders = async () => {
+  // Fetch orders from backend with pagination
+  const fetchOrders = async (page: number = 1, limit: number = 10) => {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch('http://localhost:4000/api/v1/order')
+      const response = await fetch(`http://localhost:4000/api/v1/order?page=${page}&limit=${limit}`)
       
       if (!response.ok) {
         throw new Error('Failed to fetch orders')
@@ -80,6 +97,14 @@ export default function OrdersPage() {
       if (data.success && data.orders) {
         const transformedOrders = transformOrders(data.orders)
         setOrders(transformedOrders)
+        setPagination(data.pagination || {
+          currentPage: 1,
+          totalPages: 1,
+          totalItems: 0,
+          itemsPerPage: limit,
+          hasNextPage: false,
+          hasPrevPage: false
+        })
       } else {
         throw new Error('Invalid response format')
       }
@@ -146,10 +171,20 @@ export default function OrdersPage() {
       })
       
       // Refresh orders to ensure UI is in sync with backend
-      fetchOrders()
+      fetchOrders(pagination.currentPage, pagination.itemsPerPage)
     } finally {
       setUpdatingStatus(null)
     }
+  }
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    fetchOrders(newPage, pagination.itemsPerPage)
+  }
+
+  // Handle items per page change
+  const handleItemsPerPageChange = (newLimit: number) => {
+    fetchOrders(1, newLimit)
   }
 
   // Transform backend orders to display format
@@ -185,8 +220,6 @@ export default function OrdersPage() {
     })
   }
 
-
-
   const customers = [...new Set(orders.map((order) => order.customer))]
 
   const filteredOrders = orders.filter((order) => {
@@ -202,12 +235,8 @@ export default function OrdersPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "delivered":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      case "processing":
-        return <Clock className="h-4 w-4 text-blue-500" />
       case "confirmed":
-        return <Package className="h-4 w-4 text-purple-500" />
+        return <CheckCircle className="h-4 w-4 text-green-500" />
       case "pending":
         return <AlertCircle className="h-4 w-4 text-orange-500" />
       default:
@@ -217,12 +246,8 @@ export default function OrdersPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "delivered":
-        return <Badge variant="default">Delivered</Badge>
-      case "processing":
-        return <Badge variant="secondary">Processing</Badge>
       case "confirmed":
-        return <Badge variant="outline">Confirmed</Badge>
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Confirmed</Badge>
       case "pending":
         return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">Pending</Badge>
       default:
@@ -231,10 +256,9 @@ export default function OrdersPage() {
   }
 
   const orderStats = {
-    total: orders.length,
+    total: pagination.totalItems,
     pending: orders.filter((o) => o.status === "pending").length,
-    processing: orders.filter((o) => o.status === "processing").length,
-    delivered: orders.filter((o) => o.status === "delivered").length,
+    confirmed: orders.filter((o) => o.status === "confirmed").length,
     totalValue: orders.reduce((sum, order) => sum + order.totalAmount, 0),
   }
 
@@ -297,23 +321,12 @@ export default function OrdersPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Processing</CardTitle>
-              <Clock className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-500">{orderStats.processing}</div>
-              <p className="text-xs text-muted-foreground">In progress</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Delivered</CardTitle>
+              <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">{orderStats.delivered}</div>
-              <p className="text-xs text-muted-foreground">Completed</p>
+              <div className="text-2xl font-bold text-green-500">{orderStats.confirmed}</div>
+              <p className="text-xs text-muted-foreground">Confirmed</p>
             </CardContent>
           </Card>
 
@@ -348,8 +361,6 @@ export default function OrdersPage() {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="processing">Processing</SelectItem>
-              <SelectItem value="delivered">Delivered</SelectItem>
             </SelectContent>
           </Select>
           <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
@@ -369,11 +380,33 @@ export default function OrdersPage() {
 
         {/* Orders Table */}
         <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Orders</CardTitle>
+                <p className="text-sm text-muted-foreground">Latest orders first</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Items per page:</span>
+                <Select value={String(pagination.itemsPerPage)} onValueChange={(value) => handleItemsPerPageChange(Number(value))}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
                   <p className="text-muted-foreground">Loading orders...</p>
                 </div>
               </div>
@@ -439,7 +472,7 @@ export default function OrdersPage() {
                               <SelectTrigger className="w-[130px] h-8">
                                 {updatingStatus === order.originalId ? (
                                   <div className="flex items-center gap-2">
-                                    <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full"></div>
+                                    <Loader2 className="h-3 w-3 animate-spin" />
                                     <span>Updating...</span>
                                   </div>
                                 ) : (
@@ -449,10 +482,6 @@ export default function OrdersPage() {
                               <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="confirmed">Confirmed</SelectItem>
-                                <SelectItem value="processing">Processing</SelectItem>
-                                <SelectItem value="shipped">Shipped</SelectItem>
-                                <SelectItem value="delivered">Delivered</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -484,6 +513,77 @@ export default function OrdersPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && !error && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} entries
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={!pagination.hasPrevPage}
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    disabled={!pagination.hasPrevPage}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (pagination.totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (pagination.currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                        pageNum = pagination.totalPages - 4 + i;
+                      } else {
+                        pageNum = pagination.currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={pageNum === pagination.currentPage ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(pageNum)}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.totalPages)}
+                    disabled={!pagination.hasNextPage}
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

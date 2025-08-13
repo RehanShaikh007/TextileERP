@@ -3,7 +3,6 @@
 import type React from "react";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/router";
 import {
   Card,
   CardContent,
@@ -41,12 +40,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Upload, X, Plus, ArrowLeft, Save, Tag, Loader2 } from "lucide-react";
+import { Upload, X, Plus, ArrowLeft, Save, Tag, Loader2, Router } from "lucide-react";
 import Link from "next/link";
 import { createProduct, uploadProductImages } from "@/lib/api";
+import { useRouter } from "next/navigation";
+
 
 export default function AddProductPage() {
-  // const router = useRouter();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -138,11 +139,50 @@ export default function AddProductPage() {
           return;
         }
       }
+      // Require at least one tag
+      if (selectedTags.length === 0) {
+        alert("Please select at least one tag");
+        setIsSubmitting(false);
+        return;
+      }
+      // Require at least one product image
+      if (!productImages || productImages.length === 0) {
+        alert("Please upload at least one product image");
+        setIsSubmitting(false);
+        return;
+      }
+      // Validate variants: must have at least one, and each must have color, price>0, stock provided
+      if (variants.length === 0) {
+        alert("Please add at least one variant (color, price, stock)");
+        setIsSubmitting(false);
+        return;
+      }
+
+      for (const [idx, v] of variants.entries()) {
+        const priceNum = parseFloat(v.price);
+        const stockNum = parseFloat(v.stock);
+        if (!v.color) {
+          alert(`Variant ${idx + 1}: Color is required`);
+          setIsSubmitting(false);
+          return;
+        }
+        if (!Number.isFinite(priceNum) || priceNum <= 0) {
+          alert(`Variant ${idx + 1}: Price must be greater than 0`);
+          setIsSubmitting(false);
+          return;
+        }
+        if (!Number.isFinite(stockNum) || stockNum < 0) {
+          alert(`Variant ${idx + 1}: Stock must be 0 or greater`);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Format variants to match backend schema
       const formattedVariants = variants.map((variant) => ({
         color: variant.color,
-        pricePerMeters: parseFloat(variant.price) || 0,
-        stockInMeters: parseFloat(variant.stock) || 0,
+        pricePerMeters: parseFloat(variant.price),
+        stockInMeters: parseFloat(variant.stock),
       }));
       // Prepare complete product data
       const productData = {
@@ -163,24 +203,22 @@ export default function AddProductPage() {
         return;
       }
 
-      if (formattedVariants.length === 0 || !formattedVariants[0].color) {
-        alert("Please add at least one product variant");
-        setIsSubmitting(false);
-        return;
-      }
-
+      // Variants already validated above
+       
       const response = await createProduct(productData);
       if (response.success) {
         alert("Product created successfully!");
         console.log("Product created:", response);
+        router.push('/products');
 
         // router.push('/products'); // Redirect to products page
       } else {
         alert(`Error: ${response.message}`);
       }
     } catch (error) {
-      console.error("Error submitting product:", error);
-      alert("An error occurred while creating the product");
+      const message = error instanceof Error ? error.message : String(error)
+      console.error("Error submitting product:", message);
+      alert("An error occurred while creating the product: " + message);
     } finally {
       setIsSubmitting(false);
     }
@@ -302,8 +340,9 @@ export default function AddProductPage() {
         throw new Error("No images returned from server");
       }
     } catch (error) {
-      console.error("Error uploading images:", error);
-      alert(`Failed to upload images: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error)
+      console.error("Error uploading images:", message);
+      alert(`Failed to upload images: ${message}`);
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -480,6 +519,8 @@ export default function AddProductPage() {
                         onChange={(e) =>
                           updateVariant(index, "price", e.target.value)
                         }
+                        min="0.01"
+                        step="any"
                       />
                     </div>
                     <div className="flex-1 space-y-2">
@@ -491,6 +532,7 @@ export default function AddProductPage() {
                         onChange={(e) =>
                           updateVariant(index, "stock", e.target.value)
                         }
+                        min="0"
                       />
                     </div>
                     {variants.length > 1 && (

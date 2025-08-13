@@ -8,9 +8,9 @@ export const getDashboardStats = async (req, res) => {
     // Get total products count
     const totalProducts = await Product.countDocuments();
 
-    // Get active orders count (orders that are not delivered or cancelled)
+    // Get active orders count (orders that are pending)
     const activeOrders = await Order.countDocuments({
-      status: { $nin: ["delivered", "cancelled"] }
+      status: "pending"
     });
 
     // Get total customers count

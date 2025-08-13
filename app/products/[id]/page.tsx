@@ -80,9 +80,6 @@ export default function ProductViewPage() {
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
 
-  // Mock API base URL - replace with your actual API
-  const API_BASE_URL = "http://localhost:4000/api/v1";
-
   // Fetch product
   useEffect(() => {
     const fetchProduct = async () => {
@@ -107,13 +104,18 @@ export default function ProductViewPage() {
     const fetchOrders = async () => {
       setOrdersLoading(true);
       try {
+        console.log("🔍 Frontend: Fetching orders for productId:", productId);
         const data = await getRecentOrdersByProduct(productId, 5);
+        console.log("📋 Frontend: API response:", data);
         if (data.success) {
           setRecentOrders(data.recentOrders);
+          console.log("✅ Frontend: Set recent orders:", data.recentOrders);
         } else {
+          console.log("❌ Frontend: API returned success: false");
           setOrdersError("Failed to load recent orders");
         }
       } catch (err) {
+        console.log("❌ Frontend: Error fetching orders:", err);
         setOrdersError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setOrdersLoading(false);
@@ -333,8 +335,8 @@ export default function ProductViewPage() {
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
+                <div className="w-full gap-4 md:grid-cols-2">
+                  {/* <Card>
                     <CardHeader>
                       <CardTitle>Stock Summary</CardTitle>
                     </CardHeader>
@@ -365,7 +367,7 @@ export default function ProductViewPage() {
                         </div>
                       </div>
                     </CardContent>
-                  </Card>
+                  </Card> */}
 
                   <Card>
                     <CardHeader>
@@ -432,9 +434,7 @@ export default function ProductViewPage() {
                                 {/* <div className="w-4 h-4 rounded-full bg-muted border"></div> */}
                                 <div>
                                   <p className="font-medium">{variant.color}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Stock: {variant.stockInMeters}m
-                                  </p>
+                                  
                                 </div>
                               </div>
                             </div>
@@ -446,12 +446,7 @@ export default function ProductViewPage() {
                             </div>
                           </div>
                         ))}
-                        <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">Total Stock Across All Variants</span>
-                            <span className="text-lg font-bold">{totalStock}m</span>
-                          </div>
-                        </div>
+                    
                       </div>
                     ) : (
                       <p className="text-muted-foreground">No variants available</p>
@@ -483,8 +478,8 @@ export default function ProductViewPage() {
                       <div className="space-y-4">
                         {recentOrders.map((order) => (
                           <Link
-                            key={order.orderId}
-                            href={`/orders/${order.orderId}`}
+                            key={order.originalId}
+                            href={`/orders/${order.originalId}`}
                             className="block"
                           >
                             <div className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50">
