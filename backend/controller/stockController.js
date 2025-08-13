@@ -1,4 +1,4 @@
-import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Stock from "../models/stockScehma.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
@@ -43,7 +43,7 @@ export const createStock = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "stock_alert",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }
@@ -134,7 +134,7 @@ export const updateStock = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "stock_alert",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }
@@ -185,7 +185,7 @@ export const deleteStock = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "stock_alert",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }

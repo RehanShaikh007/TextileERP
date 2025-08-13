@@ -7,6 +7,7 @@ dotenv.config();
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const fromWhatsAppNumber = "whatsapp:+14155238886"; // Twilio Sandbox number
+export let sentToCount = 0;
 
 if (!accountSid || !authToken) {
   throw new Error(
@@ -29,6 +30,7 @@ export async function sendWhatsAppMessage(message) {
       return;
     }
 
+    sentToCount = activeAdmins.length;
     // 2️⃣ Send message to each admin
     for (const admin of activeAdmins) {
       try {

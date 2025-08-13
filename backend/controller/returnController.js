@@ -1,4 +1,4 @@
-import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Return from "../models/returnSchema.js";
 import Order from "../models/orderSchema.js";
@@ -66,7 +66,7 @@ export const createReturn = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "return_request",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status,
       });
     }
@@ -166,7 +166,7 @@ export const updateReturn = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "return_request",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status,
       });
     }
@@ -222,7 +222,7 @@ export const deleteReturn = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "return_request",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status,
       });
     }

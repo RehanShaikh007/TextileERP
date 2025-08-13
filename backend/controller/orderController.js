@@ -1,4 +1,4 @@
-import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Order from "../models/orderSchema.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
@@ -56,7 +56,7 @@ export const createOrder = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "order_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }
@@ -157,7 +157,7 @@ export const updateOrder = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "order_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }
@@ -214,7 +214,7 @@ export const deleteOrder = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "order_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }

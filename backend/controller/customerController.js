@@ -1,5 +1,5 @@
 import Customer from "../models/customerSchema.js";
-import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Order from "../models/orderSchema.js";
@@ -57,7 +57,7 @@ export const createCustomer = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "product_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }
