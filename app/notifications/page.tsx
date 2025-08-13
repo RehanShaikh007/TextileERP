@@ -40,15 +40,21 @@ import {
   Package,
   ShoppingCart,
   AlertTriangle,
+  Trash,
+  Trash2
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // Types
 interface Admin {
-  id: number;
+  _id: string;
   name: string;
   number: string;
   role: string;
   active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  __v: number;
 }
 
 interface NotificationSettings {
@@ -77,29 +83,26 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
+  const { toast } = useToast();
   const [adminNumbers, setAdminNumbers] = useState<Admin[]>([
     {
-      id: 1,
-      name: "Rajesh Kumar",
-      number: "+91 98765 43210",
-      role: "Owner",
+      _id: "",
+      name: "",
+      number: "",
+      role: "",
+      createdAt: "",
+      updatedAt: "",
       active: true,
-    },
-    {
-      id: 2,
-      name: "Priya Sharma",
-      number: "+91 87654 32109",
-      role: "Manager",
-      active: true,
-    },
-    {
-      id: 3,
-      name: "Amit Patel",
-      number: "+91 76543 21098",
-      role: "Sales Head",
-      active: false,
+      __v: 0,
     },
   ]);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    role: "",
+    number: "",
+    active: true,
+  });
 
   const [notificationSettings, setNotificationSettings] =
     useState<NotificationSettings>({
@@ -166,7 +169,19 @@ export default function NotificationsPage() {
         setLoadingNotifications(false);
       }
     }
+    const fetchAdmins = async () => {
+      try {
+        const res = await fetch("http://localhost:4000/api/v1/admin/");
+        if (!res.ok) throw new Error("Failed to fetch admin numbers");
+        const data = await res.json();
+        setAdminNumbers(data.admins);
+      } catch (err) {
+        console.error("Error fetching admin settings:", err);
+      }
+    };
+
     fetchNotifications();
+    fetchAdmins();
   }, []);
 
   function Spinner(): JSX.Element {
@@ -225,8 +240,18 @@ export default function NotificationsPage() {
       );
       if (!res.ok) throw new Error("Failed to save settings");
       console.log("Settings saved successfully");
+      toast({
+        title: "Settings Saved",
+        description: "Notification settings updated successfully",
+        variant: "default",
+      });
     } catch (err) {
       console.error("Error saving settings:", err);
+      toast({
+        title: "Error",
+        description: "Failed to save notification settings",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -237,6 +262,102 @@ export default function NotificationsPage() {
     todayAlerts: 12,
     stockAlerts: 5,
     successRate: 98.5,
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const createAdmin = async () => {
+    // console.log("Creating admin with data:", formData);
+    // return
+    if (!formData.name || !formData.number || !formData.role) {
+      toast({
+        title: "Missing Fields",
+        description: `Fill all fields to create admin`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:4000/api/v1/admin/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        console.log("Failed to create admin:", formData);
+        
+        toast({
+          description: "Failed to create admin number",
+          variant: "destructive",
+        });
+        
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      console.error("Error creating admin:", err);
+    }
+  };
+
+  const updateAdminActiveStatus = async (adminId: string, active: boolean) => {
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/v1/admin/active/status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: adminId, active }),
+        }
+      );
+      if (!res.ok) {
+        toast({
+          title: "Error",
+          description: "Failed to update admin status",
+          variant: "destructive",
+        });
+        return;
+      }
+      setAdminNumbers((prev) =>
+        prev.map((admin) =>
+          admin._id === adminId ? { ...admin, active } : admin
+        )
+      );
+      toast({
+        title: "Admin Status Updated",
+        description: `Admin ${active ? "activated" : "deactivated"} successfully`,
+        variant: "default",
+      });
+    } catch (err) {
+      console.error("Error updating admin status:", err);
+    }
+  };
+
+  const deleteAdmin = async (adminId: string) => {
+    try {
+      const res = await fetch(`http://localhost:4000/api/v1/admin/${adminId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        toast({
+          title: "Error",
+          description: "Failed to delete admin number",
+          variant: "destructive",
+        });
+        return;
+      }
+      setAdminNumbers((prev) => prev.filter((admin) => admin._id !== adminId));
+      toast({
+        title: "Admin Deleted",
+        description: "Admin number deleted successfully",
+        variant: "default",
+      });
+    } catch (err) {
+      console.error("Error deleting admin:", err);
+    }
   };
 
   return (
@@ -283,22 +404,46 @@ export default function NotificationsPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Admin Name</Label>
-                  <Input id="name" placeholder="Enter admin name" />
+                  <Input
+                    id="name"
+                    placeholder="Enter admin name"
+                    onChange={(e) => handleInputChange("name", e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="number">WhatsApp Number</Label>
-                  <Input id="number" placeholder="+91 XXXXX XXXXX" />
+                  <Input
+                    id="number"
+                    placeholder="+91 XXXXX XXXXX"
+                    onChange={(e) =>
+                      handleInputChange("number", e.target.value)
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <Input id="role" placeholder="e.g., Manager, Owner" />
+                  <Input
+                    id="role"
+                    placeholder="e.g., manager, owner, sales, inventory head"
+                    onChange={(e) =>
+                      handleInputChange("role", e.target.value.trim())
+                    }
+                  />
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch id="active" defaultChecked />
+                  <Switch
+                    id="active"
+                    defaultChecked
+                    onCheckedChange={(checked) => {
+                      setFormData((prev) => ({ ...prev, active: checked }));
+                    }}
+                  />
                   <Label htmlFor="active">Active notifications</Label>
                 </div>
                 <div className="flex gap-2">
-                  <Button className="flex-1">Add Admin</Button>
+                  <Button className="flex-1" onClick={() => createAdmin()}>
+                    Add Admin
+                  </Button>
                   <Button variant="outline" className="flex-1 bg-transparent">
                     Cancel
                   </Button>
@@ -387,7 +532,7 @@ export default function NotificationsPage() {
             <CardContent className="space-y-4">
               {adminNumbers.map((admin) => (
                 <div
-                  key={admin.id}
+                  key={admin._id}
                   className="flex items-center justify-between p-3 border rounded-lg"
                 >
                   <div className="flex items-center gap-3">
@@ -408,15 +553,11 @@ export default function NotificationsPage() {
                     <Switch
                       checked={admin.active}
                       onCheckedChange={(checked) => {
-                        setAdminNumbers((prev) =>
-                          prev.map((a) =>
-                            a.id === admin.id ? { ...a, active: checked } : a
-                          )
-                        );
+                        updateAdminActiveStatus(admin._id, checked);
                       }}
                     />
-                    <Button size="sm" variant="outline">
-                      <Settings className="h-4 w-4" />
+                    <Button size="sm" variant="outline" onClick={() => deleteAdmin(admin._id)}>
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -489,9 +630,15 @@ export default function NotificationsPage() {
                       </p>
                     </div>
                     <Switch
-                      checked={notificationSettings[item.key as keyof NotificationSettings]}
+                      checked={
+                        notificationSettings[
+                          item.key as keyof NotificationSettings
+                        ]
+                      }
                       onCheckedChange={() =>
-                        toggleNotificationSetting(item.key as keyof NotificationSettings)
+                        toggleNotificationSetting(
+                          item.key as keyof NotificationSettings
+                        )
                       }
                     />
                   </div>

@@ -14,6 +14,8 @@ import whatsappNotificationRoutes from "./routes/whatsappNotificationRoutes.js";
 import WhatsappMessageRoutes from './routes/whatsappMessagesRoutes.js';
 import agentRouter from './routes/agent.js';
 import adjustmentRouter from './routes/adjustmentRoutes.js';
+import adminRouter from './routes/admin.js';
+
 
 dotenv.config()
 
@@ -42,7 +44,11 @@ app.use('/api/v1/dashboard', dashboardRouter);
 app.use("/api/v1/whatsapp-notifications", whatsappNotificationRoutes);
 app.use('/api/v1/whatsapp-messages', WhatsappMessageRoutes);
 app.use('/api/v1/agent', agentRouter);
+
 app.use('/api/v1/adjustments', adjustmentRouter);
+
+app.use('/api/v1/admin', adminRouter);
+
 
 mongoose.connect(process.env.MONGO_URI)
 .then(()=>{

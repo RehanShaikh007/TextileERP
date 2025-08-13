@@ -1,5 +1,5 @@
 import Product from "../models/productSchema.js";
-import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 import Order from "../models/orderSchema.js";
@@ -28,7 +28,7 @@ export const createProduct = async (req, res) => {
 
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (createProduct):", whatsAppError);
         status = "Not Delivered";
@@ -38,7 +38,7 @@ export const createProduct = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "product_update",
-        sentToCount: 2, // or dynamically get from your admin list
+        sentToCount: sentToCount, // or dynamically get from your admin list
         status,
       });
     }
@@ -212,7 +212,7 @@ export const updateProduct = async (req, res) => {
 
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (updateProduct):", whatsAppError);
         status = "Not Delivered";
@@ -222,7 +222,7 @@ export const updateProduct = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "product_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status,
       });
     }
@@ -260,7 +260,7 @@ export const deleteProduct = async (req, res) => {
 
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (deleteProduct):", whatsAppError);
         status = "Not Delivered";
@@ -270,7 +270,7 @@ export const deleteProduct = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "product_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status,
       });
     }
@@ -656,4 +656,3 @@ export const syncAllStocksWithProducts = async (req, res) => {
             error: error.message
         });
     }
-};

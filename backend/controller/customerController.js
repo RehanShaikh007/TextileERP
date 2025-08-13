@@ -1,5 +1,5 @@
 import Customer from "../models/customerSchema.js";
-import { sendWhatsAppMessage } from "../utils/whatsappService.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Order from "../models/orderSchema.js";
@@ -49,7 +49,7 @@ export const createCustomer = async (req, res) => {
       const messageText = `🆕 New Customer Added!\n\n👤 Name: ${newCustomer.customerName}\n🏷 Type: ${newCustomer.customerType}\n📧 Email: ${newCustomer.email}\n📞 Phone: ${newCustomer.phone}\n🏙 City: ${newCustomer.city}\n💳 Credit Limit: ${newCustomer.creditLimit}\n📍 Address: ${newCustomer.address}\n\nView details: ${process.env.CLIENT_URL}/customers/${newCustomer._id}`;
       let statusMsg = "Delivered";
       try {
-        await sendWhatsAppMessage(process.env.WHATSAPP_NOTIFICATION_NUMBER, messageText);
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error("WhatsApp Notification Failed (createCustomer):", whatsAppError);
         statusMsg = "Not Delivered";
@@ -57,7 +57,7 @@ export const createCustomer = async (req, res) => {
       await WhatsappMessages.create({
         message: messageText,
         type: "product_update",
-        sentToCount: 2,
+        sentToCount: sentToCount,
         status: statusMsg,
       });
     }
