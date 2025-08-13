@@ -181,9 +181,9 @@ export const updateProduct = async (req, res) => {
       const orderUpdateResult = await Order.updateMany(
         { "orderItems.product": originalProduct.productName },
         { $set: { "orderItems.$[elem].product": updatedProduct.productName } },
-        { 
+        {
           arrayFilters: [{ "elem.product": originalProduct.productName }],
-          multi: true 
+          multi: true
         }
       );
       console.log(`📋 Updated ${orderUpdateResult.modifiedCount} orders with new product name`);
@@ -420,8 +420,8 @@ export const getRecentOrdersByProduct = async (req, res) => {
           status: order.status,
           orderDate: order.orderDate,
           deliveryDate: order.deliveryDate,
-          items: order.orderItems.filter(item => 
-            item.product === product.productName || 
+          items: order.orderItems.filter(item =>
+            item.product === product.productName ||
             item.product.toLowerCase().includes(product.productName.toLowerCase().split(' ')[0])
           )
         };
@@ -439,220 +439,221 @@ export const getRecentOrdersByProduct = async (req, res) => {
 
 // Controller to get all product names
 export const getAllProductNames = async (req, res) => {
-    try {
-        const products = await Product.find({}, 'productName'); // Only fetch the productName field
-        const productNames = products.map(product => product.productName);
-        res.status(200).json({ productNames });
-    } catch (error) {
-        console.error('Error fetching product names:', error);
-        res.status(500).json({ message: 'Server Error: Unable to fetch product names.' });
-    }
+  try {
+    const products = await Product.find({}, 'productName'); // Only fetch the productName field
+    const productNames = products.map(product => product.productName);
+    res.status(200).json({ productNames });
+  } catch (error) {
+    console.error('Error fetching product names:', error);
+    res.status(500).json({ message: 'Server Error: Unable to fetch product names.' });
+  }
 };
 
 // Utility function to fix orders for renamed products (run this once to fix existing data)
 export const fixOrdersForRenamedProducts = async (req, res) => {
-    try {
-        console.log("🔧 Starting to fix orders for renamed products...");
-        
-        // Get all products
-        const products = await Product.find({}, 'productName');
-        
-        // Get all orders
-        const orders = await Order.find().lean();
-        
-        let totalUpdated = 0;
-        
-        // For each order, check if any product names need updating
-        for (const order of orders) {
-            for (const item of order.orderItems) {
-                // Check if this product name exists in products collection
-                const productExists = products.some(p => p.productName === item.product);
-                
-                if (!productExists) {
-                    console.log(`⚠️ Order ${order._id} has product "${item.product}" that doesn't exist in products collection`);
-                    
-                    // Try to find a similar product name (you might want to implement fuzzy matching here)
-                    // For now, let's just log it
-                }
-            }
+  try {
+    console.log("🔧 Starting to fix orders for renamed products...");
+
+    // Get all products
+    const products = await Product.find({}, 'productName');
+
+    // Get all orders
+    const orders = await Order.find().lean();
+
+    let totalUpdated = 0;
+
+    // For each order, check if any product names need updating
+    for (const order of orders) {
+      for (const item of order.orderItems) {
+        // Check if this product name exists in products collection
+        const productExists = products.some(p => p.productName === item.product);
+
+        if (!productExists) {
+          console.log(`⚠️ Order ${order._id} has product "${item.product}" that doesn't exist in products collection`);
+
+          // Try to find a similar product name (you might want to implement fuzzy matching here)
+          // For now, let's just log it
         }
-        
-        res.status(200).json({
-            success: true,
-            message: `Checked ${orders.length} orders. Found ${totalUpdated} items that need attention.`,
-            totalOrders: orders.length,
-            totalUpdated
-        });
-        
-    } catch (error) {
-        console.error('Error fixing orders for renamed products:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Server Error: Unable to fix orders for renamed products.',
-            error: error.message
-        });
+      }
     }
+
+    res.status(200).json({
+      success: true,
+      message: `Checked ${orders.length} orders. Found ${totalUpdated} items that need attention.`,
+      totalOrders: orders.length,
+      totalUpdated
+    });
+
+  } catch (error) {
+    console.error('Error fixing orders for renamed products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error: Unable to fix orders for renamed products.',
+      error: error.message
+    });
+  }
 };
 
 // Utility function to fix data inconsistencies between products and stocks
 export const fixProductStockInconsistencies = async (req, res) => {
-    try {
-        console.log("🔧 Starting to fix product-stock inconsistencies...");
-        
-        // Get all products
-        const products = await Product.find({}, 'productName _id');
-        const productNames = products.map(p => p.productName);
-        
-        // Get all stocks
-        const stocks = await Stock.find().lean();
-        
-        let totalFixed = 0;
-        let inconsistencies = [];
-        
-        // Check each stock for inconsistencies
-        for (const stock of stocks) {
-            const stockProductName = stock.stockDetails?.product;
-            
-            if (stockProductName && !productNames.includes(stockProductName)) {
-                inconsistencies.push({
-                    stockId: stock._id,
-                    stockType: stock.stockType,
-                    productName: stockProductName,
-                    issue: "Product name not found in products collection"
-                });
-                
-                // Try to find a similar product name (basic matching)
-                const similarProduct = products.find(p => 
-                    p.productName.toLowerCase().includes(stockProductName.toLowerCase().split(' ')[0]) ||
-                    stockProductName.toLowerCase().includes(p.productName.toLowerCase().split(' ')[0])
-                );
-                
-                if (similarProduct) {
-                    console.log(`🔄 Fixing stock ${stock._id}: "${stockProductName}" → "${similarProduct.productName}"`);
-                    
-                    // Update the stock
-                    await Stock.updateOne(
-                        { _id: stock._id },
-                        { $set: { "stockDetails.product": similarProduct.productName } }
-                    );
-                    
-                    totalFixed++;
-                }
-            }
+  try {
+    console.log("🔧 Starting to fix product-stock inconsistencies...");
+
+    // Get all products
+    const products = await Product.find({}, 'productName _id');
+    const productNames = products.map(p => p.productName);
+
+    // Get all stocks
+    const stocks = await Stock.find().lean();
+
+    let totalFixed = 0;
+    let inconsistencies = [];
+
+    // Check each stock for inconsistencies
+    for (const stock of stocks) {
+      const stockProductName = stock.stockDetails?.product;
+
+      if (stockProductName && !productNames.includes(stockProductName)) {
+        inconsistencies.push({
+          stockId: stock._id,
+          stockType: stock.stockType,
+          productName: stockProductName,
+          issue: "Product name not found in products collection"
+        });
+
+        // Try to find a similar product name (basic matching)
+        const similarProduct = products.find(p =>
+          p.productName.toLowerCase().includes(stockProductName.toLowerCase().split(' ')[0]) ||
+          stockProductName.toLowerCase().includes(p.productName.toLowerCase().split(' ')[0])
+        );
+
+        if (similarProduct) {
+          console.log(`🔄 Fixing stock ${stock._id}: "${stockProductName}" → "${similarProduct.productName}"`);
+
+          // Update the stock
+          await Stock.updateOne(
+            { _id: stock._id },
+            { $set: { "stockDetails.product": similarProduct.productName } }
+          );
+
+          totalFixed++;
         }
-        
-        res.status(200).json({
-            success: true,
-            message: `Fixed ${totalFixed} inconsistencies out of ${inconsistencies.length} found.`,
-            totalStocks: stocks.length,
-            totalFixed,
-            inconsistencies: inconsistencies.slice(0, 10) // Show first 10 for reference
-        });
-        
-    } catch (error) {
-        console.error('Error fixing product-stock inconsistencies:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Server Error: Unable to fix product-stock inconsistencies.',
-            error: error.message
-        });
+      }
     }
+
+    res.status(200).json({
+      success: true,
+      message: `Fixed ${totalFixed} inconsistencies out of ${inconsistencies.length} found.`,
+      totalStocks: stocks.length,
+      totalFixed,
+      inconsistencies: inconsistencies.slice(0, 10) // Show first 10 for reference
+    });
+
+  } catch (error) {
+    console.error('Error fixing product-stock inconsistencies:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error: Unable to fix product-stock inconsistencies.',
+      error: error.message
+    });
+  }
 };
 
 // Utility function to sync all stocks with their current product data
 export const syncAllStocksWithProducts = async (req, res) => {
-    try {
-        console.log("🔄 Starting to sync all stocks with their current product data...");
-        
-        // Get all products
-        const products = await Product.find();
-        const productsByName = {};
-        products.forEach(p => {
-            productsByName[p.productName] = p;
-        });
-        
-        // Get all stocks
-        const stocks = await Stock.find();
-        
-        let totalSynced = 0;
-        let totalSkipped = 0;
-        let errors = [];
-        
-        for (const stock of stocks) {
-            try {
-                const stockProductName = stock.stockDetails?.product;
-                
-                if (!stockProductName) {
-                    console.log(`⚠️ Stock ${stock._id} has no product name, skipping...`);
-                    totalSkipped++;
-                    continue;
-                }
-                
-                const product = productsByName[stockProductName];
-                
-                if (!product) {
-                    console.log(`⚠️ Product "${stockProductName}" not found for stock ${stock._id}, skipping...`);
-                    totalSkipped++;
-                    continue;
-                }
-                
-                // Prepare update data
-                const updateData = {
-                    "stockDetails.product": product.productName,
-                    "stockDetails.category": product.category,
-                    "stockDetails.description": product.description,
-                    "stockDetails.tags": product.tags,
-                    "stockDetails.sku": product.sku,
-                    "stockDetails.stockInfo": product.stockInfo,
-                    "stockDetails.images": product.images,
-                    "unit": product.unit
-                };
-                
-                // Update variants to match product variants (but keep existing quantities)
-                const updatedVariants = product.variants.map(productVariant => {
-                    // Find existing stock variant with same color
-                    const existingVariant = stock.variants.find(sv => sv.color === productVariant.color);
-                    return {
-                        color: productVariant.color,
-                        quantity: existingVariant ? existingVariant.quantity : 0, // Keep existing quantity
-                        unit: product.unit || "METERS"
-                    };
-                });
-                
-                updateData.variants = updatedVariants;
-                
-                // Apply updates
-                await Stock.updateOne(
-                    { _id: stock._id },
-                    { $set: updateData }
-                );
-                
-                console.log(`✅ Synced stock ${stock._id} (${stock.stockType}) with product "${product.productName}"`);
-                totalSynced++;
-                
-            } catch (error) {
-                console.error(`❌ Error syncing stock ${stock._id}:`, error);
-                errors.push({
-                    stockId: stock._id,
-                    error: error.message
-                });
-            }
+  try {
+    console.log("🔄 Starting to sync all stocks with their current product data...");
+
+    // Get all products
+    const products = await Product.find();
+    const productsByName = {};
+    products.forEach(p => {
+      productsByName[p.productName] = p;
+    });
+
+    // Get all stocks
+    const stocks = await Stock.find();
+
+    let totalSynced = 0;
+    let totalSkipped = 0;
+    let errors = [];
+
+    for (const stock of stocks) {
+      try {
+        const stockProductName = stock.stockDetails?.product;
+
+        if (!stockProductName) {
+          console.log(`⚠️ Stock ${stock._id} has no product name, skipping...`);
+          totalSkipped++;
+          continue;
         }
-        
-        res.status(200).json({
-            success: true,
-            message: `Sync completed. ${totalSynced} stocks synced, ${totalSkipped} skipped.`,
-            totalStocks: stocks.length,
-            totalSynced,
-            totalSkipped,
-            errors: errors.slice(0, 10) // Show first 10 errors
+
+        const product = productsByName[stockProductName];
+
+        if (!product) {
+          console.log(`⚠️ Product "${stockProductName}" not found for stock ${stock._id}, skipping...`);
+          totalSkipped++;
+          continue;
+        }
+
+        // Prepare update data
+        const updateData = {
+          "stockDetails.product": product.productName,
+          "stockDetails.category": product.category,
+          "stockDetails.description": product.description,
+          "stockDetails.tags": product.tags,
+          "stockDetails.sku": product.sku,
+          "stockDetails.stockInfo": product.stockInfo,
+          "stockDetails.images": product.images,
+          "unit": product.unit
+        };
+
+        // Update variants to match product variants (but keep existing quantities)
+        const updatedVariants = product.variants.map(productVariant => {
+          // Find existing stock variant with same color
+          const existingVariant = stock.variants.find(sv => sv.color === productVariant.color);
+          return {
+            color: productVariant.color,
+            quantity: existingVariant ? existingVariant.quantity : 0, // Keep existing quantity
+            unit: product.unit || "METERS"
+          };
         });
-        
-    } catch (error) {
-        console.error('Error syncing stocks with products:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Server Error: Unable to sync stocks with products.',
-            error: error.message
+
+        updateData.variants = updatedVariants;
+
+        // Apply updates
+        await Stock.updateOne(
+          { _id: stock._id },
+          { $set: updateData }
+        );
+
+        console.log(`✅ Synced stock ${stock._id} (${stock.stockType}) with product "${product.productName}"`);
+        totalSynced++;
+
+      } catch (error) {
+        console.error(`❌ Error syncing stock ${stock._id}:`, error);
+        errors.push({
+          stockId: stock._id,
+          error: error.message
         });
+      }
     }
+
+    res.status(200).json({
+      success: true,
+      message: `Sync completed. ${totalSynced} stocks synced, ${totalSkipped} skipped.`,
+      totalStocks: stocks.length,
+      totalSynced,
+      totalSkipped,
+      errors: errors.slice(0, 10) // Show first 10 errors
+    });
+
+  } catch (error) {
+    console.error('Error syncing stocks with products:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error: Unable to sync stocks with products.',
+      error: error.message
+    });
+  }
+}

@@ -6,8 +6,10 @@ import {
   updateOrder, 
   deleteOrder,
   getTotalRevenue,
-  getDeliveredOrdersCount
+  getDeliveredOrdersCount,
+  getMonthlySales
 } from '../controller/orderController.js'
+import { get } from 'http'
 
 const router = express.Router()
 
@@ -31,5 +33,8 @@ router.get('/total/revenue', getTotalRevenue)
 
 // Get count of delivered orders
 router.get('/count/delivered', getDeliveredOrdersCount)
+
+// get monthly sales
+router.get('/monthly/sales', getMonthlySales)
 
 export default router

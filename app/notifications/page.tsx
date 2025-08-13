@@ -44,6 +44,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { set } from "date-fns";
 
 // Types
 interface Admin {
@@ -135,7 +136,31 @@ export default function NotificationsPage() {
         setLoading(false);
       }
     }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch("http://localhost:4000/api/v1/whatsapp-messages/today-stats");
+        if (!res.ok) throw new Error("Failed to fetch stats");
+        const data = await res.json();
+        console.log("Notification stats:", data.stats);
+        
+         setNotificationStats(prev => ({
+          ...prev,
+          todayAlerts: data.stats.total,
+          stockAlerts: data.stats.stock_alert,
+          orderAlerts: data.stats.order_update
+        }));
+      } catch (err) {
+        console.error("Error fetching notification stats:", err);
+        toast({
+          title: "Error",
+          description: "Failed to fetch notification stats",
+          variant: "destructive",
+        });
+      }
+    }
     fetchSettings();
+    fetchStats();
   }, []);
 
   const [recentNotifications, setRecentNotifications] = useState<
@@ -257,12 +282,12 @@ export default function NotificationsPage() {
     }
   };
 
-  const notificationStats = {
+  const [notificationStats,setNotificationStats] = useState({
     activeAdmins: adminNumbers.filter((admin) => admin.active).length,
-    todayAlerts: 12,
-    stockAlerts: 5,
-    successRate: 98.5,
-  };
+    todayAlerts: 0,
+    stockAlerts: 0,
+    orderAlerts: 0,
+  });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -500,22 +525,22 @@ export default function NotificationsPage() {
               <div className="text-2xl font-bold text-orange-500">
                 {notificationStats.stockAlerts}
               </div>
-              <p className="text-xs text-muted-foreground">Low stock items</p>
+              <p className="text-xs text-muted-foreground">Stock related movements</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Success Rate
+                Order Alerts
               </CardTitle>
               <MessageSquare className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-500">
-                {notificationStats.successRate}%
+                {notificationStats.orderAlerts}
               </div>
-              <p className="text-xs text-muted-foreground">Delivery success</p>
+              <p className="text-xs text-muted-foreground">Order related notifications</p>
             </CardContent>
           </Card>
         </div>
@@ -603,11 +628,11 @@ export default function NotificationsPage() {
                     label: "New Customers",
                     desc: "When new customers are added",
                   },
-                  {
-                    key: "dailyReports",
-                    label: "Daily Reports",
-                    desc: "End of day summary reports",
-                  },
+                  // {
+                  //   key: "dailyReports",
+                  //   label: "Daily Reports",
+                  //   desc: "End of day summary reports",
+                  // },
                   {
                     key: "returnRequests",
                     label: "Return Requests",
