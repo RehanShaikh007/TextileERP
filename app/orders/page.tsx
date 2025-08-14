@@ -39,6 +39,13 @@ interface Order {
   notes?: string
   createdAt: string
   updatedAt: string
+  customerInfo?: {
+    city: string
+    customerType: string
+    email: string
+    phone: string
+    address: string
+  }
 }
 
 interface DisplayOrder {
@@ -209,7 +216,7 @@ export default function OrdersPage() {
         id: formattedId,
         originalId: order._id, // Keep original ID for links and references
         customer: order.customer,
-        customerCity: 'City', // Mock data as requested
+        customerCity: order.customerInfo?.city || 'N/A',
         items: order.orderItems.length,
         totalAmount,
         status: order.status || 'pending', // Use backend status
@@ -504,9 +511,9 @@ export default function OrdersPage() {
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </Link>
-                            <Button size="sm" variant="outline">
+                            {/* <Button size="sm" variant="outline">
                               <Download className="h-4 w-4" />
-                            </Button>
+                            </Button> */}
                           </div>
                         </td>
                       </tr>

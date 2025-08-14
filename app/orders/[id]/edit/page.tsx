@@ -25,6 +25,18 @@ import { format } from "date-fns"
 import { CalendarIcon, Plus, X, Save, ArrowLeft } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 // TypeScript interfaces
 interface OrderItem {
@@ -79,12 +91,14 @@ export default function EditOrderPage() {
   const router = useRouter()
   const params = useParams()
   const orderId = params.id as string
+  const { toast } = useToast()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   const [formData, setFormData] = useState({
     customer: "",
@@ -245,7 +259,7 @@ export default function EditOrderPage() {
     // Validate required fields
     const validItems = orderItems.filter((item) => item.product && item.color && item.quantity > 0)
     if (!formData.customer || validItems.length === 0) {
-      alert('Please fill in all required fields and add at least one valid item.')
+      toast({ title: 'Missing information', description: 'Please add customer and at least one valid item.', variant: 'destructive' })
       return
     }
 
@@ -280,7 +294,8 @@ export default function EditOrderPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update order')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error((errData as any).message || 'Failed to update order')
       }
 
       const result = await response.json()
@@ -289,12 +304,30 @@ export default function EditOrderPage() {
       }
 
       console.log("Order updated successfully:", result)
-      router.push('/orders')
+      toast({ title: 'Order updated', description: 'Order has been saved successfully.' })
+      setTimeout(() => router.push('/orders'), 900)
     } catch (err) {
       console.error('Error updating order:', err)
-      alert(err instanceof Error ? err.message : 'Failed to update order')
+      const message = err instanceof Error ? err.message : 'Failed to update order'
+      toast({ title: 'Failed to update order', description: message, variant: 'destructive' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true)
+      const resp = await fetch(`http://localhost:4000/api/v1/order/${orderId}`, { method: 'DELETE' })
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}))
+        throw new Error((data as any).message || 'Failed to delete order')
+      }
+      router.push('/orders')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete order')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -355,6 +388,7 @@ export default function EditOrderPage() {
           </div>
         ) : (
 
+        <>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             {/* Order Information */}
@@ -605,6 +639,32 @@ export default function EditOrderPage() {
             </Button>
           </div>
         </form>
+
+        {/* Danger Zone: Delete Order */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground"></div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">Delete Order</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this order?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the order
+                  and remove it from the orders list.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>No</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+        </>
         )}
       </div>
     </SidebarInset>

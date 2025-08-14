@@ -88,7 +88,7 @@ export const createReturn = async (req, res) => {
 
 export const getAllReturns = async (req, res) => {
   try {
-    const returns = await Return.find();
+    const returns = await Return.find().sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       returns,
@@ -128,17 +128,28 @@ export const getReturnById = async (req, res) => {
 
 export const updateReturn = async (req, res) => {
   try {
-    const updatedReturn = await Return.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!updatedReturn) {
+    const { isApprove, isRejected, ...otherUpdates } = req.body;
+    
+    // Get the current return to check if status is changing
+    const currentReturn = await Return.findById(req.params.id);
+    if (!currentReturn) {
       return res.status(404).json({
         success: false,
         message: "Return not found",
       });
     }
+
+        // If return is being approved, just update the status (no stock or credit changes)
+    if (isApprove && !currentReturn.isApprove) {
+      console.log(`Return ${currentReturn.id} approved - status updated only`);
+    }
+
+    // Update the return
+    const updatedReturn = await Return.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
 
     /** 🔔 Check Notification Settings **/
     const notificationSettings = await WhatsappNotification.findOne();
@@ -150,12 +161,18 @@ export const updateReturn = async (req, res) => {
 
     /** 📲 WhatsApp Notification **/
     if (returnRequestsEnabled) {
-      const messageText = `✏️ Return Updated!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+             let messageText = "";
+       if (isApprove && !currentReturn.isApprove) {
+         messageText = `✅ Return Approved!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+       } else if (isRejected && !currentReturn.isRejected) {
+        messageText = `❌ Return Rejected!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+      } else {
+        messageText = `✏️ Return Updated!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+      }
+      
       let status = "Delivered";
       try {
-        await sendWhatsAppMessage(
-          messageText
-        );
+        await sendWhatsAppMessage(messageText);
       } catch (whatsAppError) {
         console.error(
           "WhatsApp Notification Failed (updateReturn):",
@@ -173,7 +190,7 @@ export const updateReturn = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Return updated successfully",
+      message: isApprove ? "Return approved successfully" : "Return updated successfully",
       return: updatedReturn,
     });
   } catch (error) {

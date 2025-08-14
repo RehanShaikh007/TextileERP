@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Users, Plus, Search, Eye, Edit, Phone, Mail, MapPin, TrendingUp, ShoppingCart, Star, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
 
 // Customer interface based on backend schema
 interface Customer {
@@ -55,6 +56,7 @@ interface CustomerFormData {
 }
 
 export default function CustomersPage() {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCity, setSelectedCity] = useState("all")
   const [selectedType, setSelectedType] = useState("all")
@@ -144,10 +146,10 @@ export default function CustomersPage() {
         throw new Error("Please enter a valid email address");
       }
 
-      // Validate phone number (basic validation)
-      const phoneRegex = /^\+?[\d\s-]+$/;
-      if (!phoneRegex.test(formData.phone)) {
-        throw new Error("Please enter a valid phone number");
+      // Validate phone number (must be exactly 10 digits)
+      const phoneDigits = formData.phone.replace(/\D/g, "");
+      if (phoneDigits.length !== 10) {
+        throw new Error("Phone number must be exactly 10 digits");
       }
 
       // Validate credit limit
@@ -160,7 +162,7 @@ export default function CustomersPage() {
         customerName: formData.customerName,
         customerType: formData.customerType,
         email: formData.email,
-        phone: parseInt(formData.phone.replace(/\D/g, '')), // Remove non-digits
+        phone: parseInt(phoneDigits, 10), // store 10-digit phone
         city: formData.city,
         creditLimit: creditLimit,
         address: formData.address,
@@ -204,15 +206,16 @@ export default function CustomersPage() {
         }
       }
       
-      // Close dialog after a short delay
-      setTimeout(() => {
-        setIsAddDialogOpen(false);
-        setAddSuccess(false);
-      }, 1500);
+      // Toast + close dialog
+      toast({ title: "Customer added", description: `${payload.customerName} has been added successfully.` });
+      setIsAddDialogOpen(false);
+      setAddSuccess(false);
       
     } catch (err) {
       console.error("Error adding customer:", err);
-      setAddError(err instanceof Error ? err.message : "Failed to add customer");
+      const message = err instanceof Error ? err.message : "Failed to add customer";
+      setAddError(message);
+      toast({ title: "Failed to add customer", description: message, variant: "destructive" });
     } finally {
       setAddingCustomer(false);
     }
@@ -245,6 +248,11 @@ export default function CustomersPage() {
     const matchesType = selectedType === "all" || customer.customerType.toLowerCase() === selectedType
     return matchesSearch && matchesCity && matchesType
   })
+
+  // Sort latest to oldest by createdAt
+  const sortedFilteredCustomers = [...filteredCustomers].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -629,7 +637,7 @@ export default function CustomersPage() {
                     <th className="text-left p-4 font-medium">Location</th>
                     <th className="text-left p-4 font-medium">Type</th>
                     <th className="text-left p-4 font-medium">Credit Limit</th>
-                    <th className="text-left p-4 font-medium">Status</th>
+                    {/* <th className="text-left p-4 font-medium">Status</th> */}
                     <th className="text-left p-4 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -641,12 +649,12 @@ export default function CustomersPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredCustomers.map((customer) => (
+                    sortedFilteredCustomers.map((customer) => (
                       <tr key={customer._id} className="border-b hover:bg-muted/50">
                       <td className="p-4">
                         <div>
                             <p className="font-medium">{customer.customerName}</p>
-                            <p className="text-sm text-muted-foreground">{customer._id}</p>
+                            {/* <p className="text-sm text-muted-foreground">{customer._id}</p> */}
                         </div>
                       </td>
                       <td className="p-4">
@@ -673,7 +681,7 @@ export default function CustomersPage() {
                       <td className="p-4">
                           <p className="font-medium">₹{customer.creditLimit.toLocaleString()}</p>
                       </td>
-                        <td className="p-4">{getStatusBadge("active")}</td>
+                        {/* <td className="p-4">{getStatusBadge("active")}</td> */}
                       <td className="p-4">
                         <div className="flex gap-2">
                             <Link href={`/customers/${customer._id}`}>

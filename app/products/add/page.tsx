@@ -44,10 +44,12 @@ import { Upload, X, Plus, ArrowLeft, Save, Tag, Loader2, Router } from "lucide-r
 import Link from "next/link";
 import { createProduct, uploadProductImages } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 
 export default function AddProductPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -134,26 +136,26 @@ export default function AddProductPage() {
 
       for (const { field, message } of requiredFields) {
         if (!field) {
-          alert(message);
+          toast({ title: "Missing information", description: message, variant: "destructive" });
           setIsSubmitting(false);
           return;
         }
       }
       // Require at least one tag
       if (selectedTags.length === 0) {
-        alert("Please select at least one tag");
+        toast({ title: "Tags required", description: "Please select at least one tag", variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
       // Require at least one product image
       if (!productImages || productImages.length === 0) {
-        alert("Please upload at least one product image");
+        toast({ title: "Images required", description: "Please upload at least one product image", variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
       // Validate variants: must have at least one, and each must have color, price>0, stock provided
       if (variants.length === 0) {
-        alert("Please add at least one variant (color, price, stock)");
+        toast({ title: "Variant required", description: "Add at least one variant (color, price, stock)", variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
@@ -162,17 +164,17 @@ export default function AddProductPage() {
         const priceNum = parseFloat(v.price);
         const stockNum = parseFloat(v.stock);
         if (!v.color) {
-          alert(`Variant ${idx + 1}: Color is required`);
+          toast({ title: "Invalid variant", description: `Variant ${idx + 1}: Color is required`, variant: "destructive" });
           setIsSubmitting(false);
           return;
         }
         if (!Number.isFinite(priceNum) || priceNum <= 0) {
-          alert(`Variant ${idx + 1}: Price must be greater than 0`);
+          toast({ title: "Invalid variant", description: `Variant ${idx + 1}: Price must be greater than 0`, variant: "destructive" });
           setIsSubmitting(false);
           return;
         }
         if (!Number.isFinite(stockNum) || stockNum < 0) {
-          alert(`Variant ${idx + 1}: Stock must be 0 or greater`);
+          toast({ title: "Invalid variant", description: `Variant ${idx + 1}: Stock must be 0 or greater`, variant: "destructive" });
           setIsSubmitting(false);
           return;
         }
@@ -198,7 +200,7 @@ export default function AddProductPage() {
         !productData.category ||
         !productData.unit
       ) {
-        alert("Please fill in all required fields");
+        toast({ title: "Missing information", description: "Please fill in all required fields", variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
@@ -207,18 +209,15 @@ export default function AddProductPage() {
        
       const response = await createProduct(productData);
       if (response.success) {
-        alert("Product created successfully!");
-        console.log("Product created:", response);
-        router.push('/products');
-
-        // router.push('/products'); // Redirect to products page
+        toast({ title: "Product created", description: `${productData.productName} has been added successfully.` });
+        setTimeout(() => router.push('/products'), 900);
       } else {
-        alert(`Error: ${response.message}`);
+        toast({ title: "Failed to create product", description: response.message || "Unknown error", variant: "destructive" });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.error("Error submitting product:", message);
-      alert("An error occurred while creating the product: " + message);
+      toast({ title: "Error", description: `An error occurred while creating the product: ${message}`, variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -319,7 +318,7 @@ export default function AddProductPage() {
     // Check file sizes
     for (let i = 0; i < files.length; i++) {
       if (files[i].size > MAX_FILE_SIZE) {
-        alert(`File ${files[i].name} is too large (max 5MB)`);
+        toast({ title: "File too large", description: `${files[i].name} exceeds 5MB limit`, variant: "destructive" });
         return;
       }
     }
@@ -328,7 +327,7 @@ export default function AddProductPage() {
       setIsUploading(true);
       // Check if we've reached the 5-image limit
       if (productImages.length + files.length > 5) {
-        alert("You can upload a maximum of 5 images");
+        toast({ title: "Image limit reached", description: "You can upload a maximum of 5 images", variant: "destructive" });
         return;
       }
 
@@ -342,7 +341,7 @@ export default function AddProductPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.error("Error uploading images:", message);
-      alert(`Failed to upload images: ${message}`);
+      toast({ title: "Image upload failed", description: message, variant: "destructive" });
     } finally {
       setIsUploading(false);
       e.target.value = "";

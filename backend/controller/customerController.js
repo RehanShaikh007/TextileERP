@@ -80,9 +80,35 @@ export const createCustomer = async (req, res) => {
 export const getAllCustomers = async (req, res) => {
   try {
     const customers = await Customer.find();
+    
+    // Get customers with credit information
+    const customersWithCredit = await Promise.all(
+      customers.map(async (customer) => {
+        // Calculate total order value for this customer
+        const Order = (await import("../models/orderSchema.js")).default;
+        const customerOrders = await Order.find({ customer: customer.customerName });
+        
+        const totalOrderValue = customerOrders.reduce((sum, order) => {
+          const orderTotal = order.orderItems.reduce((itemSum, item) => {
+            return itemSum + (item.quantity * (item.pricePerMeters || 0));
+          }, 0);
+          return sum + orderTotal;
+        }, 0);
+        
+        const remainingCredit = customer.creditLimit - totalOrderValue;
+        
+        return {
+          ...customer.toObject(),
+          totalOrderValue,
+          remainingCredit,
+          creditExceeded: remainingCredit < 0
+        };
+      })
+    );
+    
     res.status(200).json({
       success: true,
-      customers,
+      customers: customersWithCredit,
     });
   } catch (error) {
     console.error('Error fetching customers:', error);

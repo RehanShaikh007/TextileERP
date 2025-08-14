@@ -28,9 +28,20 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Plus, X, ArrowLeft, Save, User, Package, Calculator, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
+import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 // Backend interfaces
-interface Customer { _id: string; customerName: string; city: string; customerType: "Wholesale" | "Retail"; }
+interface Customer { 
+  _id: string; 
+  customerName: string; 
+  city: string; 
+  customerType: "Wholesale" | "Retail";
+  creditLimit: number;
+  totalOrderValue: number;
+  remainingCredit: number;
+  creditExceeded: boolean;
+}
 interface StockVariant { color: string; quantity: number; unit: string; }
 interface StockDetails { product: string; factory?: string; agent?: string; orderNumber?: string; processingFactory?: string; processingStage?: string; expectedCompletion?: string; design?: string; warehouse?: string; }
 interface Stock { _id: string; stockType: "Gray Stock" | "Factory Stock" | "Design Stock"; status: string; variants: StockVariant[]; stockDetails: StockDetails; addtionalInfo: any; createdAt: string; updatedAt: string; }
@@ -47,7 +58,34 @@ interface Product {
 }
 
 export default function NewOrderPage() {
+  const { toast } = useToast()
+  const router = useRouter()
   const [selectedCustomerId, setSelectedCustomerId] = useState("")
+
+  // Helper function to get selected customer name
+  const getSelectedCustomerName = () => {
+    const selectedCustomer = customers.find(c => c._id === selectedCustomerId)
+    return selectedCustomer?.customerName || ""
+  }
+
+
+
+  // Helper function to check if order exceeds credit limit
+  const checkCreditLimit = () => {
+    const selectedCustomer = customers.find(c => c._id === selectedCustomerId)
+    if (!selectedCustomer) return { exceeds: false, remaining: 0, orderTotal: 0, grandTotal: 0 }
+    
+    const orderTotal = calculateOrderTotal()
+    const grandTotal = calculateGrandTotal()
+    const remaining = selectedCustomer.remainingCredit - grandTotal
+    
+    return {
+      exceeds: remaining < 0,
+      remaining,
+      orderTotal,
+      grandTotal
+    }
+  }
   const [orderDate, setOrderDate] = useState<string>(new Date().toISOString().split("T")[0])
   const [deliveryDate, setDeliveryDate] = useState<string>("")
   const [notes, setNotes] = useState("")
@@ -309,13 +347,17 @@ export default function NewOrderPage() {
       }
 
       setSuccess(true)
+      toast({ title: "Order created", description: `Order for ${getSelectedCustomerName() || 'customer'} created successfully.` })
+      setTimeout(() => router.push('/orders'), 900)
       // Reset minimal state
       setOrderItems([{ id: 1, productId: "", color: "", quantity: "", unit: "meters", price: "", total: 0 }])
       setSelectedCustomerId("")
       setDeliveryDate("")
       setNotes("")
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create order")
+      const message = e instanceof Error ? e.message : "Failed to create order"
+      setError(message)
+      toast({ title: "Failed to create order", description: message, variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -421,22 +463,44 @@ export default function NewOrderPage() {
                       <SelectValue placeholder="Choose customer" />
                     </SelectTrigger>
                     <SelectContent>
-                      {customers.map((customer) => (
+                      {customers
+                        .filter(customer => !customer.creditExceeded) // Filter out customers with exceeded credit
+                        .map((customer) => (
                         <SelectItem key={customer._id} value={customer._id}>
                           <div className="flex items-center justify-between w-full">
                             <span>{customer.customerName}</span>
                             <div className="flex gap-2 ml-4">
                               <Badge variant="outline" className="text-xs">{customer.city}</Badge>
                               <Badge variant="secondary" className="text-xs">{customer.customerType}</Badge>
+                              <Badge variant="outline" className="text-xs text-green-600">
+                                ₹{customer.remainingCredit.toLocaleString()} available
+                              </Badge>
                             </div>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {customers.filter(customer => customer.creditExceeded).length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {customers.filter(customer => customer.creditExceeded).length} customer(s) with exceeded credit limit are hidden
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                  {selectedCustomerId && (
+                    <div className="col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-blue-800">
+                          Selected Customer: {getSelectedCustomerName()}
+                        </span>
+                        <span className="text-sm text-blue-600">
+                          Available Credit: ₹{customers.find(c => c._id === selectedCustomerId)?.remainingCredit.toLocaleString() || '0'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   <div className="space-y-2 col-span-2 sm:col-span-1">
                     <Label htmlFor="order-date">Order Date</Label>
                     <Input id="order-date" type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
@@ -602,6 +666,35 @@ export default function NewOrderPage() {
                 <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded mb-4">
                   <p className="text-blue-800 text-sm font-medium">All items are from available stock inventory</p>
                 </div>
+                
+                {/* Credit Limit Warning */}
+                {(() => {
+                  const creditCheck = checkCreditLimit()
+                  if (creditCheck.exceeds) {
+                    return (
+                      <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded mb-4">
+                        <p className="text-red-800 text-sm font-medium">⚠️ Credit Limit Exceeded</p>
+                        <p className="text-red-700 text-xs mt-1">
+                          Order total: ₹{creditCheck.orderTotal.toLocaleString()}<br/>
+                          GST (18%): ₹{calculateTax().toLocaleString()}<br/>
+                          Grand total: ₹{creditCheck.grandTotal.toLocaleString()}<br/>
+                          Available credit: ₹{customers.find(c => c._id === selectedCustomerId)?.remainingCredit.toLocaleString() || '0'}<br/>
+                          Shortfall: ₹{Math.abs(creditCheck.remaining).toLocaleString()}
+                        </p>
+                      </div>
+                    )
+                  } else if (creditCheck.orderTotal > 0) {
+                    return (
+                      <div className="bg-green-50 border-l-4 border-green-400 p-3 rounded mb-4">
+                        <p className="text-green-800 text-sm font-medium">✅ Credit Limit OK</p>
+                        <p className="text-green-700 text-xs mt-1">
+                          Remaining credit after order: ₹{creditCheck.remaining.toLocaleString()}
+                        </p>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Items</span>

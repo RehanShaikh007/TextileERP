@@ -39,8 +39,13 @@ interface Return {
   quantityInMeters: number
   returnReason: string
   isApprove: boolean
+  isRejected?: boolean
   date: string
+  formattedOrderId?: string
+  refundAmount?: number
 }
+
+
 
 interface Order {
   _id: string
@@ -52,6 +57,7 @@ interface OrderItem {
   product: string
   color: string
   quantity: number
+  pricePerMeters: number
 }
 
 interface Product {
@@ -73,6 +79,7 @@ export default function ReturnsPage() {
   const [colors, setColors] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
 
    // Form state for new return
    const [newReturn, setNewReturn] = useState({
@@ -134,27 +141,23 @@ export default function ReturnsPage() {
   //   },
   // ]
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        setError(null)
-        
-        // Fetch returns
-        console.log('Fetching returns...')
-        const returnsRes = await fetch('http://localhost:4000/api/v1/returns')
-        if (!returnsRes.ok) {
-          throw new Error(`Returns API error: ${returnsRes.status}`)
-        }
-        const returnsData = await returnsRes.json()
-        console.log('Returns data:', returnsData)
-        console.log('Returns array:', returnsData.returns)
-        if (returnsData.returns && returnsData.returns.length > 0) {
-          console.log('First return object:', returnsData.returns[0])
-        }
-        
+  // Fetch returns (sorted by latest to oldest)
+  const fetchReturns = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      console.log('Fetching returns...')
+      const returnsRes = await fetch('http://localhost:4000/api/v1/returns')
+      if (!returnsRes.ok) {
+        throw new Error(`Returns API error: ${returnsRes.status}`)
+      }
+      const returnsData = await returnsRes.json()
+      console.log('Returns data:', returnsData)
+      
+      if (returnsData.success && returnsData.returns) {
         // Format order IDs as ORD-XXX
-        const formattedReturns = returnsData.returns?.map(returnItem => {
+        const formattedReturns = returnsData.returns.map((returnItem: any) => {
           // Format order ID
           const orderId = returnItem.order || returnItem.orderId;
           // Extract only numeric digits from the ID
@@ -172,9 +175,29 @@ export default function ReturnsPage() {
             formattedOrderId,
             date: formattedDate
           };
-        }) || [];
+        });
         
         setReturns(formattedReturns)
+      } else {
+        throw new Error('Invalid response format')
+      }
+    } catch (err) {
+      console.error('Fetch error:', err)
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setReturns([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // Fetch returns
+        await fetchReturns()
 
         // Fetch orders
         console.log('Fetching orders...')
@@ -233,28 +256,38 @@ export default function ReturnsPage() {
     fetchData()
   }, [])
 
-  const filteredReturns = returns.filter((returnItem) => {
+  // Handle status filter change
+  const handleStatusChange = (newStatus: string) => {
+    setSelectedStatus(newStatus)
+  }
+
+  // Filter returns based on search term and status
+  const filteredReturns = returns.filter((returnItem: Return) => {
     const matchesSearch =
       returnItem.order.toLowerCase().includes(searchTerm.toLowerCase()) ||
       returnItem.product.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = 
       selectedStatus === "all" || 
       (selectedStatus === "approved" && returnItem.isApprove) ||
-      (selectedStatus === "pending" && !returnItem.isApprove)
+      (selectedStatus === "pending" && !returnItem.isApprove && !returnItem.isRejected) ||
+      (selectedStatus === "rejected" && returnItem.isRejected)
     return matchesSearch && matchesStatus
   })
 
-  const getStatusColor = (isApprove: boolean) => {
+  const getStatusColor = (isApprove: boolean, isRejected?: boolean) => {
+    if (isRejected) return "destructive"
     return isApprove ? "default" : "secondary"
   }
 
-  const getStatusIcon = (isApprove: boolean) => {
+  const getStatusIcon = (isApprove: boolean, isRejected?: boolean) => {
+    if (isRejected) return <AlertCircle className="h-4 w-4 text-red-500" />
     return isApprove ? 
       <CheckCircle className="h-4 w-4 text-green-500" /> : 
       <Clock className="h-4 w-4 text-orange-500" />
   }
 
-  const getStatusText = (isApprove: boolean) => {
+  const getStatusText = (isApprove: boolean, isRejected?: boolean) => {
+    if (isRejected) return "Rejected"
     return isApprove ? "Approved" : "Pending"
   }
 
@@ -292,12 +325,15 @@ export default function ReturnsPage() {
     return orderItem ? orderItem.quantity : 0
   }
 
+
+
   const returnStats = {
     total: returns.length,
-    pending: returns.filter(r => !r.isApprove).length,
+    pending: returns.filter(r => !r.isApprove && !r.isRejected).length,
     approved: returns.filter(r => r.isApprove).length,
+    rejected: returns.filter(r => r.isRejected).length,
     processed: returns.filter(r => r.isApprove).length, // For now, processed = approved
-    totalValue: returns.reduce((sum, r) => sum + (r.quantityInMeters * 450), 0), // Adjust with actual price
+    totalValue: returns.reduce((sum, r) => sum + (r.quantityInMeters * 450), 0), // Use estimated value
   }
 
   const handleCreateReturn = async () => {
@@ -343,9 +379,12 @@ export default function ReturnsPage() {
       }
 
       const updatedReturn = await response.json()
-      setReturns(returns.map(r => 
-        r._id === id ? updatedReturn.return : r
-      ))
+      
+      // Refresh the data
+      await fetchReturns()
+      
+      // Show success message
+      alert(`✅ Return approved successfully!`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to approve return')
     }
@@ -358,7 +397,7 @@ export default function ReturnsPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ isApprove: false })
+        body: JSON.stringify({ isApprove: false, isRejected: true })
       })
 
       if (!response.ok) {
@@ -366,9 +405,9 @@ export default function ReturnsPage() {
       }
 
       const updatedReturn = await response.json()
-      setReturns(returns.map(r => 
-        r._id === id ? updatedReturn.return : r
-      ))
+      
+      // Refresh the data
+      await fetchReturns()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reject return')
     }
@@ -598,7 +637,7 @@ export default function ReturnsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Returns</CardTitle>
@@ -629,6 +668,17 @@ export default function ReturnsPage() {
             <CardContent>
               <div className="text-2xl font-bold text-green-500">{returnStats.approved}</div>
               <p className="text-xs text-muted-foreground">Ready to process</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rejected</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-500">{returnStats.rejected}</div>
+              <p className="text-xs text-muted-foreground">Declined returns</p>
             </CardContent>
           </Card>
 
@@ -666,7 +716,7 @@ export default function ReturnsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <Select value={selectedStatus} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -674,6 +724,7 @@ export default function ReturnsPage() {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="processed">Processed</SelectItem>
             </SelectContent>
           </Select>
@@ -687,36 +738,55 @@ export default function ReturnsPage() {
             <CardDescription>Approved returns that have been processed and moved to the ledger.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left p-4 font-medium">Return ID</th>
-                    <th className="text-left p-4 font-medium">Date</th>
-                    <th className="text-left p-4 font-medium">Order ID</th>
-                    <th className="text-left p-4 font-medium">Customer</th>
-                    <th className="text-left p-4 font-medium">Product</th>
-                    <th className="text-left p-4 font-medium">Color</th>
-                    <th className="text-left p-4 font-medium">Qty</th>
-                    <th className="text-left p-4 font-medium">Reason</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {returns.filter(r => r.isApprove).map((r) => (
-                    <tr key={r._id} className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">{r.id || 'N/A'}</td>
-                      <td className="p-4">{r.date || 'N/A'}</td>
-                      <td className="p-4">{r.formattedOrderId || 'N/A'}</td>
-                      <td className="p-4">{r.customer || 'Unknown Customer'}</td>
-                      <td className="p-4">{r.product}</td>
-                      <td className="p-4">{r.color}</td>
-                      <td className="p-4">{r.quantityInMeters}m</td>
-                      <td className="p-4">{r.returnReason}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-2 text-sm text-muted-foreground">Loading returns...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <p className="text-red-500">Error: {error}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left p-4 font-medium">Return ID</th>
+                        <th className="text-left p-4 font-medium">Date</th>
+                        <th className="text-left p-4 font-medium">Order ID</th>
+                        <th className="text-left p-4 font-medium">Customer</th>
+                        <th className="text-left p-4 font-medium">Product</th>
+                        <th className="text-left p-4 font-medium">Color</th>
+                        <th className="text-left p-4 font-medium">Qty</th>
+                        <th className="text-left p-4 font-medium">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {returns.filter(r => r.isApprove).map((r) => (
+                        <tr key={r._id} className="border-b hover:bg-muted/50">
+                          <td className="p-4 font-medium">{r.id || 'N/A'}</td>
+                          <td className="p-4">{r.date || 'N/A'}</td>
+                          <td className="p-4">{r.formattedOrderId || 'N/A'}</td>
+                          <td className="p-4">{r.customer || 'Unknown Customer'}</td>
+                          <td className="p-4">{r.product}</td>
+                          <td className="p-4">{r.color}</td>
+                          <td className="p-4">{r.quantityInMeters}m</td>
+                          <td className="p-4">{r.returnReason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+
+              </>
+            )}
           </CardContent>
         </Card>
         {/* --- End Demo: Return Ledger --- */}
@@ -726,76 +796,105 @@ export default function ReturnsPage() {
             <CardDescription>Pending return requests awaiting approval</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left p-4 font-medium">Return ID</th>
-                    <th className="text-left p-4 font-medium">Order ID</th>
-                    <th className="text-left p-4 font-medium">Customer</th>
-                    <th className="text-left p-4 font-medium">Product</th>
-                    <th className="text-left p-4 font-medium">Qty</th>
-                    <th className="text-left p-4 font-medium">Reason</th>
-                    <th className="text-left p-4 font-medium">Value</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredReturns.filter(returnItem => !returnItem.isApprove).map((returnItem) => (
-                    <tr key={returnItem.id || returnItem._id} className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-medium">{returnItem.id || 'N/A'}</td>
-                      <td className="p-4">{returnItem.formattedOrderId || 'N/A'}</td>
-                      <td className="p-4">{returnItem.customer || 'Unknown Customer'}</td>
-                      <td className="p-4">
-                        <div>
-                          <p className="font-medium">{returnItem.product}</p>
-                          <p className="text-sm text-muted-foreground">{returnItem.color}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">{returnItem.quantityInMeters}m</td>
-                      <td className="p-4">
-                        <span className="text-sm">{returnItem.returnReason}</span>
-                      </td>
-                      <td className="p-4">₹{(returnItem.quantityInMeters * 450).toLocaleString()}</td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          {getStatusIcon(returnItem.isApprove)}
-                          <Badge variant={getStatusColor(returnItem.isApprove)}>{getStatusText(returnItem.isApprove)}</Badge>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          {!returnItem.isApprove && (
-                            <>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleApproveReturn(returnItem._id)}
-                              >
-                                Approve
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleRejectReturn(returnItem._id)}
-                              >
-                                Reject
-                              </Button>
-                            </>
-                          )}
-                          {returnItem.isApprove && <Button size="sm">Process</Button>}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {loading ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-2 text-sm text-muted-foreground">Loading returns...</p>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center p-8">
+                <div className="text-center">
+                  <p className="text-red-500">Error: {error}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b">
+                      <tr>
+                        <th className="text-left p-4 font-medium">Return ID</th>
+                        <th className="text-left p-4 font-medium">Order ID</th>
+                        <th className="text-left p-4 font-medium">Customer</th>
+                        <th className="text-left p-4 font-medium">Product</th>
+                        <th className="text-left p-4 font-medium">Qty</th>
+                        <th className="text-left p-4 font-medium">Reason</th>
+                        <th className="text-left p-4 font-medium">Value</th>
+                        <th className="text-left p-4 font-medium">Status</th>
+                        <th className="text-left p-4 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredReturns.filter(returnItem => !returnItem.isApprove).map((returnItem) => (
+                        <tr 
+                          key={returnItem.id || returnItem._id} 
+                          className={`border-b hover:bg-muted/50 ${
+                            returnItem.isRejected ? 'bg-gray-100 opacity-60' : ''
+                          }`}
+                        >
+                          <td className="p-4 font-medium">{returnItem.id || 'N/A'}</td>
+                          <td className="p-4">{returnItem.formattedOrderId || 'N/A'}</td>
+                          <td className="p-4">{returnItem.customer || 'Unknown Customer'}</td>
+                          <td className="p-4">
+                            <div>
+                              <p className="font-medium">{returnItem.product}</p>
+                              <p className="text-sm text-muted-foreground">{returnItem.color}</p>
+                            </div>
+                          </td>
+                          <td className="p-4">{returnItem.quantityInMeters}m</td>
+                          <td className="p-4">
+                            <span className="text-sm">{returnItem.returnReason}</span>
+                          </td>
+                          <td className="p-4">₹{(returnItem.quantityInMeters * 450).toLocaleString()}</td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              {getStatusIcon(returnItem.isApprove, returnItem.isRejected)}
+                              <Badge variant={getStatusColor(returnItem.isApprove, returnItem.isRejected)}>
+                                {getStatusText(returnItem.isApprove, returnItem.isRejected)}
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              {!returnItem.isApprove && !returnItem.isRejected && (
+                                <>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleApproveReturn(returnItem._id)}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleRejectReturn(returnItem._id)}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              {returnItem.isApprove && <Button size="sm">Process</Button>}
+                              {returnItem.isRejected && (
+                                <span className="text-sm text-muted-foreground">No actions available</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+
+              </>
+            )}
           </CardContent>
         </Card>
 
-        {filteredReturns.length === 0 && (
+        {!loading && !error && filteredReturns.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <RotateCcw className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

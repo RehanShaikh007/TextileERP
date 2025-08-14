@@ -22,6 +22,40 @@ export const createOrder = async (req, res) => {
       });
     }
 
+    // Validate credit limit
+    const Customer = (await import("../models/customerSchema.js")).default;
+    const customerDoc = await Customer.findOne({ customerName: customer });
+    
+    if (!customerDoc) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    // Calculate order total
+    const orderTotal = orderItems.reduce((sum, item) => {
+      return sum + (item.quantity * (item.pricePerMeters || 0));
+    }, 0);
+
+    // Get existing orders for this customer
+    const existingOrders = await Order.find({ customer: customer });
+    const existingOrderTotal = existingOrders.reduce((sum, order) => {
+      const orderTotal = order.orderItems.reduce((itemSum, item) => {
+        return itemSum + (item.quantity * (item.pricePerMeters || 0));
+      }, 0);
+      return sum + orderTotal;
+    }, 0);
+
+    const totalWithNewOrder = existingOrderTotal + orderTotal;
+    
+    if (totalWithNewOrder > customerDoc.creditLimit) {
+      return res.status(400).json({
+        success: false,
+        message: `Order would exceed credit limit. Available credit: ₹${(customerDoc.creditLimit - existingOrderTotal).toLocaleString()}, Order total: ₹${orderTotal.toLocaleString()}`,
+      });
+    }
+
     // Only validate and deduct stock if order status is "confirmed"
     if (status === "confirmed") {
       // Validate stock and prepare deductions
@@ -154,17 +188,52 @@ export const getAllOrders = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const customer = req.query.customer;
+
+    // Build query filter
+    const queryFilter = {};
+    if (customer) {
+      queryFilter.customer = customer;
+    }
 
     const [orders, total] = await Promise.all([
-      Order.find().sort({ createdAt: -1 }).skip(skip).limit(limit),
-      Order.countDocuments()
+      Order.find(queryFilter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Order.countDocuments(queryFilter)
     ]);
+
+    // Get unique customer names from orders
+    const customerNames = [...new Set(orders.map(order => order.customer))];
+    
+    // Fetch customer data for all unique customers
+    const Customer = (await import("../models/customerSchema.js")).default;
+    const customers = await Customer.find({ customerName: { $in: customerNames } });
+    
+    // Create a map for quick lookup
+    const customerMap = {};
+    customers.forEach(customer => {
+      customerMap[customer.customerName] = customer;
+    });
+
+    // Add customer information to orders
+    const ordersWithCustomerInfo = orders.map(order => {
+      const customerInfo = customerMap[order.customer];
+      return {
+        ...order.toObject(),
+        customerInfo: customerInfo ? {
+          city: customerInfo.city,
+          customerType: customerInfo.customerType,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+          address: customerInfo.address
+        } : null
+      };
+    });
 
     const totalPages = Math.ceil(total / limit);
     
     res.status(200).json({
       success: true,
-      orders,
+      orders: ordersWithCustomerInfo,
       pagination: {
         currentPage: page,
         totalPages,

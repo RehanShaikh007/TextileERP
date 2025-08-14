@@ -31,109 +31,112 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
-
-const data = {
-  navMain: [
-    {
-      title: "Overview",
-      items: [
-        {
-          title: "Dashboard",
-          url: "/",
-          icon: Home,
-          badge: null,
-        },
-      ],
-    },
-    {
-      title: "Inventory",
-      items: [
-        {
-          title: "Products",
-          url: "/products",
-          icon: Package,
-          badge: "156",
-        },
-        {
-          title: "Stock",
-          url: "/stock",
-          icon: Warehouse,
-          badge: "12",
-          badgeVariant: "destructive" as const,
-        },
-      ],
-    },
-    {
-      title: "Sales",
-      items: [
-        {
-          title: "Orders",
-          url: "/orders",
-          icon: ShoppingCart,
-          badge: "8",
-          badgeVariant: "default" as const,
-        },
-        {
-          title: "Customers",
-          url: "/customers",
-          icon: Users,
-          badge: "45",
-        },
-        {
-          title: "Agents",
-          url: "/agents",
-          icon: Users,
-          badge: "4",
-        },
-        {
-          title: "Returns",
-          url: "/returns",
-          icon: RotateCcw,
-          badge: "3",
-          badgeVariant: "secondary" as const,
-        },
-      ],
-    },
-    {
-      title: "Analytics",
-      items: [
-        {
-          title: "Reports",
-          url: "/reports",
-          icon: BarChart3,
-          badge: null,
-        },
-        {
-          title: "Notifications",
-          url: "/notifications",
-          icon: Bell,
-          badge: "2",
-          badgeVariant: "destructive" as const,
-        },
-      ],
-    },
-    {
-      title: "System",
-      items: [
-        {
-          title: "Settings",
-          url: "/settings",
-          icon: Settings,
-          badge: null,
-        },
-      ],
-    },
-  ],
-}
+import { useSidebarCounts } from "@/hooks/use-sidebar-counts"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { setOpenMobile, isMobile } = useSidebar()
+  const { counts, loading } = useSidebarCounts()
 
   const handleLinkClick = () => {
     if (isMobile) {
       setOpenMobile(false)
     }
+  }
+
+  // Create navigation data with real counts
+  const navData = {
+    navMain: [
+      {
+        title: "Overview",
+        items: [
+          {
+            title: "Dashboard",
+            url: "/",
+            icon: Home,
+            badge: null,
+          },
+        ],
+      },
+      {
+        title: "Inventory",
+        items: [
+          {
+            title: "Products",
+            url: "/products",
+            icon: Package,
+            badge: loading ? "..." : counts.products.toString(),
+          },
+          {
+            title: "Stock",
+            url: "/stock",
+            icon: Warehouse,
+            badge: loading ? "..." : counts.stock.toString(),
+            badgeVariant: "destructive" as const,
+          },
+        ],
+      },
+      {
+        title: "Sales",
+        items: [
+          {
+            title: "Orders",
+            url: "/orders",
+            icon: ShoppingCart,
+            badge: loading ? "..." : counts.orders.toString(),
+            badgeVariant: "default" as const,
+          },
+          {
+            title: "Customers",
+            url: "/customers",
+            icon: Users,
+            badge: loading ? "..." : counts.customers.toString(),
+          },
+          {
+            title: "Agents",
+            url: "/agents",
+            icon: Users,
+            badge: loading ? "..." : counts.agents.toString(),
+          },
+          {
+            title: "Returns",
+            url: "/returns",
+            icon: RotateCcw,
+            badge: loading ? "..." : counts.returns.toString(),
+            badgeVariant: "secondary" as const,
+          },
+        ],
+      },
+      {
+        title: "Analytics",
+        items: [
+          {
+            title: "Reports",
+            url: "/reports",
+            icon: BarChart3,
+            badge: null,
+          },
+          {
+            title: "Notifications",
+            url: "/notifications",
+            icon: Bell,
+            badge: loading ? "..." : counts.notifications.toString(),
+            badgeVariant: "destructive" as const,
+          },
+        ],
+      },
+      {
+        title: "System",
+        items: [
+          {
+            title: "Settings",
+            url: "/settings",
+            icon: Settings,
+            badge: null,
+          },
+        ],
+      },
+    ],
   }
 
   return (
@@ -150,7 +153,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        {data.navMain.map((group) => (
+        {navData.navMain.map((group) => (
           <SidebarGroup key={group.title}>
             <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
             <SidebarGroupContent>

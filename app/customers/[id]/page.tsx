@@ -31,7 +31,60 @@ export default function CustomerViewPage() {
     phone: "",
     email: "",
     creditLimit: 0,
+    customerType: "",
   })
+
+  const [customerOrders, setCustomerOrders] = useState<any[]>([])
+  const [customerStats, setCustomerStats] = useState({
+    totalOrders: 0,
+    totalValue: 0,
+    averageOrderValue: 0,
+    lastOrderDate: null as string | null,
+    remainingCredit: 0,
+    creditUsed: 0,
+  })
+
+  // Fetch customer orders
+  const fetchCustomerOrders = async (customerName: string, creditLimit: number) => {
+    try {
+      const res = await fetch(`http://localhost:4000/api/v1/order?customer=${encodeURIComponent(customerName)}&limit=100`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.orders) {
+          setCustomerOrders(data.orders)
+          
+          // Calculate customer stats
+          const totalOrders = data.orders.length
+          const totalValue = data.orders.reduce((sum: number, order: any) => {
+            const orderTotal = order.orderItems.reduce((itemSum: number, item: any) => {
+              return itemSum + (item.quantity * (item.pricePerMeters || 0))
+            }, 0)
+            return sum + orderTotal
+          }, 0)
+          const averageOrderValue = totalOrders > 0 ? totalValue / totalOrders : 0
+          const lastOrderDate = data.orders.length > 0 ? data.orders[0].orderDate : null
+          
+          // Calculate credit information using the passed creditLimit parameter
+          const creditUsed = totalValue
+          const remainingCredit = creditLimit - creditUsed
+          
+          setCustomerStats({
+            totalOrders,
+            totalValue,
+            averageOrderValue,
+            lastOrderDate,
+            remainingCredit,
+            creditUsed,
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching customer orders:', error)
+    }
+  }
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -53,7 +106,13 @@ export default function CustomerViewPage() {
           phone: c.phone ? `+${c.phone}` : "",
           email: c.email || "",
           creditLimit: c.creditLimit || 0,
+          customerType: c.customerType || "",
         })
+        
+        // Fetch customer orders after getting customer data
+        if (c.customerName) {
+          await fetchCustomerOrders(c.customerName, c.creditLimit || 0)
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch customer')
       } finally {
@@ -63,17 +122,27 @@ export default function CustomerViewPage() {
     if (customerId) fetchCustomer()
   }, [customerId])
 
-  const recentOrders = [
-    { id: "ORD-001", date: "2024-01-15", amount: 45000, status: "delivered", items: 3, products: ["Cotton Blend Fabric", "Silk Designer Print"] },
-    { id: "ORD-002", date: "2024-01-10", amount: 32000, status: "shipped", items: 2, products: ["Polyester Mix", "Cotton Casual"] },
-    { id: "ORD-003", date: "2024-01-05", amount: 28000, status: "delivered", items: 4, products: ["Premium Cotton Base", "Silk Blend Base"] },
-  ]
+  // Helper function to calculate order total
+  const calculateOrderTotal = (order: any) => {
+    return order.orderItems.reduce((sum: number, item: any) => {
+      return sum + (item.quantity * (item.pricePerMeters || 0))
+    }, 0)
+  }
 
-  const paymentHistory = [
-    { id: "PAY-001", date: "2024-01-16", amount: 45000, method: "Bank Transfer", status: "completed", reference: "TXN123456789" },
-    { id: "PAY-002", date: "2024-01-11", amount: 32000, method: "Cheque", status: "completed", reference: "CHQ987654321" },
-    { id: "PAY-003", date: "2024-01-06", amount: 28000, method: "Cash", status: "completed", reference: "CASH001" },
-  ]
+  // Helper function to format order ID
+  const formatOrderId = (orderId: string) => {
+    // Extract only numeric digits from the ID
+    const numericChars = orderId.replace(/[^0-9]/g, '');
+    // Use the last 3 digits, or pad with zeros if less than 3 digits
+    const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
+    return `ORD-${lastThreeDigits}`;
+  }
+
+  // const paymentHistory = [
+  //   { id: "PAY-001", date: "2024-01-16", amount: 45000, method: "Bank Transfer", status: "completed", reference: "TXN123456789" },
+  //   { id: "PAY-002", date: "2024-01-11", amount: 32000, method: "Cheque", status: "completed", reference: "CHQ987654321" },
+  //   { id: "PAY-003", date: "2024-01-06", amount: 28000, method: "Cash", status: "completed", reference: "CASH001" },
+  // ]
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -212,7 +281,7 @@ export default function CustomerViewPage() {
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{customerStats.totalOrders}</div>
               <p className="text-xs text-muted-foreground">All time orders</p>
             </CardContent>
           </Card>
@@ -223,35 +292,53 @@ export default function CustomerViewPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹0</div>
+              <div className="text-2xl font-bold">₹{customerStats.totalValue.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Lifetime value</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Outstanding</CardTitle>
-              <Clock className="h-4 w-4 text-orange-500" />
+              <CardTitle className="text-sm font-medium">Remaining Credit</CardTitle>
+              <Clock className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-500">₹0</div>
-              <p className="text-xs text-muted-foreground">Pending payment</p>
+              <div className={`text-2xl font-bold ${customerStats.remainingCredit < 0 ? 'text-red-500' : 'text-blue-500'}`}>
+                ₹{customerStats.remainingCredit.toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {customerStats.remainingCredit < 0 ? 'Credit exceeded' : 'Available credit'}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Credit Limit</CardTitle>
-              <Star className="h-4 w-4 text-yellow-500" />
+              <CardTitle className="text-sm font-medium">Credit Used</CardTitle>
+              <Star className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold flex items-center gap-1">
-                ₹{customer.creditLimit.toLocaleString()}
+              <div className="text-2xl font-bold text-orange-500">
+                ₹{customerStats.creditUsed.toLocaleString()}
               </div>
-              <p className="text-xs text-muted-foreground">Customer limit</p>
+              <p className="text-xs text-muted-foreground">Total used</p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Credit Limit Card */}
+        <Card className="mt-4">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Credit Limit</CardTitle>
+            <Star className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold flex items-center gap-1">
+              ₹{customer.creditLimit.toLocaleString()}
+            </div>
+            <p className="text-xs text-muted-foreground">Customer limit</p>
+          </CardContent>
+        </Card>
 
         {/* Customer Details and Tabs */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -281,8 +368,24 @@ export default function CustomerViewPage() {
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Customer Type</span>
+                  <span className="font-medium">{customer.customerType}</span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Credit Limit</span>
                   <span className="font-medium">₹{customer.creditLimit.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Credit Used</span>
+                  <span className="font-medium">₹{customerStats.creditUsed.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className={`text-muted-foreground ${customerStats.remainingCredit < 0 ? 'text-red-600' : ''}`}>
+                    Remaining Credit
+                  </span>
+                  <span className={`font-medium ${customerStats.remainingCredit < 0 ? 'text-red-600' : ''}`}>
+                    ₹{customerStats.remainingCredit.toLocaleString()}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -293,7 +396,7 @@ export default function CustomerViewPage() {
             <Tabs defaultValue="orders" className="space-y-4">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="orders">Recent Orders</TabsTrigger>
-                <TabsTrigger value="payments">Payment History</TabsTrigger>
+                {/* <TabsTrigger value="payments">Payment History</TabsTrigger> */}
               </TabsList>
 
               <TabsContent value="orders">
@@ -315,15 +418,23 @@ export default function CustomerViewPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {recentOrders.map((order) => (
-                            <tr key={order.id} className="border-b hover:bg-muted/50">
-                              <td className="p-4 font-medium">{order.id}</td>
-                              <td className="p-4">{order.date}</td>
-                              <td className="p-4">₹{order.amount.toLocaleString()}</td>
-                              <td className="p-4">{order.items} items</td>
-                              <td className="p-4">{getStatusBadge(order.status)}</td>
+                          {customerOrders.length > 0 ? (
+                            customerOrders.slice(0, 5).map((order: any) => (
+                              <tr key={order._id} className="border-b hover:bg-muted/50">
+                                <td className="p-4 font-medium">{formatOrderId(order._id)}</td>
+                                <td className="p-4">{new Date(order.orderDate).toLocaleDateString()}</td>
+                                <td className="p-4">₹{calculateOrderTotal(order).toLocaleString()}</td>
+                                <td className="p-4">{order.orderItems.length} items</td>
+                                <td className="p-4">{getStatusBadge(order.status)}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                                No orders found for this customer
+                              </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -331,7 +442,7 @@ export default function CustomerViewPage() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="payments">
+              {/* <TabsContent value="payments">
                 <Card>
                   <CardHeader>
                     <CardTitle>Payment History</CardTitle>
@@ -364,7 +475,7 @@ export default function CustomerViewPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </TabsContent> */}
             </Tabs>
           </div>
         </div>

@@ -35,6 +35,18 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Upload, X, Plus, Save, ArrowLeft } from "lucide-react";
 import { useRouter, useParams } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Variant {
   color: string;
@@ -84,6 +96,7 @@ interface Product {
 
 export default function EditProductPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const params = useParams();
   const productId = params.id as string;
 
@@ -100,6 +113,7 @@ export default function EditProductPage() {
   const [newTag, setNewTag] = useState("");
   const [uploadingImages, setUploadingImages] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -284,15 +298,42 @@ export default function EditProductPage() {
         throw new Error(errorData.message || 'Failed to update product');
       }
   
-      router.push(`/products/${productId}`);
+      toast({ title: "Product updated", description: `${payload.productName} has been updated successfully.` });
+      setTimeout(() => router.push('/products'), 900);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+        toast({ title: "Failed to update product", description: err.message, variant: "destructive" });
+      } else {
+        setError('Unknown error');
+        toast({ title: "Failed to update product", description: 'Unknown error', variant: "destructive" });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!productId) return;
+    try {
+      setDeleting(true);
+      setError(null);
+      const response = await fetch(`http://localhost:4000/api/v1/products/${productId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || 'Failed to delete product');
+      }
+      router.push('/products');
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Unknown error');
+        setError('Failed to delete product');
       }
     } finally {
-      setLoading(false);
+      setDeleting(false);
     }
   };
 
@@ -646,6 +687,31 @@ export default function EditProductPage() {
             </Button>
           </div>
         </form>
+
+        {/* Danger Zone: Delete Product */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground"></div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">Delete Product</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this product?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the product
+                  and remove it from the product list.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>No</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </SidebarInset>
   );

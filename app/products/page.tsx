@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Package, Plus, Search, Grid3X3, List, Eye, Edit, AlertTriangle, CheckCircle, Clock, X } from "lucide-react"
+import { Package, Plus, Search, Grid3X3, List, Eye, Edit, AlertTriangle, CheckCircle, Clock, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react"
 import Link from "next/link"
 import React from "react"
 
@@ -36,7 +36,18 @@ interface Product {
     storageLocation: string;
   };
   unit?: string;
+  createdAt?: string;
+  updatedAt?: string;
   [key: string]: any;
+}
+
+interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 
 export default function ProductsPage() {
@@ -56,29 +67,72 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 12,
+    hasNextPage: false,
+    hasPrevPage: false
+  });
+
+  // Fetch products from backend with pagination
+  const fetchProducts = async (page: number = 1, limit: number = 12) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        sort: '-createdAt' // Sort by latest first
+      });
+      
+      const response = await fetch(`http://localhost:4000/api/v1/products?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      const data = await response.json();
+      
+      if (data.success && data.products) {
+        setProducts(data.products);
+        setPagination(data.pagination || {
+          currentPage: page,
+          totalPages: 1,
+          totalItems: data.products.length,
+          itemsPerPage: limit,
+          hasNextPage: false,
+          hasPrevPage: false
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Unknown error');
+      }
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('http://localhost:4000/api/v1/products');
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
-        const data = await response.json();
-        setProducts(data.products);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message);
-        } else {
-          setError('Unknown error');
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProducts();
   }, []);
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    fetchProducts(newPage, pagination.itemsPerPage);
+  };
+
+  // Handle items per page change
+  const handleItemsPerPageChange = (newLimit: number) => {
+    fetchProducts(1, newLimit);
+  };
 
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.productName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -115,9 +169,11 @@ export default function ProductsPage() {
 
   const productStats = {
     total: products.length,
-    available: products.filter((p) => p.status === "available").length,
-    lowStock: products.filter((p) => p.status === "low").length,
-    outOfStock: products.filter((p) => p.status === "out").length,
+    totalVariants: products.reduce((sum, p) => sum + p.variants.length, 0),
+    totalStock: products.reduce((sum, p) => 
+      sum + p.variants.reduce((vSum, v) => vSum + (v.stockInMeters || 0), 0), 0
+    ),
+    categories: new Set(products.map(p => p.category)).size,
   }
 
   return (
@@ -168,34 +224,34 @@ export default function ProductsPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Available</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Variants</CardTitle>
+              <Package className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-500">{productStats.totalVariants}</div>
+              <p className="text-xs text-muted-foreground">Color variants</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Stock</CardTitle>
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-500">{productStats.available}</div>
-              <p className="text-xs text-muted-foreground">In stock</p>
+              <div className="text-2xl font-bold text-green-500">{productStats.totalStock.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Meters available</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-500" />
+              <CardTitle className="text-sm font-medium">Categories</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">{productStats.lowStock}</div>
-              <p className="text-xs text-muted-foreground">Need attention</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-500">{productStats.outOfStock}</div>
-              <p className="text-xs text-muted-foreground">Urgent restock</p>
+              <div className="text-2xl font-bold text-purple-500">{productStats.categories}</div>
+              <p className="text-xs text-muted-foreground">Product types</p>
             </CardContent>
           </Card>
         </div>
@@ -250,7 +306,26 @@ export default function ProductsPage() {
         </div>
 
         {/* Products Display */}
-        {viewMode === "grid" ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Loading products...</span>
+            </div>
+          </div>
+        ) : error ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">Error loading products</h3>
+              <p className="text-muted-foreground mb-4">{error}</p>
+              <Button onClick={() => fetchProducts()}>
+                <Loader2 className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : viewMode === "grid" ? (
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredProducts.map((product) => (
               <Card key={product._id} className="hover:shadow-md transition-shadow">
@@ -405,7 +480,7 @@ export default function ProductsPage() {
           </Card>
         )}
 
-        {filteredProducts.length === 0 && (
+        {filteredProducts.length === 0 && !loading && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -419,6 +494,77 @@ export default function ProductsPage() {
               </Link>
             </CardContent>
           </Card>
+        )}
+
+        {/* Pagination Controls */}
+        {!loading && !error && pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+            <div className="text-sm text-muted-foreground">
+              Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} products
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(1)}
+                disabled={!pagination.hasPrevPage}
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.currentPage - 1)}
+                disabled={!pagination.hasPrevPage}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (pagination.totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (pagination.currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                    pageNum = pagination.totalPages - 4 + i;
+                  } else {
+                    pageNum = pagination.currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === pagination.currentPage ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handlePageChange(pageNum)}
+                      className="w-8 h-8 p-0"
+                    >
+                      {pageNum}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.currentPage + 1)}
+                disabled={!pagination.hasNextPage}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handlePageChange(pagination.totalPages)}
+                disabled={!pagination.hasNextPage}
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Image Expansion Modal */}

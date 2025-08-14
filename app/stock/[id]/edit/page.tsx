@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,8 +17,19 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
+import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle, Plus, Trash2 } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 // Stock interfaces based on backend schema
 interface StockVariant {
@@ -63,31 +75,6 @@ interface Stock {
   updatedAt: string;
 }
 
-// Frontend form interface
-interface StockFormData {
-  id: string;
-  product: string;
-  type: string;
-  quantity: number;
-  factory: string;
-  agent: string;
-  orderNumber: string;
-  status: string;
-  unitPrice: number;
-  location: string;
-  batchNumber: string;
-  qualityGrade: string;
-  material: string;
-  weight: string;
-  width: string;
-  color: string;
-  finish: string;
-  supplierName: string;
-  supplierContact: string;
-  supplierAddress: string;
-  notes: string;
-}
-
 // Agent interface based on API response
 interface Agent {
   _id: string;
@@ -102,41 +89,26 @@ export default function StockEditPage() {
   const params = useParams()
   const router = useRouter()
   const stockId = params.id as string
+  const { toast } = useToast()
 
   // State management
-  const [stockItem, setStockItem] = useState<StockFormData>({
-    id: "",
-    product: "",
-    type: "",
-    quantity: 0,
-    factory: "",
-    agent: "",
-    orderNumber: "",
-    status: "available",
-    unitPrice: 0,
-    location: "",
-    batchNumber: "",
-    qualityGrade: "A",
-    material: "",
-    weight: "",
-    width: "",
-    color: "",
-    finish: "",
-    supplierName: "",
-    supplierContact: "",
-    supplierAddress: "",
-    notes: "",
-  })
-
+  const [stockItem, setStockItem] = useState<Stock | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Add state for agents fetching
-    const [agents, setAgents] = useState<Agent[]>([]);
-    const [agentsLoading, setAgentsLoading] = useState(true);
-    const [factories, setFactories] = useState<string[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
+  const [factories, setFactories] = useState<string[]>([]);
+
+  // Predefined options
+  const processingStages = ["dyeing", "printing", "finishing", "quality-check"]
+  const qualityGrades = ["A+", "A", "B+", "B"]
+  const statuses = ["available", "low", "out", "processing", "quality_check"]
+  const units = ["METERS", "SETS"]
 
   // Fetch stock data from backend
   useEffect(() => {
@@ -160,7 +132,7 @@ export default function StockEditPage() {
         
         if (data.success) {
           const stock = data.stock as Stock
-          transformStockToFormData(stock)
+          setStockItem(stock)
         } else {
           throw new Error(data.message || "Failed to fetch stock")
         }
@@ -209,124 +181,104 @@ export default function StockEditPage() {
     fetchAgentsAndFactories();
   }, [stockId])
 
-  // Transform backend stock data to form data
-  const transformStockToFormData = (stock: Stock) => {
-    const totalQuantity = stock.variants.reduce((sum, variant) => sum + variant.quantity, 0)
-    const mainColor = stock.variants[0]?.color || ""
+  // Update stock item field
+  const updateStockItem = (field: string, value: any) => {
+    if (!stockItem) return;
     
-    // Use dynamic status from backend
-    const status = stock.status || "available"
-
-    const formData: StockFormData = {
-      id: stock._id,
-      product: (stock.stockDetails as any).product || "",
-      type: stock.stockType.toLowerCase().replace(" ", "_"),
-      quantity: totalQuantity,
-      factory: (stock.stockDetails as any).factory || (stock.stockDetails as any).processingFactory || "",
-      agent: (stock.stockDetails as any).agent || "",
-      orderNumber: (stock.stockDetails as any).orderNumber || "",
-      status,
-      unitPrice: 120, // Default value, not in backend schema
-      location: (stock.stockDetails as any).warehouse || "Warehouse A - Section 2",
-      batchNumber: stock.addtionalInfo.batchNumber,
-      qualityGrade: stock.addtionalInfo.qualityGrade,
-      // material: "100% Cotton", // Default value, not in backend schema
-      // weight: "200 GSM", // Default value, not in backend schema
-      // width: "44 inches", // Default value, not in backend schema
-      // color: mainColor,
-      // finish: "Unfinished", // Default value, not in backend schema
-      // supplierName: "Cotton Mills India", // Default value, not in backend schema
-      // supplierContact: "+91 98765 43210", // Default value, not in backend schema
-      // supplierAddress: "Industrial Area, Coimbatore", // Default value, not in backend schema
-      notes: stock.addtionalInfo.notes || "",
-    }
-
-    setStockItem(formData)
+    setStockItem(prev => {
+      if (!prev) return prev;
+      
+      if (field.includes('.')) {
+        const [section, key] = field.split('.');
+        return {
+          ...prev,
+          [section]: {
+            ...prev[section as keyof Stock],
+            [key]: value
+          }
+        };
+      }
+      
+      return {
+        ...prev,
+        [field]: value
+      };
+    });
   }
 
-  // Transform form data back to backend format
-  const transformFormDataToBackend = (formData: StockFormData) => {
-    const stockType = formData.type === "gray_stock" ? "Gray Stock" : 
-                     formData.type === "factory_stock" ? "Factory Stock" : "Design Stock"
+  // Update variant
+  const updateVariant = (index: number, field: string, value: any) => {
+    if (!stockItem) return;
+    
+    setStockItem(prev => {
+      if (!prev) return prev;
+      
+      const updatedVariants = [...prev.variants];
+      updatedVariants[index] = {
+        ...updatedVariants[index],
+        [field]: value
+      };
+      
+      return {
+        ...prev,
+        variants: updatedVariants
+      };
+    });
+  }
 
-    // Create variants based on quantity and color
-    const variants = [{
-      color: formData.color || "Natural White",
-      quantity: formData.quantity,
+  // Add new variant
+  const addVariant = () => {
+    if (!stockItem) return;
+    
+    const newVariant: StockVariant = {
+      color: "",
+      quantity: 0,
       unit: "METERS"
-    }]
-
-    // Create stock details based on type
-    let stockDetails: any = {}
-    if (stockType === "Gray Stock") {
-      stockDetails = {
-        product: formData.product,
-        factory: formData.factory,
-        agent: formData.agent,
-        orderNumber: formData.orderNumber,
-      }
-    } else if (stockType === "Factory Stock") {
-      stockDetails = {
-        product: formData.product,
-        processingFactory: formData.factory,
-        processingStage: "Dyeing", // Default value
-        expectedCompletion: new Date().toISOString(),
-      }
-    } else if (stockType === "Design Stock") {
-      stockDetails = {
-        product: formData.product,
-        design: "Floral Print", // Default value
-        warehouse: formData.location,
-      }
-    }
-
-    // Create additional info
-    const addtionalInfo = {
-      batchNumber: formData.batchNumber,
-      qualityGrade: formData.qualityGrade,
-      notes: formData.notes,
-    }
-
-    return {
-      stockType,
-      status: formData.status,
-      variants,
-      stockDetails,
-      addtionalInfo,
-    }
+    };
+    
+    setStockItem(prev => ({
+      ...prev!,
+      variants: [...prev!.variants, newVariant]
+    }));
   }
 
-  const locations = [
-    "Warehouse A - Section 1",
-    "Warehouse A - Section 2",
-    "Warehouse B - Section 1",
-    "Factory Floor",
-    "Quality Check Area",
-  ]
-  const qualityGrades = ["A+", "A", "B+", "B"]
-  const statuses = ["available", "low", "out", "processing", "quality_check"]
+  // Remove variant
+  const removeVariant = (index: number) => {
+    if (!stockItem || stockItem.variants.length <= 1) return;
+    
+    setStockItem(prev => ({
+      ...prev!,
+      variants: prev!.variants.filter((_, i) => i !== index)
+    }));
+  }
 
-  const handleInputChange = (field: string, value: string | number) => {
-    setStockItem((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
+  // Update additional info
+  const updateAdditionalInfo = (field: string, value: string) => {
+    if (!stockItem) return;
+    
+    setStockItem(prev => ({
+      ...prev!,
+      addtionalInfo: {
+        ...prev!.addtionalInfo,
+        [field]: value
+      }
+    }));
   }
 
   const handleSave = async () => {
+    if (!stockItem) return;
+    
     try {
       setSaving(true)
       setError(null)
       setSuccess(false)
-
-      const backendData = transformFormDataToBackend(stockItem)
 
       const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(backendData),
+        body: JSON.stringify(stockItem),
       })
 
       if (!response.ok) {
@@ -338,17 +290,40 @@ export default function StockEditPage() {
       console.log("Stock updated successfully:", result)
       
       setSuccess(true)
+      toast({ title: "Stock updated", description: `Stock changes saved successfully.` })
       
       // Redirect to stock list after a short delay
       setTimeout(() => {
         router.push("/stock")
-      }, 1500)
+      }, 900)
       
     } catch (err) {
       console.error("Error updating stock:", err)
-      setError(err instanceof Error ? err.message : "Failed to update stock")
+      const message = err instanceof Error ? err.message : "Failed to update stock"
+      setError(message)
+      toast({ title: "Failed to update stock", description: message, variant: "destructive" })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true)
+      setError(null)
+      const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.message || 'Failed to delete stock')
+      }
+      router.push('/stock')
+    } catch (err) {
+      console.error('Error deleting stock:', err)
+      setError(err instanceof Error ? err.message : 'Failed to delete stock')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -385,7 +360,7 @@ export default function StockEditPage() {
   }
 
   // Error state
-  if (error) {
+  if (error || !stockItem) {
     return (
       <div className="min-h-screen bg-background">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -410,7 +385,7 @@ export default function StockEditPage() {
           <div className="text-center">
             <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Failed to load stock data</h3>
-            <p className="text-muted-foreground mb-4">{error}</p>
+            <p className="text-muted-foreground mb-4">{error || "Stock not found"}</p>
             <div className="flex gap-2 justify-center">
               <Button 
                 onClick={() => window.location.reload()}
@@ -445,7 +420,7 @@ export default function StockEditPage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={`/stock/${stockId}`}>{stockItem.product}</BreadcrumbLink>
+              <BreadcrumbLink href={`/stock/${stockId}`}>{(stockItem.stockDetails as any).product}</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -468,7 +443,7 @@ export default function StockEditPage() {
               Back
             </Button>
             <div>
-              <h2 className="text-2xl font-bold">Edit Stock Item</h2>
+              <h2 className="text-2xl font-bold">Edit {stockItem.stockType}</h2>
               <p className="text-muted-foreground">Update stock information</p>
             </div>
           </div>
@@ -488,8 +463,8 @@ export default function StockEditPage() {
                 </>
               ) : (
                 <>
-              <Save className="h-4 w-4 mr-2" />
-              Save Changes
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
                 </>
               )}
             </Button>
@@ -518,7 +493,7 @@ export default function StockEditPage() {
         )}
 
         {/* Edit Form */}
-        <div className="w-full">
+        <div className="w-full space-y-6">
           {/* Basic Information */}
           <Card>
             <CardHeader>
@@ -530,90 +505,16 @@ export default function StockEditPage() {
                 <Label htmlFor="product">Product Name *</Label>
                 <Input
                   id="product"
-                  value={stockItem.product}
-                  onChange={(e) => handleInputChange("product", e.target.value)}
+                  value={(stockItem.stockDetails as any).product || ""}
+                  onChange={(e) => updateStockItem('stockDetails.product', e.target.value)}
                   placeholder="Enter product name"
                 />
               </div>
 
-              <div className="w-full grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity (m) *</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    value={stockItem.quantity}
-                    onChange={(e) => handleInputChange("quantity", Number.parseInt(e.target.value) || 0)}
-                    placeholder="Enter quantity"
-                  />
-                </div>
-
-                {/* <div className="space-y-2">
-                  <Label htmlFor="unitPrice">Unit Price (₹) *</Label>
-                  <Input
-                    id="unitPrice"
-                    type="number"
-                    value={stockItem.unitPrice}
-                    onChange={(e) => handleInputChange("unitPrice", Number.parseInt(e.target.value) || 0)}
-                    placeholder="Enter unit price"
-                  />
-                </div> */}
-              </div>
-
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="factory">Factory</Label>
-                  <Select value={stockItem.factory} onValueChange={(value) => handleInputChange("factory", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select factory" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {factories.map((factory) => (
-                        <SelectItem key={factory} value={factory}>
-                          {factory}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="agent">Agent</Label>
-                  <Select value={stockItem.agent} onValueChange={(value) => handleInputChange("agent", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select agent" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {agents.map((agent) => (
-                        <SelectItem key={agent._id} value={agent.name}>
-                          {agent.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Select value={stockItem.location} onValueChange={(value) => handleInputChange("location", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations.map((location) => (
-                        <SelectItem key={location} value={location}>
-                          {location}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="status">Status</Label>
-                  <Select value={stockItem.status} onValueChange={(value) => handleInputChange("status", value)}>
+                  <Select value={stockItem.status} onValueChange={(value) => updateStockItem('status', value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -626,24 +527,24 @@ export default function StockEditPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="batchNumber">Batch Number</Label>
                   <Input
                     id="batchNumber"
-                    value={stockItem.batchNumber}
-                    onChange={(e) => handleInputChange("batchNumber", e.target.value)}
+                    value={stockItem.addtionalInfo.batchNumber || ""}
+                    onChange={(e) => updateAdditionalInfo("batchNumber", e.target.value)}
                     placeholder="Enter batch number"
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="qualityGrade">Quality Grade</Label>
                   <Select
-                    value={stockItem.qualityGrade}
-                    onValueChange={(value) => handleInputChange("qualityGrade", value)}
+                    value={stockItem.addtionalInfo.qualityGrade || "A"}
+                    onValueChange={(value) => updateAdditionalInfo("qualityGrade", value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select quality grade" />
@@ -657,141 +558,277 @@ export default function StockEditPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Input
+                    id="notes"
+                    value={stockItem.addtionalInfo.notes || ""}
+                    onChange={(e) => updateAdditionalInfo("notes", e.target.value)}
+                    placeholder="Enter notes"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Specifications & Supplier */}
-          {/* <Card>
+          {/* Stock Type Specific Fields */}
+          {stockItem.stockType === "Gray Stock" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Gray Stock Details</CardTitle>
+                <CardDescription>Factory and agent information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="factory">Factory *</Label>
+                    <Select 
+                      value={(stockItem.stockDetails as GrayStockDetails).factory || ""} 
+                      onValueChange={(value) => updateStockItem('stockDetails.factory', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select factory" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {factories.map((factory) => (
+                          <SelectItem key={factory} value={factory}>
+                            {factory}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="agent">Agent *</Label>
+                    <Select 
+                      value={(stockItem.stockDetails as GrayStockDetails).agent || ""} 
+                      onValueChange={(value) => updateStockItem('stockDetails.agent', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select agent" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {agents.map((agent) => (
+                          <SelectItem key={agent._id} value={agent.name}>
+                            {agent.name} - {agent.factory}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="orderNumber">Order Number</Label>
+                  <Input
+                    id="orderNumber"
+                    value={(stockItem.stockDetails as GrayStockDetails).orderNumber || ""}
+                    onChange={(e) => updateStockItem('stockDetails.orderNumber', e.target.value)}
+                    placeholder="Enter order number"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {stockItem.stockType === "Factory Stock" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Factory Stock Details</CardTitle>
+                <CardDescription>Processing information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="processingFactory">Processing Factory *</Label>
+                    <Select 
+                      value={(stockItem.stockDetails as FactoryStockDetails).processingFactory || ""} 
+                      onValueChange={(value) => updateStockItem('stockDetails.processingFactory', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select factory" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {factories.map((factory) => (
+                          <SelectItem key={factory} value={factory}>
+                            {factory}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="processingStage">Processing Stage *</Label>
+                    <Select 
+                      value={(stockItem.stockDetails as FactoryStockDetails).processingStage || ""} 
+                      onValueChange={(value) => updateStockItem('stockDetails.processingStage', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {processingStages.map((stage) => (
+                          <SelectItem key={stage} value={stage}>
+                            {stage.charAt(0).toUpperCase() + stage.slice(1).replace("-", " ")}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expectedCompletion">Expected Completion</Label>
+                  <Input
+                    id="expectedCompletion"
+                    type="date"
+                    value={(stockItem.stockDetails as FactoryStockDetails).expectedCompletion ? 
+                      new Date((stockItem.stockDetails as FactoryStockDetails).expectedCompletion).toISOString().split('T')[0] : ""}
+                    onChange={(e) => updateStockItem('stockDetails.expectedCompletion', e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {stockItem.stockType === "Design Stock" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Design Stock Details</CardTitle>
+                <CardDescription>Design and warehouse information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="design">Design *</Label>
+                    <Input
+                      id="design"
+                      value={(stockItem.stockDetails as DesignStockDetails).design || ""}
+                      onChange={(e) => updateStockItem('stockDetails.design', e.target.value)}
+                      placeholder="Enter design name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="warehouse">Warehouse *</Label>
+                    <Input
+                      id="warehouse"
+                      value={(stockItem.stockDetails as DesignStockDetails).warehouse || ""}
+                      onChange={(e) => updateStockItem('stockDetails.warehouse', e.target.value)}
+                      placeholder="Enter warehouse name"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stock Variants */}
+          <Card>
             <CardHeader>
-              <CardTitle>Specifications & Supplier</CardTitle>
-              <CardDescription>Product specifications and supplier information</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Stock Variants</CardTitle>
+                  <CardDescription>Color variants and quantities</CardDescription>
+                </div>
+                <Button onClick={addVariant} size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Variant
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="material">Material</Label>
-                <Input
-                  id="material"
-                  value={stockItem.material}
-                  onChange={(e) => handleInputChange("material", e.target.value)}
-                  placeholder="e.g., 100% Cotton"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="weight">Weight</Label>
-                  <Input
-                    id="weight"
-                    value={stockItem.weight}
-                    onChange={(e) => handleInputChange("weight", e.target.value)}
-                    placeholder="e.g., 200 GSM"
-                  />
+              {stockItem.variants.map((variant, index) => (
+                <div
+                  key={index}
+                  className="flex gap-4 items-end p-4 border rounded-lg"
+                >
+                  <div className="flex-1 space-y-2">
+                    <Label>Color</Label>
+                    <Input
+                      placeholder="Enter color"
+                      value={variant.color}
+                      onChange={(e) => updateVariant(index, "color", e.target.value)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      placeholder="0"
+                      value={variant.quantity}
+                      onChange={(e) => updateVariant(index, "quantity", Number(e.target.value) || 0)}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <Label>Unit</Label>
+                    <Select
+                      value={variant.unit}
+                      onValueChange={(value) => updateVariant(index, "unit", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {units.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {stockItem.variants.length > 1 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeVariant(index)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
+              ))}
 
-                <div className="space-y-2">
-                  <Label htmlFor="width">Width</Label>
-                  <Input
-                    id="width"
-                    value={stockItem.width}
-                    onChange={(e) => handleInputChange("width", e.target.value)}
-                    placeholder="e.g., 44 inches"
-                  />
+              {stockItem.variants.some((v) => v.unit === "SETS") && (
+                <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+                  <p className="font-medium">Set Conversion:</p>
+                  <p>• 1 Set (3 colors) = 180 meters (60m per color)</p>
+                  <p>• 1 Set (2 colors) = 120 meters (60m per color)</p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="color">Color</Label>
-                  <Input
-                    id="color"
-                    value={stockItem.color}
-                    onChange={(e) => handleInputChange("color", e.target.value)}
-                    placeholder="e.g., Natural White"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="finish">Finish</Label>
-                  <Input
-                    id="finish"
-                    value={stockItem.finish}
-                    onChange={(e) => handleInputChange("finish", e.target.value)}
-                    placeholder="e.g., Unfinished"
-                  />
-                </div>
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label htmlFor="supplierName">Supplier Name</Label>
-                <Input
-                  id="supplierName"
-                  value={stockItem.supplierName}
-                  onChange={(e) => handleInputChange("supplierName", e.target.value)}
-                  placeholder="Enter supplier name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="supplierContact">Supplier Contact</Label>
-                <Input
-                  id="supplierContact"
-                  value={stockItem.supplierContact}
-                  onChange={(e) => handleInputChange("supplierContact", e.target.value)}
-                  placeholder="Enter supplier contact"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="supplierAddress">Supplier Address</Label>
-                <Textarea
-                  id="supplierAddress"
-                  value={stockItem.supplierAddress}
-                  onChange={(e) => handleInputChange("supplierAddress", e.target.value)}
-                  placeholder="Enter supplier address"
-                  rows={2}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={stockItem.notes}
-                  onChange={(e) => handleInputChange("notes", e.target.value)}
-                  placeholder="Additional notes about the stock item"
-                  rows={3}
-                />
-              </div>
+              )}
             </CardContent>
-          </Card> */}
+          </Card>
         </div>
 
-        {/* Action Buttons */}
-        {/* <div className="flex justify-end gap-4">
-          <Button 
-            variant="outline"
-            onClick={() => router.push(`/stock/${stockId}`)}
-          >
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-            <Save className="h-4 w-4 mr-2" />
-            Save Changes
-              </>
-            )}
-          </Button>
-        </div> */}
+        {/* Danger Zone: Delete Stock */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground"></div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">Delete Stock</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this stock item?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the stock entry
+                  and remove it from your inventory.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>No</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
     </div>
   )

@@ -541,6 +541,8 @@ export default function StockPage() {
     }
   }
 
+  const totalFilteredItems = filteredGrayStock.length + filteredFactoryStock.length + filteredDesignStock.length;
+
   const stockStats = {
     grayTotal: grayStock.reduce((sum, item) => sum + item.quantity, 0),
     factoryTotal: factoryStock.reduce((sum, item) => sum + item.quantity, 0),
@@ -548,7 +550,7 @@ export default function StockPage() {
     lowStockItems: stocks.filter((stock) => stock.status === "low").length,
     outOfStockItems: stocks.filter((stock) => stock.status === "out").length,
     processingItems: stocks.filter((stock) => stock.status === "processing").length,
-    totalStocks: stocks.length,
+    totalStocks: totalFilteredItems,
   }
 
   // Loading state

@@ -37,6 +37,10 @@ const returnSchema = new mongoose.Schema({
     isApprove: {
         type: Boolean,
         default: false,
+    },
+    isRejected: {
+        type: Boolean,
+        default: false,
     }
 }, {timestamps: true});
 

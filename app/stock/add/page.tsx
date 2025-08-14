@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import {
   Package,
   ArrowLeft,
@@ -62,6 +63,7 @@ interface Product { _id: string; productName: string; variants: ProductVariant[]
 
 export default function AddStockPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [stockType, setStockType] = useState("gray");
   const [selectedProduct, setSelectedProduct] = useState("");
   const [variants, setVariants] = useState([
@@ -82,6 +84,11 @@ export default function AddStockPage() {
   // Gray Stock products for Factory Stock selection
   const [grayStockProducts, setGrayStockProducts] = useState<Product[]>([]);
   const [grayStockProductsLoading, setGrayStockProductsLoading] = useState(true);
+  
+  // Factory Stock products for Design Stock selection
+  const [factoryStockProducts, setFactoryStockProducts] = useState<Product[]>([]);
+  const [factoryStockProductsLoading, setFactoryStockProductsLoading] = useState(true);
+  const [factoryStockProductsError, setFactoryStockProductsError] = useState<string | null>(null);
   
   // Searchable product selector state
   const [productSearchTerm, setProductSearchTerm] = useState("");
@@ -125,12 +132,20 @@ export default function AddStockPage() {
 
   // Search functionality for products
   useEffect(() => {
-    // Use Gray Stock products for Factory Stock, all products for others
-    const availableProducts = stockType === "factory" ? grayStockProducts : productsWithVariants;
+    // Use Gray Stock products for Factory Stock, Factory Stock products for Design Stock, all products for Gray Stock
+    let availableProducts;
+    if (stockType === "factory") {
+      availableProducts = grayStockProducts;
+    } else if (stockType === "design") {
+      availableProducts = factoryStockProducts;
+    } else {
+      availableProducts = productsWithVariants;
+    }
     
     console.log("Product search - Stock type:", stockType); // Debug log
     console.log("Product search - Available products count:", availableProducts.length); // Debug log
     console.log("Product search - Gray Stock products count:", grayStockProducts.length); // Debug log
+    console.log("Product search - Factory Stock products count:", factoryStockProducts.length); // Debug log
     console.log("Product search - All products count:", productsWithVariants.length); // Debug log
     
     if (productSearchTerm.trim() === "") {
@@ -141,7 +156,7 @@ export default function AddStockPage() {
       );
       setFilteredProducts(filtered);
     }
-  }, [productSearchTerm, productsWithVariants, grayStockProducts, stockType]);
+  }, [productSearchTerm, productsWithVariants, grayStockProducts, factoryStockProducts, stockType]);
 
   // Search functionality for designs
   useEffect(() => {
@@ -218,6 +233,55 @@ export default function AddStockPage() {
       };
       
       fetchGrayStockProducts();
+    } else if (stockType === "design") {
+      console.log("Switching to Design Stock, fetching Factory Stock products..."); // Debug log
+      const fetchFactoryStockProducts = async () => {
+        try {
+          setFactoryStockProductsLoading(true);
+          setFactoryStockProductsError(null);
+          
+          // Wait for productsWithVariants to be loaded
+          if (productsWithVariants.length === 0) {
+            return;
+          }
+          
+          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Factory Stock&limit=1000", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Factory Stock API Response:", data); // Debug log
+            
+            if (data?.success && Array.isArray(data.stocks)) {
+              console.log("All Factory Stock entries:", data.stocks); // Debug log
+              
+              // Extract unique products from Factory Stock
+              const factoryStockProductNames = [...new Set(data.stocks.map((stock: any) => stock.stockDetails?.product))].filter(Boolean);
+              console.log("Extracted Factory Stock product names:", factoryStockProductNames); // Debug log
+              console.log("Available products with variants:", productsWithVariants); // Debug log
+              
+              // Get full product details for these products
+              const factoryStockProductsData = productsWithVariants.filter(product => 
+                factoryStockProductNames.includes(product.productName)
+              );
+              console.log("Final filtered Factory Stock products:", factoryStockProductsData); // Debug log
+              
+              setFactoryStockProducts(factoryStockProductsData);
+            }
+          } else {
+            throw new Error(`Failed to fetch Factory Stock: ${response.status} ${response.statusText}`);
+          }
+        } catch (err) {
+          console.error("Error fetching Factory Stock products:", err);
+          setFactoryStockProductsError(err instanceof Error ? err.message : "Failed to fetch Factory Stock products");
+        } finally {
+          setFactoryStockProductsLoading(false);
+        }
+      };
+      
+      fetchFactoryStockProducts();
     }
     
     // Clear selected product when switching stock types
@@ -265,6 +329,53 @@ export default function AddStockPage() {
       fetchGrayStockProducts();
     }
   }, [productsWithVariants, stockType, grayStockProducts.length]);
+
+  // Refetch Factory Stock products when productsWithVariants is loaded
+  useEffect(() => {
+    if (stockType === "design" && productsWithVariants.length > 0 && factoryStockProducts.length === 0) {
+      const fetchFactoryStockProducts = async () => {
+        try {
+          setFactoryStockProductsLoading(true);
+          setFactoryStockProductsError(null);
+          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Factory Stock&limit=1000", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Refetch - Factory Stock API Response:", data); // Debug log
+            
+            if (data?.success && Array.isArray(data.stocks)) {
+              console.log("Refetch - All Factory Stock entries:", data.stocks); // Debug log
+              
+              const factoryStockProductNames = [...new Set(data.stocks.map((stock: any) => stock.stockDetails?.product))].filter(Boolean);
+              console.log("Refetch - Extracted product names:", factoryStockProductNames); // Debug log
+              console.log("Refetch - Available products with variants:", productsWithVariants); // Debug log
+              
+              const factoryStockProductsData = productsWithVariants.filter(product => 
+                factoryStockProductNames.includes(product.productName)
+              );
+              console.log("Refetch - Final filtered products:", factoryStockProductsData); // Debug log
+              
+              setFactoryStockProducts(factoryStockProductsData);
+            } else {
+              throw new Error(`Failed to fetch Factory Stock: ${response.status} ${response.statusText}`);
+            }
+          } else {
+            throw new Error(`Failed to fetch Factory Stock: ${response.status} ${response.statusText}`);
+          }
+        } catch (err) {
+          console.error("Error refetching Factory Stock products:", err);
+          setFactoryStockProductsError(err instanceof Error ? err.message : "Failed to fetch Factory Stock products");
+        } finally {
+          setFactoryStockProductsLoading(false);
+        }
+      };
+      
+      fetchFactoryStockProducts();
+    }
+  }, [productsWithVariants, stockType, factoryStockProducts.length]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -554,6 +665,40 @@ export default function AddStockPage() {
     }
   };
 
+  // Helper function to retry fetching Factory Stock products
+  const retryFetchFactoryStockProducts = async () => {
+    try {
+      setFactoryStockProductsLoading(true);
+      setFactoryStockProductsError(null);
+      
+      const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Factory Stock&limit=1000", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data?.success && Array.isArray(data.stocks)) {
+          const factoryStockProductNames = [...new Set(data.stocks.map((stock: any) => stock.stockDetails?.product))].filter(Boolean);
+          const factoryStockProductsData = productsWithVariants.filter(product => 
+            factoryStockProductNames.includes(product.productName)
+          );
+          setFactoryStockProducts(factoryStockProductsData);
+        } else {
+          throw new Error(`Failed to fetch Factory Stock: ${response.status} ${response.statusText}`);
+        }
+      } else {
+        throw new Error(`Failed to fetch Factory Stock: ${response.status} ${response.statusText}`);
+      }
+    } catch (err) {
+      console.error("Error refetching Factory Stock products:", err);
+      setFactoryStockProductsError(err instanceof Error ? err.message : "Failed to fetch Factory Stock products");
+    } finally {
+      setFactoryStockProductsLoading(false);
+    }
+  };
+
   // Add this handler for form submission
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -563,7 +708,7 @@ export default function AddStockPage() {
 
     // Validate that a product is selected
     if (!selectedProduct) {
-      setError("Please select a product");
+      toast({ title: "Product required", description: "Please select a product", variant: "destructive" });
       setLoading(false);
       return;
     }
@@ -676,17 +821,16 @@ export default function AddStockPage() {
       console.log("Success:", result); // Debug log
 
       setSuccess(true);
+      toast({ title: "Stock added", description: `${selectedProduct} ${stockType === "design" ? "(Design)" : stockType === "factory" ? "(Factory)" : "(Gray)"} added successfully.` });
       // Redirect to stock list after a short delay
       setTimeout(() => {
         router.push("/stock");
-      }, 1500);
+      }, 900);
     } catch (err) {
       console.error("Error:", err); // Debug log
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Unknown error");
-      }
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+      toast({ title: "Failed to add stock", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -790,6 +934,11 @@ export default function AddStockPage() {
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                     <span>Loading Gray Stock products...</span>
                                   </div>
+                                ) : stockType === "design" && factoryStockProductsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading Factory Stock products...</span>
+                                  </div>
                                 ) : productsLoading ? (
                                   <div className="flex items-center justify-center p-4">
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -807,10 +956,24 @@ export default function AddStockPage() {
                                       Retry
                                     </Button>
                                   </div>
+                                ) : stockType === "design" && factoryStockProductsError ? (
+                                  <div className="p-4 text-red-500 text-sm">
+                                    <div>Error: {factoryStockProductsError}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={retryFetchFactoryStockProducts}
+                                    >
+                                      Retry
+                                    </Button>
+                                  </div>
                                 ) : filteredProducts.length === 0 ? (
                                   <div className="p-4 text-muted-foreground text-sm">
                                     {stockType === "factory" 
                                       ? "No products found in Gray Stock. Add products to Gray Stock first."
+                                      : stockType === "design"
+                                      ? "No products found in Factory Stock. Add products to Factory Stock first."
                                       : productSearchTerm 
                                         ? "No products found" 
                                         : "No products available"
@@ -937,6 +1100,11 @@ export default function AddStockPage() {
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                     <span>Loading Gray Stock products...</span>
                                   </div>
+                                ) : stockType === "design" && factoryStockProductsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading Factory Stock products...</span>
+                                  </div>
                                 ) : productsLoading ? (
                                   <div className="flex items-center justify-center p-4">
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -954,10 +1122,24 @@ export default function AddStockPage() {
                                       Retry
                                     </Button>
                                   </div>
+                                ) : stockType === "design" && factoryStockProductsError ? (
+                                  <div className="p-4 text-red-500 text-sm">
+                                    <div>Error: {factoryStockProductsError}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={retryFetchFactoryStockProducts}
+                                    >
+                                      Retry
+                                    </Button>
+                                  </div>
                                 ) : filteredProducts.length === 0 ? (
                                   <div className="p-4 text-muted-foreground text-sm">
                                     {stockType === "factory" 
                                       ? "No products found in Gray Stock. Add products to Gray Stock first."
+                                      : stockType === "design"
+                                      ? "No products found in Factory Stock. Add products to Factory Stock first."
                                       : productSearchTerm 
                                         ? "No products found" 
                                         : "No products available"
@@ -1047,13 +1229,27 @@ export default function AddStockPage() {
                           <Input
                             id="expected-completion"
                             type="date"
+                            min={new Date().toISOString().split('T')[0]}
                             value={stockDetails.expectedCompletion}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const selectedDate = new Date(e.target.value);
+                              const today = new Date();
+                              today.setHours(0, 0, 0, 0);
+                              
+                              if (selectedDate < today) {
+                                toast({
+                                  title: "Invalid Date",
+                                  description: "Expected completion date must be in the future.",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              
                               setStockDetails({
                                 ...stockDetails,
                                 expectedCompletion: e.target.value,
-                              })
-                            }
+                              });
+                            }}
                           />
                         </div>
                       </div>
@@ -1080,10 +1276,27 @@ export default function AddStockPage() {
                             {/* Product Suggestions Dropdown */}
                             {showProductSuggestions && (
                               <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                {productsLoading ? (
+                                {stockType === "design" && factoryStockProductsLoading ? (
+                                  <div className="flex items-center justify-center p-4">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    <span>Loading Factory Stock products...</span>
+                                  </div>
+                                ) : productsLoading ? (
                                   <div className="flex items-center justify-center p-4">
                                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                                     <span>Loading products...</span>
+                                  </div>
+                                ) : stockType === "design" && factoryStockProductsError ? (
+                                  <div className="p-4 text-red-500 text-sm">
+                                    <div>Error: {factoryStockProductsError}</div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2"
+                                      onClick={retryFetchFactoryStockProducts}
+                                    >
+                                      Retry
+                                    </Button>
                                   </div>
                                 ) : productsError ? (
                                   <div className="p-4 text-red-500 text-sm">
@@ -1099,7 +1312,9 @@ export default function AddStockPage() {
                                   </div>
                                 ) : filteredProducts.length === 0 ? (
                                   <div className="p-4 text-muted-foreground text-sm">
-                                    {productSearchTerm ? "No products found" : "No products available"}
+                                    {stockType === "design"
+                                      ? "No products found in Factory Stock. Add products to Factory Stock first."
+                                      : productSearchTerm ? "No products found" : "No products available"}
                                   </div>
                                 ) : (
                                   filteredProducts.map((product) => (

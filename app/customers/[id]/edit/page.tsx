@@ -20,33 +20,43 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
+import { useToast } from "@/hooks/use-toast"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function CustomerEditPage() {
   const params = useParams()
   const router = useRouter()
   const customerId = params.id as string
+  const { toast } = useToast()
 
   // Backend-mapped customer state
   const [customer, setCustomer] = useState({
     customerName: "",
+    customerType: "Wholesale",
     city: "",
-    state: "",
     address: "",
     phone: "",
     email: "",
-    gst: "",
-    status: "active",
-    creditLimit: 0,
-    notes: "",
+    creditLimit: "",
   })
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const cities = ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Pune", "Ahmedabad", "Surat"]
-  const states = ["Maharashtra", "Delhi", "Karnataka", "Tamil Nadu", "West Bengal", "Gujarat", "Rajasthan", "Punjab"]
 
   const handleInputChange = (field: string, value: string | number) => {
     setCustomer((prev) => ({
@@ -75,15 +85,12 @@ export default function CustomerEditPage() {
         const c = data.customer as any
         setCustomer({
           customerName: c.customerName || "",
+          customerType: c.customerType || "Wholesale",
           city: c.city || "",
-          state: "", // not in backend schema
           address: c.address || "",
           phone: c.phone ? String(c.phone) : "",
           email: c.email || "",
-          gst: "", // not in backend schema
-          status: "active", // not in backend schema; kept for UI
-          creditLimit: c.creditLimit || 0,
-          notes: "", // not in backend schema
+          creditLimit: c.creditLimit ? String(c.creditLimit) : "",
         })
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch customer')
@@ -101,30 +108,37 @@ export default function CustomerEditPage() {
       setSuccess(false)
 
       // Basic validation
-      if (!customer.customerName || !customer.email || !customer.phone || !customer.city || !customer.address) {
+      if (!customer.customerName || !customer.email || !customer.phone || !customer.city || !customer.creditLimit || !customer.address) {
         throw new Error('Please fill all required fields')
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(customer.email)) {
+        throw new Error("Please enter a valid email address");
+      }
+
+      // Validate phone number (basic validation)
+      const phoneRegex = /^\+?[\d\s-]+$/;
+      if (!phoneRegex.test(customer.phone)) {
+        throw new Error("Please enter a valid phone number");
+      }
+
+      // Validate credit limit
+      const creditLimit = parseFloat(customer.creditLimit);
+      if (isNaN(creditLimit) || creditLimit < 0) {
+        throw new Error("Please enter a valid credit limit");
       }
 
       const payload = {
         customerName: customer.customerName,
-        // Map UI types to backend enums exactly
-        customerType: undefined as any, // not editable here; left unchanged
+        customerType: customer.customerType,
         email: customer.email,
-        phone: parseInt(customer.phone.replace(/\D/g, '')) || 0,
+        phone: parseInt(customer.phone.replace(/\D/g, '')), // Remove non-digits
         city: customer.city,
-        creditLimit: Number(customer.creditLimit) || 0,
+        creditLimit: creditLimit,
         address: customer.address,
       }
-
-      // Fetch existing to preserve immutable/missing fields like customerType
-      const existing = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`)
-      if (existing.ok) {
-        const exData = await existing.json()
-        if (exData?.customer?.customerType) {
-          payload.customerType = exData.customer.customerType
-        }
-      }
-      if (!payload.customerType) payload.customerType = 'Wholesale'
 
       const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
         method: 'PUT',
@@ -137,13 +151,35 @@ export default function CustomerEditPage() {
       }
 
       setSuccess(true)
+      toast({ title: 'Customer updated', description: `${payload.customerName} has been updated successfully.` })
       setTimeout(() => {
         router.push('/customers')
-      }, 1200)
+      }, 900)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update customer')
+      const message = e instanceof Error ? e.message : 'Failed to update customer'
+      setError(message)
+      toast({ title: 'Failed to update customer', description: message, variant: 'destructive' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true)
+      setError(null)
+      const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+        method: 'DELETE',
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.message || 'Failed to delete customer')
+      }
+      router.push('/customers')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to delete customer')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -288,38 +324,20 @@ export default function CustomerEditPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="city">City *</Label>
-                  <Select value={customer.city} onValueChange={(value) => handleInputChange("city", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select city" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cities.map((city) => (
-                        <SelectItem key={city} value={city}>
-                          {city}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="state">State *</Label>
-                  <Select value={customer.state} onValueChange={(value) => handleInputChange("state", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {states.map((state) => (
-                        <SelectItem key={state} value={state}>
-                          {state}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="city">City *</Label>
+                <Select value={customer.city} onValueChange={(value) => handleInputChange("city", value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select city" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((city) => (
+                      <SelectItem key={city} value={city}>
+                        {city}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -334,14 +352,14 @@ export default function CustomerEditPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={customer.status} onValueChange={(value) => handleInputChange("status", value)}>
+                <Label htmlFor="customerType">Customer Type *</Label>
+                <Select value={customer.customerType} onValueChange={(value) => handleInputChange("customerType", value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Select customer type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="Wholesale">Wholesale</SelectItem>
+                    <SelectItem value="Retail">Retail</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -377,34 +395,13 @@ export default function CustomerEditPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="gst">GST Number</Label>
-                <Input
-                  id="gst"
-                  value={customer.gst}
-                  onChange={(e) => handleInputChange("gst", e.target.value)}
-                  placeholder="Enter GST number"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="creditLimit">Credit Limit (₹)</Label>
+                <Label htmlFor="creditLimit">Credit Limit (₹) *</Label>
                 <Input
                   id="creditLimit"
                   type="number"
                   value={customer.creditLimit}
-                  onChange={(e) => handleInputChange("creditLimit", Number.parseInt(e.target.value) || 0)}
+                  onChange={(e) => handleInputChange("creditLimit", e.target.value)}
                   placeholder="Enter credit limit"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={customer.notes}
-                  onChange={(e) => handleInputChange("notes", e.target.value)}
-                  placeholder="Additional notes about the customer"
-                  rows={4}
                 />
               </div>
             </CardContent>
@@ -422,6 +419,31 @@ export default function CustomerEditPage() {
           <Button onClick={handleSave} disabled={saving}>
             {saving ? (<><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>) : (<><Save className="h-4 w-4 mr-2" />Save Changes</>)}
           </Button>
+        </div>
+
+        {/* Danger Zone: Delete Customer */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground"></div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">Delete Customer</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this customer?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the customer
+                  and remove it from your customer list.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>No</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Yes, delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
     </SidebarInset>
