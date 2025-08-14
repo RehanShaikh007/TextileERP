@@ -204,7 +204,7 @@ export default function ReportsPage() {
       csvContent += "Metric,Value\n";
       csvContent += `Total Revenue,₹${salesData.totalRevenue}\n`;
       csvContent += `Orders Completed,${salesData.ordersCompleted}\n`;
-      csvContent += `Average Order Value,₹${salesData.averageOrderValue}\n`;
+      csvContent += `Average Order Value,₹${salesData.averageOrderValue}\n\n`;
 
       // Monthly Data
       csvContent += "Monthly Performance\n";
