@@ -2,6 +2,9 @@ import Product from "../models/productSchema.js";
 import Order from "../models/orderSchema.js";
 import Customer from "../models/customerSchema.js";
 import Stock from "../models/stockScehma.js";
+import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
+import WhatsappMessages from "../models/whatsappMessages.js";
+import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
 
 export const getDashboardStats = async (req, res) => {
   try {
@@ -157,7 +160,6 @@ export const getLatestProducts = async (req, res) => {
 
 export const getStockAlerts = async (req, res) => {
   try {
-    // Get the 5 most recent low or out of stock items
     const stockAlerts = await Stock.find({
       status: { $in: ["low", "out"] }
     })
@@ -200,7 +202,6 @@ export const getStockAlerts = async (req, res) => {
         stockTypeLabel = stock.stockType || "Unknown Type";
       }
 
-      // Get all variants stock info
       const variantsDetails = stock.variants?.map(v => ({
         color: v.color,
         quantity: v.quantity,
@@ -210,12 +211,45 @@ export const getStockAlerts = async (req, res) => {
       return {
         product: productName,
         stockTypeLabel,
-        variantsDetails,  // includes all colors and quantities
-        minimum: "100",   // hardcoded minimum for now
+        variantsDetails,
+        minimum: "100",
         severity: stock.status === "out" ? "critical" : "warning",
         stockType: stock.stockType
       };
     });
+
+    // 🔔 WhatsApp notification logic
+    const notificationSettings = await WhatsappNotification.findOne();
+    let stockAlertsEnabled = false;
+    if (notificationSettings) {
+      stockAlertsEnabled = notificationSettings.lowStockWarnings;
+    }
+
+    if (stockAlertsEnabled && formattedAlerts.length > 0) {
+      const alertLines = formattedAlerts.map(alert => {
+        const variantsText = alert.variantsDetails
+          .map(v => `${v.color}: ${v.quantity} ${v.unit || 'm'}`)
+          .join(", ");
+        return `📦 *${alert.product}* (${alert.stockTypeLabel})\n   ${variantsText}\n   Status: ${alert.severity.toUpperCase()}`;
+      }).join("\n\n");
+
+      const messageText = `🚨 *Stock Alerts* 🚨\n\n${alertLines}\n\n📅 Last Updated: ${new Date().toLocaleString()}`;
+      
+      let statusMsg = "Delivered";
+      try {
+        await sendWhatsAppMessage(messageText);
+      } catch (whatsAppError) {
+        console.error("WhatsApp Notification Failed (getStockAlerts):", whatsAppError);
+        statusMsg = "Not Delivered";
+      }
+
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "stock_alert",
+        sentToCount: sentToCount,
+        status: statusMsg
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -151,6 +151,46 @@ export default function ReportsPage() {
     { month: "Dec", inbound: 0, outbound: 0, net: 0 },
   ]);
 
+  // Filter data based on selected period
+  const getFilteredMonthlyData = () => {
+    const currentMonth = new Date().getMonth(); // 0-11
+    const currentDate = new Date();
+    
+    switch (selectedPeriod) {
+      case "week":
+      case "month":
+        // Show only current month
+        return monthlyData.filter((_, index) => index === currentMonth);
+      case "quarter":
+        // Show last 3 months including current
+        const quarterStart = Math.max(0, currentMonth - 2);
+        return monthlyData.filter((_, index) => index >= quarterStart && index <= currentMonth);
+      case "year":
+      default:
+        // Show all months
+        return monthlyData;
+    }
+  };
+
+  const getFilteredStockMovementData = () => {
+    const currentMonth = new Date().getMonth(); // 0-11
+    
+    switch (selectedPeriod) {
+      case "week":
+      case "month":
+        return stockMovementData.filter((_, index) => index === currentMonth);
+      case "quarter":
+        const quarterStart = Math.max(0, currentMonth - 2);
+        return stockMovementData.filter((_, index) => index >= quarterStart && index <= currentMonth);
+      case "year":
+      default:
+        return stockMovementData;
+    }
+  };
+
+  const filteredMonthlyData = getFilteredMonthlyData();
+  const filteredStockMovementData = getFilteredStockMovementData();
+
   const customerRevenueData = topCustomers.map((customer) => ({
     name: customer.name.split(" ")[0],
     revenue: customer.revenue / 1000,
@@ -161,21 +201,21 @@ export default function ReportsPage() {
   const handleExportExcel = () => {
     try {
       // Create CSV content
-      let csvContent = "Reports Data Export\n\n";
+      let csvContent = "\uFEFF"+"Reports Data Export\n\n";
       
       // Sales Data
       csvContent += "Sales Summary\n";
       csvContent += "Metric,Value\n";
-      csvContent += `Total Revenue,₹${salesData.totalRevenue.toLocaleString()}\n`;
+      csvContent += `Total Revenue,₹${salesData.totalRevenue}\n`;
       csvContent += `Orders Completed,${salesData.ordersCompleted}\n`;
-      csvContent += `Average Order Value,₹${salesData.averageOrderValue.toLocaleString()}\n`;
+      csvContent += `Average Order Value,₹${salesData.averageOrderValue}\n`;
       csvContent += `Growth Rate,${salesData.growthRate}%\n\n`;
 
       // Monthly Data
       csvContent += "Monthly Performance\n";
       csvContent += "Month,Revenue,Orders\n";
       monthlyData.forEach(item => {
-        csvContent += `${item.month},₹${item.revenue.toLocaleString()},${item.orders}\n`;
+        csvContent += `${item.month},₹${item.revenue},${item.orders}\n`;
       });
       csvContent += "\n";
 
@@ -183,7 +223,7 @@ export default function ReportsPage() {
       csvContent += "Top Products\n";
       csvContent += "Product Name,Revenue,Quantity,Growth\n";
       topProducts.forEach(product => {
-        csvContent += `${product.name},₹${product.revenue.toLocaleString()},${product.quantity},${product.growth}%\n`;
+        csvContent += `${product.name},₹${product.revenue},${product.quantity},${product.growth}%\n`;
       });
       csvContent += "\n";
 
@@ -191,7 +231,7 @@ export default function ReportsPage() {
       csvContent += "Top Customers\n";
       csvContent += "Customer Name,City,Orders,Revenue\n";
       topCustomers.forEach(customer => {
-        csvContent += `${customer.name},${customer.city},${customer.orders},₹${customer.revenue.toLocaleString()}\n`;
+        csvContent += `${customer.name},${customer.city},${customer.orders},₹${customer.revenue}\n`;
       });
 
       // Create and download file
@@ -562,8 +602,6 @@ export default function ReportsPage() {
                 <SelectItem value="month">This Month</SelectItem>
                 <SelectItem value="quarter">This Quarter</SelectItem>
                 <SelectItem value="year">This Year</SelectItem>
-                <SelectItem value="fy23-24">FY 23-24</SelectItem>
-                <SelectItem value="fy25-26">FY 25-26</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" onClick={handleExportExcel}>
@@ -666,7 +704,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={monthlyData}>
+                    <AreaChart data={filteredMonthlyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis
@@ -700,7 +738,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={monthlyData}>
+                    <BarChart data={filteredMonthlyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -893,7 +931,7 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={stockMovementData}>
+                  <BarChart data={filteredStockMovementData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="month" />
                     <YAxis
