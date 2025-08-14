@@ -62,3 +62,43 @@ export const getWhatsappMessages = async (req, res) => {
     });
   }
 };
+
+export const getTodayMessageStats = async (req, res) => {
+  try {
+    // Calculate today's start & end
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Count total messages today
+    const totalMessagesToday = await WhatsappMessage.countDocuments({
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    // Count messages by type
+    const orderUpdateCount = await WhatsappMessage.countDocuments({
+      type: "order_update",
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    const stockAlertCount = await WhatsappMessage.countDocuments({
+      type: "stock_alert",
+      createdAt: { $gte: startOfDay, $lte: endOfDay },
+    });
+
+    res.status(200).json({
+      success: true,
+      date: startOfDay.toISOString().split("T")[0],
+      stats: {
+        total: totalMessagesToday,
+        order_update: orderUpdateCount,
+        stock_alert: stockAlertCount,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching message stats:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

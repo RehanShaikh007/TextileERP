@@ -41,9 +41,12 @@ import {
   ShoppingCart,
   AlertTriangle,
   Trash,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { set } from "date-fns";
 
 // Types
 interface Admin {
@@ -135,40 +138,78 @@ export default function NotificationsPage() {
         setLoading(false);
       }
     }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch("http://localhost:4000/api/v1/whatsapp-messages/today-stats");
+        if (!res.ok) throw new Error("Failed to fetch stats");
+        const data = await res.json();
+        console.log("Notification stats:", data.stats);
+        
+         setNotificationStats(prev => ({
+          ...prev,
+          todayAlerts: data.stats.total,
+          stockAlerts: data.stats.stock_alert,
+          orderAlerts: data.stats.order_update
+        }));
+      } catch (err) {
+        console.error("Error fetching notification stats:", err);
+        toast({
+          title: "Error",
+          description: "Failed to fetch notification stats",
+          variant: "destructive",
+        });
+      }
+    }
     fetchSettings();
+    fetchStats();
   }, []);
 
   const [recentNotifications, setRecentNotifications] = useState<
     Notification[]
   >([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalMessages, setTotalMessages] = useState(0);
+  const limit = 4;
+
+  const fetchNotifications = async (page: number = 1) => {
+    setLoadingNotifications(true);
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/v1/whatsapp-messages?page=${page}&limit=${limit}`
+      );
+      const data = await res.json();
+      console.log("Fetched notifications data:", data);
+      if (data.success && Array.isArray(data.messages)) {
+        setRecentNotifications(
+          data.messages.map((msg: any) => ({
+            id: msg._id,
+            type: msg.type,
+            message: msg.message,
+            timestamp: new Date(msg.createdAt).toLocaleString(),
+            sent: msg.status === "Delivered",
+            sentToCount: msg.sentToCount,
+          }))
+        );
+        setCurrentPage(data.currentPage);
+        setTotalPages(data.totalPages);
+        setTotalMessages(data.totalMessages);
+      }
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+      toast({
+        title: "Error",
+        description: "Failed to fetch notifications",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchNotifications() {
-      setLoadingNotifications(true);
-      try {
-        const res = await fetch(
-          "http://localhost:4000/api/v1/whatsapp-messages"
-        );
-        const data = await res.json();
-        if (data.success && Array.isArray(data.messages)) {
-          setRecentNotifications(
-            data.messages.map((msg: any) => ({
-              id: msg._id,
-              type: msg.type,
-              message: msg.message,
-              timestamp: new Date(msg.createdAt).toLocaleString(),
-              sent: msg.status === "Delivered",
-              recipients: msg.sentToCount,
-            }))
-          );
-        }
-      } catch (err) {
-        console.error("Error fetching notifications:", err);
-      } finally {
-        setLoadingNotifications(false);
-      }
-    }
     const fetchAdmins = async () => {
       try {
         const res = await fetch("http://localhost:4000/api/v1/admin/");
@@ -180,7 +221,7 @@ export default function NotificationsPage() {
       }
     };
 
-    fetchNotifications();
+    fetchNotifications(1);
     fetchAdmins();
   }, []);
 
@@ -257,12 +298,12 @@ export default function NotificationsPage() {
     }
   };
 
-  const notificationStats = {
+  const [notificationStats,setNotificationStats] = useState({
     activeAdmins: adminNumbers.filter((admin) => admin.active).length,
-    todayAlerts: 12,
-    stockAlerts: 5,
-    successRate: 98.5,
-  };
+    todayAlerts: 0,
+    stockAlerts: 0,
+    orderAlerts: 0,
+  });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -357,6 +398,12 @@ export default function NotificationsPage() {
       });
     } catch (err) {
       console.error("Error deleting admin:", err);
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      fetchNotifications(page);
     }
   };
 
@@ -500,22 +547,22 @@ export default function NotificationsPage() {
               <div className="text-2xl font-bold text-orange-500">
                 {notificationStats.stockAlerts}
               </div>
-              <p className="text-xs text-muted-foreground">Low stock items</p>
+              <p className="text-xs text-muted-foreground">Stock related movements</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Success Rate
+                Order Alerts
               </CardTitle>
               <MessageSquare className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-500">
-                {notificationStats.successRate}%
+                {notificationStats.orderAlerts}
               </div>
-              <p className="text-xs text-muted-foreground">Delivery success</p>
+              <p className="text-xs text-muted-foreground">Order related notifications</p>
             </CardContent>
           </Card>
         </div>
@@ -603,11 +650,11 @@ export default function NotificationsPage() {
                     label: "New Customers",
                     desc: "When new customers are added",
                   },
-                  {
-                    key: "dailyReports",
-                    label: "Daily Reports",
-                    desc: "End of day summary reports",
-                  },
+                  // {
+                  //   key: "dailyReports",
+                  //   label: "Daily Reports",
+                  //   desc: "End of day summary reports",
+                  // },
                   {
                     key: "returnRequests",
                     label: "Return Requests",
@@ -662,34 +709,103 @@ export default function NotificationsPage() {
           <CardHeader>
             <CardTitle>Recent Notifications</CardTitle>
             <CardDescription>
-              Latest WhatsApp notifications sent to admins
+              Latest WhatsApp notifications sent to admins ({totalMessages} total)
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {recentNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className="flex items-start gap-3 p-3 border rounded-lg"
-                >
-                  <div className="mt-1">
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium">{notification.message}</p>
-                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      <span>{notification.timestamp}</span>
-                      <span>Sent to {notification.sentToCount} admins</span>
-                      {notification.status === "Delivered" && (
-                        <Badge variant="outline" className="text-xs">
-                          Delivered
-                        </Badge>
-                      )}
+            {loadingNotifications ? (
+              <div className="flex items-center justify-center py-8">
+                <Spinner />
+                <span className="ml-3 text-muted-foreground">
+                  Loading notifications...
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  {recentNotifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="flex items-start gap-3 p-3 border rounded-lg"
+                    >
+                      <div className="mt-1">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">{notification.message}</p>
+                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                          <span>{notification.timestamp}</span>
+                          <span>Sent to {notification.sentToCount} admins</span>
+                          {notification.status === "Delivered" && (
+                            <Badge variant="outline" className="text-xs">
+                              Delivered
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-muted-foreground">
+                      Showing page {currentPage} of {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      
+                      {/* Page numbers */}
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNumber;
+                          if (totalPages <= 5) {
+                            pageNumber = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNumber = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNumber = totalPages - 4 + i;
+                          } else {
+                            pageNumber = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNumber}
+                              variant={currentPage === pageNumber ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(pageNumber)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {pageNumber}
+                            </Button>
+                          );
+                        })}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>

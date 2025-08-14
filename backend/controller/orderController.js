@@ -550,3 +550,41 @@ export const getDeliveredOrdersCount = async (req, res) => {
     res.status(500).json({ error: "Failed to count confirmed orders" });
   }
 };
+
+export const getMonthlySales = async (req, res) => {
+  try {
+    const sales = await Order.aggregate([
+      {
+        $group: {
+          _id: { month: { $month: "$orderDate" } },
+          revenue: {
+            $sum: {
+              $sum: {
+                $map: {
+                  input: "$orderItems",
+                  as: "item",
+                  in: { $multiply: ["$$item.quantity", "$$item.pricePerMeters"] }
+                }
+              }
+            }
+          },
+          orders: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.month": 1 } }
+    ]);
+
+    // Format month numbers to labels
+    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const formatted = sales.map(s => ({
+      month: monthLabels[s._id.month - 1],
+      revenue: s.revenue,
+      orders: s.orders
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error("Monthly sales aggregation error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};

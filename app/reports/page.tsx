@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -53,6 +53,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
+import { useToast } from "@/hooks/use-toast";
 
 interface SalesData {
   totalRevenue: number;
@@ -83,6 +84,7 @@ interface TopCustomer {
 }
 
 export default function ReportsPage() {
+  const { toast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState("month");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,14 +108,20 @@ export default function ReportsPage() {
 
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
 
-  const monthlyData = [
-    { month: "Jan", revenue: 245000, orders: 18 },
-    { month: "Feb", revenue: 280000, orders: 22 },
-    { month: "Mar", revenue: 320000, orders: 25 },
-    { month: "Apr", revenue: 290000, orders: 21 },
-    { month: "May", revenue: 350000, orders: 28 },
-    { month: "Jun", revenue: 380000, orders: 32 },
-  ];
+  const [monthlyData, setMonthlyData] = useState([
+    { month: "Jan", revenue: 0, orders: 0 },
+    { month: "Feb", revenue: 0, orders: 0 },
+    { month: "Mar", revenue: 0, orders: 0 },
+    { month: "Apr", revenue: 0, orders: 0 },
+    { month: "May", revenue: 0, orders: 0 },
+    { month: "Jun", revenue: 0, orders: 0 },
+    { month: "Jul", revenue: 0, orders: 0 },
+    { month: "Aug", revenue: 0, orders: 0 },
+    { month: "Sep", revenue: 0, orders: 0 },
+    { month: "Oct", revenue: 0, orders: 0 },
+    { month: "Nov", revenue: 0, orders: 0 },
+    { month: "Dec", revenue: 0, orders: 0 },
+  ]);
 
   const productPerformanceData = topProducts.map((product) => ({
     name: product.name.split(" ")[0],
@@ -122,26 +130,190 @@ export default function ReportsPage() {
     growth: product.growth,
   }));
 
-  const stockCategoryData = [
-    { name: "Gray Stock", value: 1567890, fill: "#8884d8" },
-    { name: "Factory Stock", value: 1234567, fill: "#82ca9d" },
-    { name: "Design Stock", value: 1765433, fill: "#ffc658" },
-  ];
+  const [stockCategoryData, setStockCategoryData] = useState([
+    { name: "Gray Stock", value: 0, fill: "#ffffff" },
+    { name: "Factory Stock", value: 0, fill: "#ffffff" },
+    { name: "Design Stock", value: 0, fill: "#ffffff" },
+  ]);
 
-  const stockMovementData = [
-    { month: "Jan", inbound: 45000, outbound: 38000, net: 7000 },
-    { month: "Feb", inbound: 52000, outbound: 41000, net: 11000 },
-    { month: "Mar", inbound: 48000, outbound: 45000, net: 3000 },
-    { month: "Apr", inbound: 61000, outbound: 52000, net: 9000 },
-    { month: "May", inbound: 55000, outbound: 48000, net: 7000 },
-    { month: "Jun", inbound: 58000, outbound: 51000, net: 7000 },
-  ];
+  const [stockMovementData, setStockMovementData] = useState([
+    { month: "Jan", inbound: 0, outbound: 0, net: 0 },
+    { month: "Feb", inbound: 0, outbound: 0, net: 0 },
+    { month: "Mar", inbound: 0, outbound: 0, net: 0 },
+    { month: "Apr", inbound: 0, outbound: 0, net: 0 },
+    { month: "May", inbound: 0, outbound: 0, net: 0 },
+    { month: "Jun", inbound: 0, outbound: 0, net: 0 },
+    { month: "Jul", inbound: 0, outbound: 0, net: 0 },
+    { month: "Aug", inbound: 0, outbound: 0, net: 0 },
+    { month: "Sep", inbound: 0, outbound: 0, net: 0 },
+    { month: "Oct", inbound: 0, outbound: 0, net: 0 },
+    { month: "Nov", inbound: 0, outbound: 0, net: 0 },
+    { month: "Dec", inbound: 0, outbound: 0, net: 0 },
+  ]);
 
   const customerRevenueData = topCustomers.map((customer) => ({
     name: customer.name.split(" ")[0],
     revenue: customer.revenue / 1000,
     orders: customer.orders,
   }));
+
+  // Excel Export Function
+  const handleExportExcel = () => {
+    try {
+      // Create CSV content
+      let csvContent = "Reports Data Export\n\n";
+      
+      // Sales Data
+      csvContent += "Sales Summary\n";
+      csvContent += "Metric,Value\n";
+      csvContent += `Total Revenue,₹${salesData.totalRevenue.toLocaleString()}\n`;
+      csvContent += `Orders Completed,${salesData.ordersCompleted}\n`;
+      csvContent += `Average Order Value,₹${salesData.averageOrderValue.toLocaleString()}\n`;
+      csvContent += `Growth Rate,${salesData.growthRate}%\n\n`;
+
+      // Monthly Data
+      csvContent += "Monthly Performance\n";
+      csvContent += "Month,Revenue,Orders\n";
+      monthlyData.forEach(item => {
+        csvContent += `${item.month},₹${item.revenue.toLocaleString()},${item.orders}\n`;
+      });
+      csvContent += "\n";
+
+      // Top Products
+      csvContent += "Top Products\n";
+      csvContent += "Product Name,Revenue,Quantity,Growth\n";
+      topProducts.forEach(product => {
+        csvContent += `${product.name},₹${product.revenue.toLocaleString()},${product.quantity},${product.growth}%\n`;
+      });
+      csvContent += "\n";
+
+      // Top Customers
+      csvContent += "Top Customers\n";
+      csvContent += "Customer Name,City,Orders,Revenue\n";
+      topCustomers.forEach(customer => {
+        csvContent += `${customer.name},${customer.city},${customer.orders},₹${customer.revenue.toLocaleString()}\n`;
+      });
+
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `reports_${selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export Successful",
+        description: "Excel report has been downloaded successfully",
+        variant: "default",
+      });
+    } catch (err) {
+      toast({
+        title: "Export Failed",
+        description: err instanceof Error ? err.message : 'Failed to export Excel file',
+        variant: "destructive",
+      });
+    }
+  };
+
+  // PDF Export Function
+  const handleExportPDF = () => {
+    try {
+      // Create HTML content for PDF
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Order Bills Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .section { margin-bottom: 25px; }
+            .section h3 { border-bottom: 2px solid #333; padding-bottom: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .metric-value { font-weight: bold; color: #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Business Reports & Order Bills</h1>
+            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+            <p>Period: ${selectedPeriod}</p>
+          </div>
+          
+          <div class="section">
+            <h3>Sales Summary</h3>
+            <table>
+              <tr><th>Metric</th><th>Value</th></tr>
+              <tr><td>Total Revenue</td><td class="metric-value">₹${salesData.totalRevenue.toLocaleString()}</td></tr>
+              <tr><td>Orders Completed</td><td class="metric-value">${salesData.ordersCompleted}</td></tr>
+              <tr><td>Average Order Value</td><td class="metric-value">₹${salesData.averageOrderValue.toLocaleString()}</td></tr>
+              <tr><td>Growth Rate</td><td class="metric-value">${salesData.growthRate}%</td></tr>
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>Monthly Performance</h3>
+            <table>
+              <tr><th>Month</th><th>Revenue</th><th>Orders</th></tr>
+              ${monthlyData.map(item => 
+                `<tr><td>${item.month}</td><td>₹${item.revenue.toLocaleString()}</td><td>${item.orders}</td></tr>`
+              ).join('')}
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>Top Performing Products</h3>
+            <table>
+              <tr><th>Product Name</th><th>Revenue</th><th>Quantity</th><th>Growth</th></tr>
+              ${topProducts.map(product => 
+                `<tr><td>${product.name}</td><td>₹${product.revenue.toLocaleString()}</td><td>${product.quantity}</td><td>${product.growth}%</td></tr>`
+              ).join('')}
+            </table>
+          </div>
+
+          <div class="section">
+            <h3>Top Customers</h3>
+            <table>
+              <tr><th>Customer Name</th><th>City</th><th>Orders</th><th>Revenue</th></tr>
+              ${topCustomers.map(customer => 
+                `<tr><td>${customer.name}</td><td>${customer.city}</td><td>${customer.orders}</td><td>₹${customer.revenue.toLocaleString()}</td></tr>`
+              ).join('')}
+            </table>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Create blob and download
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", `order_bills_${selectedPeriod}_${new Date().toISOString().split('T')[0]}.html`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "PDF Export Successful",
+        description: "Order bills report has been downloaded successfully",
+        variant: "default",
+      });
+    } catch (err) {
+      toast({
+        title: "PDF Export Failed",
+        description: err instanceof Error ? err.message : 'Failed to export PDF file',
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchSalesData = async () => {
@@ -217,6 +389,80 @@ export default function ReportsPage() {
       }
     };
 
+    const fetchMonthlyData = async () => {
+      try {
+        const res = await fetch(
+          "http://localhost:4000/api/v1/order/monthly/sales"
+        );
+        if (!res.ok) throw new Error("Failed to fetch monthly sales");
+
+        const data = await res.json();
+
+        // Merge API data into default monthlyData
+        setMonthlyData((prev) =>
+          prev.map((monthObj) => {
+            const match = data.find(
+              (apiMonth: any) => apiMonth.month === monthObj.month
+            );
+            return match ? match : monthObj;
+          })
+        );
+      } catch (err) {
+        console.error("Error fetching monthly data:", err);
+      }
+    };
+
+    const fetchStockCategoryData = async () => {
+      try {
+        const res = await fetch(
+          "http://localhost:4000/api/v1/stock/get/category-breakdown"
+        );
+        if (!res.ok) throw new Error("Failed to fetch stock category data");
+
+        const data = await res.json();
+        // console.log("Stock Category Data Response:", data);
+        // return
+        setStockCategoryData([
+          { name: "Gray Stock", value: data[0].value, fill: data[0].fill },
+          { name: "Factory Stock", value: data[1].value, fill: data[1].fill },
+          { name: "Design Stock", value: data[2].value, fill: data[2].fill },
+        ]);
+      } catch (err) {
+        console.error("Error fetching stock category data:", err);
+        toast({
+          title: "Error",
+          description: "Failed to load stock category data",
+          variant: "destructive",
+        });
+      }
+    };
+
+    const fetchStockMovement = async () => {
+      try {
+        const res = await fetch(
+          "http://localhost:4000/api/v1/stock/get/movement-report"
+        );
+        if (!res.ok) throw new Error("Failed to fetch stock movement report");
+
+        const data = await res.json();
+
+        // Merge API data into default monthly list
+        setStockMovementData((prev) =>
+          prev.map((monthObj) => {
+            const match = data.find(
+              (apiMonth) => apiMonth.month === monthObj.month
+            );
+            return match ? match : monthObj;
+          })
+        );
+      } catch (err) {
+        console.error("Error fetching stock movement data:", err);
+      }
+    };
+
+    fetchStockMovement();
+    fetchStockCategoryData();
+    fetchMonthlyData();
     fetchSalesData();
   }, []);
 
@@ -320,13 +566,13 @@ export default function ReportsPage() {
                 <SelectItem value="fy25-26">FY 25-26</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExportExcel}>
               <Download className="h-4 w-4 mr-2" />
               Export Excel
             </Button>
             <Button
               variant="outline"
-              onClick={() => alert("Demo: Export Order Bills to PDF")}
+              onClick={handleExportPDF}
             >
               Export Order Bills (PDF)
             </Button>
@@ -405,7 +651,7 @@ export default function ReportsPage() {
                     {stockData.stockTurnover}x
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Inventory turns
+                    Inventory turns for start of the month till today
                   </p>
                 </CardContent>
               </Card>

@@ -2,6 +2,7 @@ import { sendWhatsAppMessage, sentToCount } from "../utils/whatsappService.js";
 import WhatsappMessages from "../models/whatsappMessages.js";
 import Stock from "../models/stockScehma.js";
 import { WhatsappNotification } from "../models/whatsappNotificationSchema.js";
+import Order from "../models/orderSchema.js";
 
 export const createStock = async (req, res) => {
   try {
@@ -240,25 +241,51 @@ const calculateStockValue = (stocks) => {
   }, 0);
 };
 
-// Utility: Calculate stock turnover (dummy formula)
-const calculateStockTurnover = () => {
-  // Static for now, but can be derived from sales/orders in a given period
-  return 4.2;
+// Calculate stock turnover
+
+const calculateStockTurnover = async (startDate, endDate) => {
+  // 1. Fetch orders in the given period
+  const orders = await Order.find({
+    orderDate: { $gte: startDate, $lte: endDate }
+  });
+
+  // 2. Calculate total sales value (COGS approximation)
+  const totalSalesValue = orders.reduce((sum, order) => {
+    const orderValue = order.orderItems.reduce((itemSum, item) => {
+      return itemSum + (item.quantity * item.pricePerMeters);
+    }, 0);
+    return sum + orderValue;
+  }, 0);
+
+  // 3. Calculate current stock value
+  const allStocks = await Stock.find();
+  const totalStockValue = calculateStockValue(allStocks); // your existing function
+
+  // 4. Approximate average stock value (current only for now)
+  const averageStockValue = totalStockValue || 1; // avoid division by zero
+
+  // 5. Turnover formula
+  return (totalSalesValue / averageStockValue).toFixed(2);
 };
+
 
 export const getStockSummary = async (req, res) => {
   try {
     const allStocks = await Stock.find();
-
     const totalStockValue = calculateStockValue(allStocks);
-    const stockTurnover = calculateStockTurnover();
 
-    // Low stock items = any variant with quantity < threshold (e.g., 10)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+
+    const stockTurnover = await calculateStockTurnover(startOfMonth, today);
+
     const lowStockItems = allStocks.filter((stock) =>
       stock.variants.some((v) => v.quantity < 10 && v.quantity > 0)
     ).length;
 
-    // Out of stock items = all variants with quantity === 0
     const outOfStockItems = allStocks.filter((stock) =>
       stock.variants.every((v) => v.quantity === 0)
     ).length;
@@ -271,6 +298,82 @@ export const getStockSummary = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching stock summary:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export const getStockCategoryBreakdown = async (req, res) => {
+  try {
+    const breakdown = await Stock.aggregate([
+      { $unwind: "$variants" },
+      {
+        $group: {
+          _id: "$stockType",
+          totalQuantity: { $sum: "$variants.quantity" }
+        }
+      },
+      { $sort: { totalQuantity: -1 } }
+    ]);
+
+    const colors = {
+      "Gray Stock": "#8884d8",
+      "Factory Stock": "#82ca9d",
+      "Design Stock": "#ffc658"
+    };
+
+    const formatted = breakdown.map(item => ({
+      name: item._id,
+      value: item.totalQuantity,
+      fill: colors[item._id] || "#8884d8"
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error("Stock category breakdown error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+export const getStockMovement = async (req, res) => {
+  try {
+    // Inbound: from stock creation
+    const inboundAgg = await Stock.aggregate([
+      { $unwind: "$variants" },
+      {
+        $group: {
+          _id: { month: { $month: "$createdAt" } },
+          inbound: { $sum: "$variants.quantity" }
+        }
+      }
+    ]);
+
+    // Outbound: from orders
+    const outboundAgg = await Order.aggregate([
+      { $unwind: "$orderItems" },
+      {
+        $group: {
+          _id: { month: { $month: "$orderDate" } },
+          outbound: { $sum: "$orderItems.quantity" }
+        }
+      }
+    ]);
+
+    // Merge results into all months
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const result = months.map((name, idx) => {
+      const inbound = inboundAgg.find(m => m._id.month === idx + 1)?.inbound || 0;
+      const outbound = outboundAgg.find(m => m._id.month === idx + 1)?.outbound || 0;
+      return {
+        month: name,
+        inbound,
+        outbound,
+        net: inbound - outbound
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error("Stock movement error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
