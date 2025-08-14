@@ -354,18 +354,18 @@ export const getTopProducts = async (req, res) => {
           name: "$_id",
           revenue: 1,
           quantity: 1
+          // No growth field here
         }
       }
     ];
 
     const data = await Order.aggregate(pipeline);
 
-    // Add random growth between 10.0 and 40.0
     const topProducts = data.map((product) => ({
       name: product.name,
       revenue: product.revenue,
-      quantity: product.quantity,
-      growth: parseFloat((Math.random() * (40 - 10) + 10).toFixed(1)) // random float
+      quantity: product.quantity
+      // growth removed
     }));
 
     res.status(200).json(topProducts);
@@ -374,6 +374,7 @@ export const getTopProducts = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 // GET recent orders for a particular product
 export const getRecentOrdersByProduct = async (req, res) => {

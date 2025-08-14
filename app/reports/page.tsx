@@ -59,7 +59,6 @@ interface SalesData {
   totalRevenue: number;
   ordersCompleted: number;
   averageOrderValue: number;
-  growthRate: number;
 }
 
 interface StockData {
@@ -73,7 +72,6 @@ interface TopProduct {
   name: string;
   revenue: number;
   quantity: number;
-  growth: number;
 }
 
 interface TopCustomer {
@@ -93,8 +91,7 @@ export default function ReportsPage() {
   const [salesData, setSalesData] = useState<SalesData>({
     totalRevenue: 0,
     ordersCompleted: 0,
-    averageOrderValue: 0,
-    growthRate: 0,
+    averageOrderValue: 0
   });
 
   const [stockData, setStockData] = useState<StockData>({
@@ -126,8 +123,7 @@ export default function ReportsPage() {
   const productPerformanceData = topProducts.map((product) => ({
     name: product.name.split(" ")[0],
     revenue: product.revenue / 1000,
-    quantity: product.quantity,
-    growth: product.growth,
+    quantity: product.quantity
   }));
 
   const [stockCategoryData, setStockCategoryData] = useState([
@@ -209,7 +205,6 @@ export default function ReportsPage() {
       csvContent += `Total Revenue,₹${salesData.totalRevenue}\n`;
       csvContent += `Orders Completed,${salesData.ordersCompleted}\n`;
       csvContent += `Average Order Value,₹${salesData.averageOrderValue}\n`;
-      csvContent += `Growth Rate,${salesData.growthRate}%\n\n`;
 
       // Monthly Data
       csvContent += "Monthly Performance\n";
@@ -221,9 +216,9 @@ export default function ReportsPage() {
 
       // Top Products
       csvContent += "Top Products\n";
-      csvContent += "Product Name,Revenue,Quantity,Growth\n";
+      csvContent += "Product Name,Revenue,Quantity\n";
       topProducts.forEach(product => {
-        csvContent += `${product.name},₹${product.revenue},${product.quantity},${product.growth}%\n`;
+        csvContent += `${product.name},₹${product.revenue},${product.quantity}\n`;
       });
       csvContent += "\n";
 
@@ -293,7 +288,6 @@ export default function ReportsPage() {
               <tr><td>Total Revenue</td><td class="metric-value">₹${salesData.totalRevenue.toLocaleString()}</td></tr>
               <tr><td>Orders Completed</td><td class="metric-value">${salesData.ordersCompleted}</td></tr>
               <tr><td>Average Order Value</td><td class="metric-value">₹${salesData.averageOrderValue.toLocaleString()}</td></tr>
-              <tr><td>Growth Rate</td><td class="metric-value">${salesData.growthRate}%</td></tr>
             </table>
           </div>
 
@@ -310,9 +304,9 @@ export default function ReportsPage() {
           <div class="section">
             <h3>Top Performing Products</h3>
             <table>
-              <tr><th>Product Name</th><th>Revenue</th><th>Quantity</th><th>Growth</th></tr>
+              <tr><th>Product Name</th><th>Revenue</th><th>Quantity</th></tr>
               ${topProducts.map(product => 
-                `<tr><td>${product.name}</td><td>₹${product.revenue.toLocaleString()}</td><td>${product.quantity}</td><td>${product.growth}%</td></tr>`
+                `<tr><td>${product.name}</td><td>₹${product.revenue.toLocaleString()}</td><td>${product.quantity}</td><td></tr>`
               ).join('')}
             </table>
           </div>
@@ -405,8 +399,7 @@ export default function ReportsPage() {
           productData.map((product: any) => ({
             name: product.name,
             quantity: product.quantity,
-            revenue: product.revenue,
-            growth: product.growth,
+            revenue: product.revenue
           }))
         );
 
@@ -418,8 +411,7 @@ export default function ReportsPage() {
         setSalesData({
           totalRevenue,
           ordersCompleted,
-          averageOrderValue,
-          growthRate: 12.5,
+          averageOrderValue
         });
       } catch (err) {
         console.error("Error fetching sales data:", err);
@@ -640,10 +632,6 @@ export default function ReportsPage() {
                   <div className="text-2xl font-bold">
                     ₹{salesData?.totalRevenue?.toLocaleString() ?? "0"}
                   </div>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3 text-green-500" />+
-                    {salesData?.growthRate}% from last period
-                  </p>
                 </CardContent>
               </Card>
 
@@ -781,13 +769,6 @@ export default function ReportsPage() {
                         ₹{salesData.averageOrderValue.toLocaleString()}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Growth Rate</span>
-                      <span className="font-bold text-green-600 flex items-center gap-1">
-                        <TrendingUp className="h-4 w-4" />+
-                        {salesData.growthRate}%
-                      </span>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -819,7 +800,7 @@ export default function ReportsPage() {
               </Card>
             </div>
 
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle>Product Growth Analysis</CardTitle>
                 <CardDescription>
@@ -845,7 +826,7 @@ export default function ReportsPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
-            </Card>
+            </Card> */}
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-6">
