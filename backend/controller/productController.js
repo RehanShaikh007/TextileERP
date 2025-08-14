@@ -655,4 +655,4 @@ export const syncAllStocksWithProducts = async (req, res) => {
             message: 'Server Error: Unable to sync stocks with products.',
             error: error.message
         });
-    }
+      }}
