@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { set } from "date-fns";
+import { API_BASE_URL } from "@/lib/api";
 
 // Types
 interface Admin {
@@ -127,7 +128,7 @@ export default function NotificationsPage() {
       setLoading(true);
       try {
         const res = await fetch(
-          "http://localhost:4000/api/v1/whatsapp-notifications"
+          `${API_BASE_URL}/whatsapp-notifications`
         );
         if (!res.ok) throw new Error("Failed to fetch settings");
         const data: NotificationSettings = await res.json();
@@ -141,7 +142,7 @@ export default function NotificationsPage() {
 
     async function fetchStats() {
       try {
-        const res = await fetch("http://localhost:4000/api/v1/whatsapp-messages/today-stats");
+        const res = await fetch(`${API_BASE_URL}/whatsapp-messages/today-stats`);
         if (!res.ok) throw new Error("Failed to fetch stats");
         const data = await res.json();
         console.log("Notification stats:", data.stats);
@@ -178,7 +179,7 @@ export default function NotificationsPage() {
     setLoadingNotifications(true);
     try {
       const res = await fetch(
-        `http://localhost:4000/api/v1/whatsapp-messages?page=${page}&limit=${limit}`
+        `${API_BASE_URL}/whatsapp-messages?page=${page}&limit=${limit}`
       );
       const data = await res.json();
       console.log("Fetched notifications data:", data);
@@ -212,7 +213,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
-        const res = await fetch("http://localhost:4000/api/v1/admin/");
+        const res = await fetch(`${API_BASE_URL}/admin/`);
         if (!res.ok) throw new Error("Failed to fetch admin numbers");
         const data = await res.json();
         setAdminNumbers(data.admins);
@@ -272,7 +273,7 @@ export default function NotificationsPage() {
     setSaving(true);
     try {
       const res = await fetch(
-        "http://localhost:4000/api/v1/whatsapp-notifications",
+        `${API_BASE_URL}/whatsapp-notifications`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -322,7 +323,7 @@ export default function NotificationsPage() {
     }
 
     try {
-      const res = await fetch("http://localhost:4000/api/v1/admin/", {
+      const res = await fetch(`${API_BASE_URL}/admin/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -347,7 +348,7 @@ export default function NotificationsPage() {
   const updateAdminActiveStatus = async (adminId: string, active: boolean) => {
     try {
       const res = await fetch(
-        `http://localhost:4000/api/v1/admin/active/status`,
+        `${API_BASE_URL}/admin/active/status`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -379,7 +380,7 @@ export default function NotificationsPage() {
 
   const deleteAdmin = async (adminId: string) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/v1/admin/${adminId}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/${adminId}`, {
         method: "DELETE",
       });
       if (!res.ok) {

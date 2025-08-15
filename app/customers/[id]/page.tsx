@@ -17,6 +17,7 @@ import { Edit, MapPin, Phone, Mail, ShoppingCart, TrendingUp, ArrowLeft, Star, C
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
+import { API_BASE_URL } from "@/lib/api"
 
 export default function CustomerViewPage() {
   const params = useParams()
@@ -47,7 +48,7 @@ export default function CustomerViewPage() {
   // Fetch customer orders
   const fetchCustomerOrders = async (customerName: string, creditLimit: number) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/v1/order?customer=${encodeURIComponent(customerName)}&limit=100`, {
+      const res = await fetch(`${API_BASE_URL}/order?customer=${encodeURIComponent(customerName)}&limit=100`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -91,7 +92,7 @@ export default function CustomerViewPage() {
       try {
         setLoading(true)
         setError(null)
-        const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+        const res = await fetch(`${API_BASE_URL}/customer/${customerId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         })

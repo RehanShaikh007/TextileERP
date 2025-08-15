@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/lib/api'
 import { useState, useEffect } from 'react'
 
 interface SidebarCounts {
@@ -39,14 +40,14 @@ export function useSidebarCounts() {
           returnsRes,
           notificationsRes
         ] = await Promise.allSettled([
-          fetch('http://localhost:4000/api/v1/products?page=1&limit=1'), // Use pagination to read totalItems
-          fetch('http://localhost:4000/api/v1/stock?page=1&limit=20'), // Align with Stock page page-size
-          fetch('http://localhost:4000/api/v1/order?page=1&limit=1'), // Just get pagination info
+          fetch(`${API_BASE_URL}/products?page=1&limit=1`), // Use pagination to read totalItems
+          fetch(`${API_BASE_URL}/stock?page=1&limit=20`), // Align with Stock page page-size
+          fetch(`${API_BASE_URL}/order?page=1&limit=1`), // Just get pagination info
           // Note: routes are singular in backend: /customer and /agent
-          fetch('http://localhost:4000/api/v1/customer'),
-          fetch('http://localhost:4000/api/v1/agent'),
-          fetch('http://localhost:4000/api/v1/returns'),
-          fetch('http://localhost:4000/api/v1/whatsapp-messages')
+          fetch(`${API_BASE_URL}/customer`),
+          fetch(`${API_BASE_URL}/agent`),
+          fetch(`${API_BASE_URL}/returns`),
+          fetch(`${API_BASE_URL}/whatsapp-messages`)
         ])
 
         const newCounts: SidebarCounts = {

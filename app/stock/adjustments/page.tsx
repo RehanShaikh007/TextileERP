@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { AlertTriangle, Loader2, Plus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 interface StockVariant { color: string; quantity: number; unit: string }
 interface Stock { _id: string; stockType: string; status: string; variants: StockVariant[]; stockDetails: any }
@@ -48,7 +49,7 @@ export default function AdjustmentsPage() {
 
   const fetchAdjustments = async (page: number = 1, limit: number = 10) => {
     try {
-      const logsRes = await fetch(`http://localhost:4000/api/v1/adjustments?page=${page}&limit=${limit}`)
+      const logsRes = await fetch(`${API_BASE_URL}/adjustments?page=${page}&limit=${limit}`)
       if (!logsRes.ok) throw new Error("Failed to fetch adjustments")
       const logsJson = await logsRes.json()
       setLogs(logsJson.adjustments || [])
@@ -67,7 +68,7 @@ export default function AdjustmentsPage() {
 
   const fetchStocks = async () => {
     try {
-      const stockRes = await fetch("http://localhost:4000/api/v1/stock")
+      const stockRes = await fetch(`${API_BASE_URL}/stock`)
       if (!stockRes.ok) throw new Error("Failed to fetch stocks")
       const stockJson = await stockRes.json()
       setStocks(stockJson.stocks || [])
@@ -125,7 +126,7 @@ export default function AdjustmentsPage() {
       if (!(newQtyNum > prevQty)) throw new Error("New quantity must be greater than previous quantity")
       if (!reason.trim()) throw new Error("Please enter a reason")
 
-      const res = await fetch("http://localhost:4000/api/v1/adjustments", {
+      const res = await fetch(`${API_BASE_URL}/adjustments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stockId: selectedStockId, color: selectedColor, newQuantity: newQtyNum, reason }),

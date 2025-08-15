@@ -26,6 +26,7 @@ import {
 import { Plus, Search, User, Factory, Eye, Edit, Loader2, CheckCircle, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { API_BASE_URL, getRecentOrdersByProduct } from "@/lib/api";
 
 // Agent interface based on API response
 interface Agent {
@@ -60,7 +61,7 @@ export default function AgentsPage() {
         setAgentsLoading(true);
         setAgentsError(null);
         
-        const response = await fetch("http://localhost:4000/api/v1/agent/", {
+        const response = await fetch(`${API_BASE_URL}/agent/`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -118,7 +119,7 @@ export default function AgentsPage() {
     setAddSuccess(false);
 
     try {
-      const response = await fetch("http://localhost:4000/api/v1/agent/", {
+      const response = await fetch("/agent/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

@@ -37,6 +37,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { API_BASE_URL } from "@/lib/api"
 
 // TypeScript interfaces
 interface OrderItem {
@@ -121,9 +122,9 @@ export default function EditOrderPage() {
 
         // Fetch order details, customers, and products in parallel
         const [orderResponse, customersResponse, productsResponse] = await Promise.all([
-          fetch(`http://localhost:4000/api/v1/order/${orderId}`),
-          fetch('http://localhost:4000/api/v1/customer'),
-          fetch('http://localhost:4000/api/v1/products')
+          fetch(`${API_BASE_URL}/order/${orderId}`),
+          fetch(`${API_BASE_URL}/customer`),
+          fetch(`${API_BASE_URL}/products`)
         ])
 
         if (!orderResponse.ok) {
@@ -285,7 +286,7 @@ export default function EditOrderPage() {
         notes: formData.notes
       }
 
-      const response = await fetch(`http://localhost:4000/api/v1/order/${orderId}`, {
+      const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -318,7 +319,7 @@ export default function EditOrderPage() {
   const handleDelete = async () => {
     try {
       setDeleting(true)
-      const resp = await fetch(`http://localhost:4000/api/v1/order/${orderId}`, { method: 'DELETE' })
+      const resp = await fetch(`${API_BASE_URL}/order/${orderId}`, { method: 'DELETE' })
       if (!resp.ok) {
         const data = await resp.json().catch(() => ({}))
         throw new Error((data as any).message || 'Failed to delete order')

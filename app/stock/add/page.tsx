@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { API_BASE_URL } from "@/lib/api";
 
 // Agent interface based on API response
 interface Agent {
@@ -199,7 +200,7 @@ export default function AddStockPage() {
             return;
           }
           
-          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Gray Stock&limit=1000", {
+          const response = await fetch(`${API_BASE_URL}/stock?stockType=Gray Stock&limit=1000`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
           });
@@ -245,7 +246,7 @@ export default function AddStockPage() {
             return;
           }
           
-          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Factory Stock&limit=1000", {
+          const response = await fetch(`${API_BASE_URL}/stock?stockType=Factory Stock&limit=1000`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
           });
@@ -295,7 +296,7 @@ export default function AddStockPage() {
       const fetchGrayStockProducts = async () => {
         try {
           setGrayStockProductsLoading(true);
-          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Gray Stock&limit=1000", {
+          const response = await fetch(`${API_BASE_URL}/stock?stockType=Gray Stock&limit=1000`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
           });
@@ -337,7 +338,7 @@ export default function AddStockPage() {
         try {
           setFactoryStockProductsLoading(true);
           setFactoryStockProductsError(null);
-          const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Factory Stock&limit=1000", {
+          const response = await fetch(`${API_BASE_URL}/stock?stockType=Factory Stock&limit=1000`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
           });
@@ -478,7 +479,7 @@ export default function AddStockPage() {
         setProductsLoading(true);
         setProductsError(null);
 
-        const response = await fetch("http://localhost:4000/api/v1/products/all/names", {
+        const response = await fetch(`${API_BASE_URL}/products/all/names`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -506,7 +507,7 @@ export default function AddStockPage() {
     const fetchAgentsAndFactories = async () => {
       try {
         setAgentsLoading(true);
-        const response = await fetch("http://localhost:4000/api/v1/agent/", {
+        const response = await fetch(`${API_BASE_URL}/agent/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -537,7 +538,7 @@ export default function AddStockPage() {
     // Fetch full products with variants for color options
     const fetchProductsWithVariants = async () => {
       try {
-        const res1 = await fetch("http://localhost:4000/api/v1/products", {
+        const res1 = await fetch(`${API_BASE_URL}/products`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -549,7 +550,7 @@ export default function AddStockPage() {
           }
         }
         // Fallback
-        const res2 = await fetch("http://localhost:4000/api/v1/products/products", {
+        const res2 = await fetch(`${API_BASE_URL}/products/products`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -640,7 +641,7 @@ export default function AddStockPage() {
       setProductsLoading(true);
       setProductsError(null);
 
-      const response = await fetch("http://localhost:4000/api/v1/products/all/names", {
+      const response = await fetch(`${API_BASE_URL}/products/all/names`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -671,7 +672,7 @@ export default function AddStockPage() {
       setFactoryStockProductsLoading(true);
       setFactoryStockProductsError(null);
       
-      const response = await fetch("http://localhost:4000/api/v1/stock?stockType=Factory Stock&limit=1000", {
+      const response = await fetch(`${API_BASE_URL}/stock?stockType=Factory Stock&limit=1000`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -806,7 +807,7 @@ export default function AddStockPage() {
 
       console.log("Sending payload:", payload); // Debug log
 
-      const response = await fetch("http://localhost:4000/api/v1/stock", {
+      const response = await fetch(`${API_BASE_URL}/stock`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

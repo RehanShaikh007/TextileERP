@@ -47,6 +47,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { API_BASE_URL } from "@/lib/api";
 
 interface Variant {
   color: string;
@@ -119,7 +120,7 @@ export default function EditProductPage() {
     const fetchProduct = async () => {
       try {
         const response = await fetch(
-          `http://localhost:4000/api/v1/products/${productId}`
+          `${API_BASE_URL}/products/${productId}`
         );
         if (!response.ok) {
           throw new Error("Failed to fetch product");
@@ -224,7 +225,7 @@ export default function EditProductPage() {
         formData.append('images', files[i]);
       }
       
-      const response = await fetch('http://localhost:4000/api/v1/products/upload-images', {
+      const response = await fetch(`${API_BASE_URL}/products/upload-images`, {
         method: 'POST',
         body: formData,
       });
@@ -287,7 +288,7 @@ export default function EditProductPage() {
         isActive: formData.isActive
       };
   
-      const response = await fetch(`http://localhost:4000/api/v1/products/${productId}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -318,7 +319,7 @@ export default function EditProductPage() {
     try {
       setDeleting(true);
       setError(null);
-      const response = await fetch(`http://localhost:4000/api/v1/products/${productId}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
         method: 'DELETE',
       });
       if (!response.ok) {

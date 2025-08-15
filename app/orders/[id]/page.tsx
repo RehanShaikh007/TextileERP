@@ -32,6 +32,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { API_BASE_URL } from "@/lib/api"
 
 // TypeScript interfaces
 interface OrderItem {
@@ -79,7 +80,7 @@ export default function OrderViewPage() {
         setLoading(true)
         setError(null)
 
-        const response = await fetch(`http://localhost:4000/api/v1/order/${orderId}`)
+        const response = await fetch(`${API_BASE_URL}/order/${orderId}`)
         
         if (!response.ok) {
           throw new Error('Failed to fetch order details')
@@ -94,7 +95,7 @@ export default function OrderViewPage() {
         setOrder(data.order)
 
         // Fetch customer details based on customer name
-        const customerResponse = await fetch('http://localhost:4000/api/v1/customer')
+        const customerResponse = await fetch(`${API_BASE_URL}/customer`)
         if (customerResponse.ok) {
           const customerData = await customerResponse.json()
           if (customerData.success && customerData.customers) {

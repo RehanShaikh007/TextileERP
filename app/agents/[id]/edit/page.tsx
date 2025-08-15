@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, Save, X, Loader2, AlertTriangle, CheckCircle, Trash } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
+import { API_BASE_URL } from "@/lib/api"
 
 export default function AgentEditPage() {
   const params = useParams()
@@ -49,7 +50,7 @@ export default function AgentEditPage() {
       try {
         setLoading(true)
         setError(null)
-        const res = await fetch(`http://localhost:4000/api/v1/agent/${agentIdParam}`)
+        const res = await fetch(`${API_BASE_URL}/agent/${agentIdParam}`)
         if (!res.ok) {
           throw new Error(`Failed to fetch agent: ${res.status} ${res.statusText}`)
         }
@@ -87,7 +88,7 @@ export default function AgentEditPage() {
         factory: agent.factory
       }
 
-      const res = await fetch(`http://localhost:4000/api/v1/agent/${agentIdParam}`, {
+      const res = await fetch(`${API_BASE_URL}/agent/${agentIdParam}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -117,7 +118,7 @@ export default function AgentEditPage() {
     try {
       setDeleting(true)
       setError(null)
-      const res = await fetch(`http://localhost:4000/api/v1/agent/${agentIdParam}`, {
+      const res = await fetch(`${API_BASE_URL}/agent/${agentIdParam}`, {
         method: 'DELETE',
       })
       if (!res.ok) {

@@ -30,6 +30,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { API_BASE_URL } from "@/lib/api"
 
 // Stock interfaces based on backend schema
 interface StockVariant {
@@ -117,7 +118,7 @@ export default function StockEditPage() {
         setLoading(true)
         setError(null)
         
-        const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+        const response = await fetch(`${API_BASE_URL}/stock/${stockId}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -151,7 +152,7 @@ export default function StockEditPage() {
     const fetchAgentsAndFactories = async () => {
       try {
         setAgentsLoading(true);
-        const response = await fetch("http://localhost:4000/api/v1/agent/", {
+        const response = await fetch(`${API_BASE_URL}/agent/`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -273,7 +274,7 @@ export default function StockEditPage() {
       setError(null)
       setSuccess(false)
 
-      const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+      const response = await fetch(`${API_BASE_URL}/stock/${stockId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -311,7 +312,7 @@ export default function StockEditPage() {
     try {
       setDeleting(true)
       setError(null)
-      const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+      const response = await fetch(`${API_BASE_URL}/stock/${stockId}`, {
         method: 'DELETE',
       })
       if (!response.ok) {

@@ -30,6 +30,7 @@ import { Plus, X, ArrowLeft, Save, User, Package, Calculator, Loader2, AlertTria
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { API_BASE_URL } from "@/lib/api"
 
 // Backend interfaces
 interface Customer { 
@@ -109,14 +110,14 @@ export default function NewOrderPage() {
         setError(null)
 
         // Fetch customers
-        const custRes = await fetch("http://localhost:4000/api/v1/customer")
+        const custRes = await fetch(`${API_BASE_URL}/customer`)
         if (!custRes.ok) throw new Error(`Customers fetch failed: ${custRes.status}`)
         const custData = await custRes.json()
         if (!custData.success) throw new Error(custData.message || "Failed to fetch customers")
         setCustomers(custData.customers || [])
 
         // Fetch all products for name lookup
-        const allProductsRes = await fetch("http://localhost:4000/api/v1/products")
+        const allProductsRes = await fetch(`${API_BASE_URL}/products`)
         let allProducts: { _id: string; productName: string; unit?: "METERS" | "SETS"; variants?: { color: string; pricePerMeters: number }[] }[] = []
         if (allProductsRes.ok) {
           const data = await allProductsRes.json()
@@ -127,7 +128,7 @@ export default function NewOrderPage() {
 
         // Fetch products from stocks API (only products that are in stock)
         let productsData: any = null
-        let prodRes = await fetch("http://localhost:4000/api/v1/stock")
+        let prodRes = await fetch(`${API_BASE_URL}/stock`)
         if (prodRes.ok) {
           const data = await prodRes.json()
           if (data?.success && Array.isArray(data.stocks)) {
@@ -164,7 +165,7 @@ export default function NewOrderPage() {
         }
         if (!productsData) {
           // Try fallback route if needed
-          prodRes = await fetch("http://localhost:4000/api/v1/stock")
+          prodRes = await fetch(`${API_BASE_URL}/stock`)
           if (!prodRes.ok) throw new Error(`Stocks fetch failed: ${prodRes.status}`)
           const data = await prodRes.json()
           if (!data.success) throw new Error(data.message || "Failed to fetch stocks")
@@ -336,7 +337,7 @@ export default function NewOrderPage() {
         notes,
       }
 
-      const res = await fetch("http://localhost:4000/api/v1/order/addOrder", {
+      const res = await fetch(`${API_BASE_URL}/order/addOrder`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -54,6 +54,7 @@ import {
   Area,
 } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+import { API_BASE_URL } from "@/lib/api";
 
 interface SalesData {
   totalRevenue: number;
@@ -356,17 +357,17 @@ export default function ReportsPage() {
         setError(null);
 
         const countRes = await fetch(
-          "http://localhost:4000/api/v1/order/count/delivered"
+          `${API_BASE_URL}/order/count/delivered`
         );
         const countData = await countRes.json();
 
         const revenueRes = await fetch(
-          "http://localhost:4000/api/v1/order/total/revenue"
+          `${API_BASE_URL}/order/total/revenue`
         );
         const revenueData = await revenueRes.json();
 
         const stockRes = await fetch(
-          "http://localhost:4000/api/v1/stock/get/summary"
+          `${API_BASE_URL}/stock/get/summary`
         );
         const stockDataJson = await stockRes.json();
         console.log("Stock Summary Response:", stockDataJson);
@@ -379,7 +380,7 @@ export default function ReportsPage() {
         });
 
         const customerRes = await fetch(
-          "http://localhost:4000/api/v1/customer/top/Customers"
+          `${API_BASE_URL}/customer/top/Customers`
         );
         const customerData = await customerRes.json();
         setTopCustomers(
@@ -392,7 +393,7 @@ export default function ReportsPage() {
         );
 
         const productRes = await fetch(
-          "http://localhost:4000/api/v1/products/top/Products"
+          `${API_BASE_URL}/products/top/Products`
         );
         const productData = await productRes.json();
         setTopProducts(
@@ -424,7 +425,7 @@ export default function ReportsPage() {
     const fetchMonthlyData = async () => {
       try {
         const res = await fetch(
-          "http://localhost:4000/api/v1/order/monthly/sales"
+          `${API_BASE_URL}/order/monthly/sales`
         );
         if (!res.ok) throw new Error("Failed to fetch monthly sales");
 
@@ -447,7 +448,7 @@ export default function ReportsPage() {
     const fetchStockCategoryData = async () => {
       try {
         const res = await fetch(
-          "http://localhost:4000/api/v1/stock/get/category-breakdown"
+          `${API_BASE_URL}/stock/get/category-breakdown`
         );
         if (!res.ok) throw new Error("Failed to fetch stock category data");
 
@@ -472,7 +473,7 @@ export default function ReportsPage() {
     const fetchStockMovement = async () => {
       try {
         const res = await fetch(
-          "http://localhost:4000/api/v1/stock/get/movement-report"
+          `${API_BASE_URL}/stock/get/movement-report`
         );
         if (!res.ok) throw new Error("Failed to fetch stock movement report");
 

@@ -39,6 +39,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { API_BASE_URL } from "@/lib/api"
 
 // Stock interfaces based on backend schema
 interface StockVariant {
@@ -135,7 +136,7 @@ export default function StockPage() {
       setLoading(true);
       setError(null);
       
-      const response = await fetch(`http://localhost:4000/api/v1/stock?page=${page}&limit=${limit}&sort=-createdAt`, {
+      const response = await fetch(`${API_BASE_URL}/stock?page=${page}&limit=${limit}&sort=-createdAt`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -193,7 +194,7 @@ export default function StockPage() {
         setProductsLoading(true);
         
         // Try the main products endpoint
-        let response = await fetch("http://localhost:4000/api/v1/products", {
+        let response = await fetch(`${API_BASE_URL}/products`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -210,7 +211,7 @@ export default function StockPage() {
         }
         
         // Try fallback endpoint if first one fails
-        response = await fetch("http://localhost:4000/api/v1/products/products", {
+        response = await fetch(`${API_BASE_URL}/products/products`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -248,7 +249,7 @@ export default function StockPage() {
       // Mark this stock as updating
       setUpdatingStatus(prev => ({ ...prev, [stockId]: true }));
       
-      const response = await fetch(`http://localhost:4000/api/v1/stock/${stockId}`, {
+      const response = await fetch(`${API_BASE_URL}/stock/${stockId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Users, Plus, Search, Eye, Edit, Phone, Mail, MapPin, TrendingUp, ShoppingCart, Star, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { API_BASE_URL } from "@/lib/api"
 
 // Customer interface based on backend schema
 interface Customer {
@@ -90,7 +91,7 @@ export default function CustomersPage() {
         setLoading(true);
         setError(null);
         
-        const response = await fetch("http://localhost:4000/api/v1/customer", {
+        const response = await fetch(`${API_BASE_URL}/api/v1/customer`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -168,7 +169,7 @@ export default function CustomersPage() {
         address: formData.address,
       };
 
-      const response = await fetch("http://localhost:4000/api/v1/customer/addCustomer", {
+      const response = await fetch(`${API_BASE_URL}/customer/addCustomer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +199,7 @@ export default function CustomersPage() {
       });
       
       // Refresh customers list
-      const refreshResponse = await fetch("http://localhost:4000/api/v1/customer");
+      const refreshResponse = await fetch(`${API_BASE_URL}/customer`);
       if (refreshResponse.ok) {
         const refreshData = await refreshResponse.json();
         if (refreshData.success) {

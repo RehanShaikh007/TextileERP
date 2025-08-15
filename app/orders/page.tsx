@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ShoppingCart, Search, Plus, Eye, Download, Edit, Package, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { API_BASE_URL } from "@/lib/api"
 
 // TypeScript interfaces
 interface OrderItem {
@@ -93,7 +94,7 @@ export default function OrdersPage() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch(`http://localhost:4000/api/v1/order?page=${page}&limit=${limit}`)
+      const response = await fetch(`${API_BASE_URL}/order?page=${page}&limit=${limit}`)
       
       if (!response.ok) {
         throw new Error('Failed to fetch orders')
@@ -134,7 +135,7 @@ export default function OrdersPage() {
       setUpdatingStatus(orderId)
       
       // Make API call to update order status
-      const response = await fetch(`http://localhost:4000/api/v1/order/${orderId}`, {
+      const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

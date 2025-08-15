@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Package, Plus, Search, Grid3X3, List, Eye, Edit, AlertTriangle, CheckCircle, Clock, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react"
 import Link from "next/link"
 import React from "react"
+import { API_BASE_URL } from "@/lib/api"
 
 // Define Product type based on backend schema
 interface Product {
@@ -89,7 +90,7 @@ export default function ProductsPage() {
         sort: '-createdAt' // Sort by latest first
       });
       
-      const response = await fetch(`http://localhost:4000/api/v1/products?${params}`);
+      const response = await fetch(`${API_BASE_URL}/products?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }

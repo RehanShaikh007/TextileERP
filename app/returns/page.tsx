@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { RotateCcw, Search, Plus, Package, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { API_BASE_URL } from "@/lib/api"
 
 interface Return {
   _id: string
@@ -148,7 +149,7 @@ export default function ReturnsPage() {
       setError(null)
       
       console.log('Fetching returns...')
-      const returnsRes = await fetch('http://localhost:4000/api/v1/returns')
+      const returnsRes = await fetch(`${API_BASE_URL}/returns`)
       if (!returnsRes.ok) {
         throw new Error(`Returns API error: ${returnsRes.status}`)
       }
@@ -201,7 +202,7 @@ export default function ReturnsPage() {
 
         // Fetch orders
         console.log('Fetching orders...')
-        const ordersRes = await fetch('http://localhost:4000/api/v1/order')
+        const ordersRes = await fetch(`${API_BASE_URL}/order`)
         if (!ordersRes.ok) {
           throw new Error(`Orders API error: ${ordersRes.status}`)
         }
@@ -215,7 +216,7 @@ export default function ReturnsPage() {
         // Fetch products (support both /api/v1/products and /api/v1/products/products)
         console.log('Fetching products...')
         let productsData: any = null
-        let productsRes = await fetch('http://localhost:4000/api/v1/products')
+        let productsRes = await fetch(`${API_BASE_URL}/products`)
         if (productsRes.ok) {
           const data = await productsRes.json()
           if (data?.success && Array.isArray(data.products)) {
@@ -224,7 +225,7 @@ export default function ReturnsPage() {
         }
         if (!productsData) {
           // Try fallback route if backend is mounted at /api/v1/products
-          productsRes = await fetch('http://localhost:4000/api/v1/products/products')
+          productsRes = await fetch(`${API_BASE_URL}/products/products`)
           if (!productsRes.ok) {
             throw new Error(`Products API error: ${productsRes.status}`)
           }
@@ -338,7 +339,7 @@ export default function ReturnsPage() {
 
   const handleCreateReturn = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/v1/returns', {
+      const response = await fetch(`${API_BASE_URL}/returns`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -366,7 +367,7 @@ export default function ReturnsPage() {
 
   const handleApproveReturn = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/v1/returns/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/returns/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -392,7 +393,7 @@ export default function ReturnsPage() {
 
   const handleRejectReturn = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:4000/api/v1/returns/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/returns/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

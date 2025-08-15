@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { API_BASE_URL } from "@/lib/api"
 
 export default function CustomerEditPage() {
   const params = useParams()
@@ -71,7 +72,7 @@ export default function CustomerEditPage() {
       try {
         setLoading(true)
         setError(null)
-        const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+        const res = await fetch(`${API_BASE_URL}/customer/${customerId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -140,7 +141,7 @@ export default function CustomerEditPage() {
         address: customer.address,
       }
 
-      const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+      const res = await fetch(`${API_BASE_URL}/customer/${customerId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -168,7 +169,7 @@ export default function CustomerEditPage() {
     try {
       setDeleting(true)
       setError(null)
-      const res = await fetch(`http://localhost:4000/api/v1/customer/${customerId}`, {
+      const res = await fetch(`${API_BASE_URL}/customer/${customerId}`, {
         method: 'DELETE',
       })
       if (!res.ok) {
