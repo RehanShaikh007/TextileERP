@@ -91,7 +91,7 @@ export default function CustomersPage() {
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`${API_BASE_URL}/api/v1/customer`, {
+        const response = await fetch(`${API_BASE_URL}/customer`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
