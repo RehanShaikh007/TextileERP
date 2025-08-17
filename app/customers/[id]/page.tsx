@@ -104,7 +104,7 @@ export default function CustomerViewPage() {
           customerName: c.customerName || "",
           city: c.city || "",
           address: c.address || "",
-          phone: c.phone ? `+${c.phone}` : "",
+          phone: c.phone ? `${c.phone}` : "",
           email: c.email || "",
           creditLimit: c.creditLimit || 0,
           customerType: c.customerType || "",
