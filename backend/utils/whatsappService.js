@@ -48,3 +48,30 @@ export async function sendWhatsAppMessage(message) {
     console.error("Failed to send WhatsApp to admins:", error);
   }
 }
+
+/**
+ * Sends a WhatsApp message to a list of customer phone numbers.
+ */
+export async function sendWhatsAppToCustomers(message, customerNumbers) {
+  try {
+    if (!customerNumbers.length) {
+      console.log("No customer numbers provided.");
+      return;
+    }
+
+    for (const number of customerNumbers) {
+      try {
+        const response = await client.messages.create({
+          from: fromWhatsAppNumber,
+          to: `whatsapp:${number}`,
+          body: message,
+        });
+        console.log(`WhatsApp sent to customer (${number}): ${response.sid}`);
+      } catch (err) {
+        console.error(`Failed to send WhatsApp to customer (${number}):`, err);
+      }
+    }
+  } catch (error) {
+    console.error("Error sending WhatsApp to customers:", error);
+  }
+}

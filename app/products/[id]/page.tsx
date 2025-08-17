@@ -261,7 +261,6 @@ export default function ProductViewPage() {
                 {product.category} • SKU: {product.sku}
               </p>
               <div className="flex items-center gap-2 mt-2">
-                {getStatusBadge(product.status || "unknown")}
                 <Badge variant="outline">{product.variants?.length || 0} variants</Badge>
               </div>
             </div>
