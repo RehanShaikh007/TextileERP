@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Users,
   Plus,
@@ -53,10 +54,12 @@ import {
   Loader2,
   AlertTriangle,
   CheckCircle,
+  Bell,
+  X,
 } from "lucide-react";
-import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/lib/api";
+import Link from "next/link";
 
 // Customer interface based on backend schema
 interface Customer {
@@ -70,6 +73,20 @@ interface Customer {
   address: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Product interface
+interface Product {
+  _id: string;
+  productName: string;
+  description?: string;
+  category: string;
+  unit: string;
+  variants?: Array<{
+    color: string;
+    pricePerMeters: number;
+    stockInMeters: number;
+  }>;
 }
 
 // Form data interface
@@ -99,6 +116,18 @@ export default function CustomersPage() {
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState(false);
+
+  // Notification states
+  const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [selectedCustomers, setSelectedCustomers] = useState<Customer[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
+  const [sendingNotification, setSendingNotification] = useState(false);
+
+  // Search states for notification dialog
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [productSearchTerm, setProductSearchTerm] = useState("");
 
   // Form data
   const [formData, setFormData] = useState<CustomerFormData>({
@@ -150,6 +179,140 @@ export default function CustomersPage() {
 
     fetchCustomers();
   }, []);
+
+  // Fetch products
+  const fetchProducts = async () => {
+    try {
+      setLoadingProducts(true);
+      const response = await fetch(`${API_BASE_URL}/products/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch products");
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        setProducts(data.products || []);
+      } else {
+        throw new Error(data.message || "Failed to fetch products");
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      toast({
+        title: "Failed to load products",
+        description: err instanceof Error ? err.message : "Failed to fetch products",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  // Open notification dialog and fetch products
+  const handleOpenNotificationDialog = () => {
+    setIsNotificationDialogOpen(true);
+    fetchProducts();
+  };
+
+  // Filter customers based on search
+  const filteredCustomersForSelection = customers.filter(customer =>
+    customer.customerName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+    customer.email.toLowerCase().includes(customerSearchTerm.toLowerCase())
+  );
+
+  // Filter products based on search
+  const filteredProductsForSelection = products.filter(product =>
+    product.productName.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+    product.category.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
+
+  // Add customer to selection
+  const addCustomerToSelection = (customer: Customer) => {
+    if (!selectedCustomers.find(c => c._id === customer._id)) {
+      setSelectedCustomers(prev => [...prev, customer]);
+    }
+    setCustomerSearchTerm("");
+  };
+
+  // Add product to selection
+  const addProductToSelection = (product: Product) => {
+    if (!selectedProducts.find(p => p._id === product._id)) {
+      setSelectedProducts(prev => [...prev, product]);
+    }
+    setProductSearchTerm("");
+  };
+
+  // Remove customer from selection
+  const removeCustomerFromSelection = (customerId: string) => {
+    setSelectedCustomers(prev => prev.filter(c => c._id !== customerId));
+  };
+
+  // Remove product from selection
+  const removeProductFromSelection = (productId: string) => {
+    setSelectedProducts(prev => prev.filter(p => p._id !== productId));
+  };
+
+  // Send notifications
+  const handleSendNotifications = async () => {
+    try {
+      setSendingNotification(true);
+
+      if (selectedCustomers.length === 0 || selectedProducts.length === 0) {
+        toast({
+          title: "Selection Required",
+          description: "Please select at least one customer and one product",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/whatsapp-notifications/send-product-updates`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          customerIds: selectedCustomers.map(c => c._id),
+          productIds: selectedProducts.map(p => p._id),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send notifications");
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Notifications Sent",
+        description: `Product updates sent to ${data.customers.length} customers successfully`,
+        variant: "default",
+      });
+
+      // Reset and close dialog
+      setSelectedCustomers([]);
+      setSelectedProducts([]);
+      setCustomerSearchTerm("");
+      setProductSearchTerm("");
+      setIsNotificationDialogOpen(false);
+
+    } catch (err) {
+      console.error("Error sending notifications:", err);
+      toast({
+        title: "Failed to send notifications",
+        description: err instanceof Error ? err.message : "Failed to send notifications",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingNotification(false);
+    }
+  };
 
   // Handle form input changes
   const handleInputChange = (field: keyof CustomerFormData, value: string) => {
@@ -441,188 +604,350 @@ export default function CustomersPage() {
               Manage your customer relationships
             </p>
           </div>
-          <Link href="/customers/notifications">
-            <Button>
-              Send Product Notifications
-            </Button>
-          </Link>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Customer
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Add New Customer</DialogTitle>
-                <DialogDescription>
-                  Create a new customer profile
-                </DialogDescription>
-              </DialogHeader>
+          <div className="flex gap-2">
+            <Dialog open={isNotificationDialogOpen} onOpenChange={setIsNotificationDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={handleOpenNotificationDialog}>
+                  <Bell className="h-4 w-4 mr-2" />
+                  Send Product Notifications
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Send Product Notifications</DialogTitle>
+                  <DialogDescription>
+                    Search and select products and customers to send WhatsApp notifications
+                  </DialogDescription>
+                </DialogHeader>
 
-              {/* Success/Error Messages */}
-              {addSuccess && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span className="text-green-800 font-medium">
-                      Customer added successfully!
-                    </span>
-                  </div>
-                </div>
-              )}
+                <div className="space-y-6">
+                  {/* Customer Selection */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">Select Customers</Label>
+                    
+                    {/* Customer Search */}
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search customers by name or email..."
+                        className="pl-8"
+                        value={customerSearchTerm}
+                        onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                      />
+                    </div>
 
-              {addError && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
-                    <span className="text-red-800 font-medium">
-                      Error adding customer
-                    </span>
-                  </div>
-                  <p className="text-red-700 text-sm mt-1">{addError}</p>
-                </div>
-              )}
-
-              <form onSubmit={handleAddCustomer} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Customer Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Enter customer name"
-                      value={formData.customerName}
-                      onChange={(e) =>
-                        handleInputChange("customerName", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Customer Type *</Label>
-                    <Select
-                      value={formData.customerType}
-                      onValueChange={(value: "Wholesale" | "Retail") =>
-                        handleInputChange("customerType", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Wholesale">Wholesale</SelectItem>
-                        <SelectItem value="Retail">Retail</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="customer@example.com"
-                      value={formData.email}
-                      onChange={(e) =>
-                        handleInputChange("email", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone *</Label>
-                    <Input
-                      id="phone"
-                      placeholder="+919876543210"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        handleInputChange("phone", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City *</Label>
-                    <Select
-                      value={formData.city}
-                      onValueChange={(value) =>
-                        handleInputChange("city", value)
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select city" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities.map((city) => (
-                          <SelectItem key={city} value={city}>
-                            {city}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="credit">Credit Limit *</Label>
-                    <Input
-                      id="credit"
-                      type="number"
-                      placeholder="0"
-                      value={formData.creditLimit}
-                      onChange={(e) =>
-                        handleInputChange("creditLimit", e.target.value)
-                      }
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="address">Address *</Label>
-                  <Textarea
-                    id="address"
-                    placeholder="Enter complete address"
-                    value={formData.address}
-                    onChange={(e) =>
-                      handleInputChange("address", e.target.value)
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={addingCustomer}
-                  >
-                    {addingCustomer ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Adding...
-                      </>
-                    ) : (
-                      "Add Customer"
+                    {/* Customer Search Results */}
+                    {customerSearchTerm && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto">
+                        {filteredCustomersForSelection.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            No customers found
+                          </div>
+                        ) : (
+                          filteredCustomersForSelection.map((customer) => (
+                            <div
+                              key={customer._id}
+                              className="p-3 hover:bg-muted cursor-pointer border-b last:border-0"
+                              onClick={() => addCustomerToSelection(customer)}
+                            >
+                              <div className="font-medium">{customer.customerName}</div>
+                              <div className="text-sm text-muted-foreground">{customer.email}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1 bg-transparent"
-                    onClick={handleDialogClose}
-                    disabled={addingCustomer}
-                  >
-                    Cancel
-                  </Button>
+
+                    {/* Selected Customers */}
+                    {selectedCustomers.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Selected Customers ({selectedCustomers.length})</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCustomers.map((customer) => (
+                            <Badge key={customer._id} variant="secondary" className="flex items-center gap-1">
+                              {customer.customerName}
+                              <X
+                                className="h-3 w-3 cursor-pointer"
+                                onClick={() => removeCustomerFromSelection(customer._id)}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Product Selection */}
+                  <div className="space-y-4">
+                    <Label className="text-base font-medium">Select Products</Label>
+                    
+                    {/* Product Search */}
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search products by name or category..."
+                        className="pl-8"
+                        value={productSearchTerm}
+                        onChange={(e) => setProductSearchTerm(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Product Search Results */}
+                    {productSearchTerm && (
+                      <div className="border rounded-lg max-h-40 overflow-y-auto">
+                        {loadingProducts ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Loading products...
+                          </div>
+                        ) : filteredProductsForSelection.length === 0 ? (
+                          <div className="p-4 text-center text-muted-foreground">
+                            No products found
+                          </div>
+                        ) : (
+                          filteredProductsForSelection.map((product) => (
+                            <div
+                              key={product._id}
+                              className="p-3 hover:bg-muted cursor-pointer border-b last:border-0"
+                              onClick={() => addProductToSelection(product)}
+                            >
+                              <div className="font-medium">{product.productName}</div>
+                              <div className="text-sm text-muted-foreground">{product.category}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+
+                    {/* Selected Products */}
+                    {selectedProducts.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Selected Products ({selectedProducts.length})</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedProducts.map((product) => (
+                            <Badge key={product._id} variant="secondary" className="flex items-center gap-1">
+                              {product.productName}
+                              <X
+                                className="h-3 w-3 cursor-pointer"
+                                onClick={() => removeProductFromSelection(product._id)}
+                              />
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      onClick={handleSendNotifications}
+                      disabled={sendingNotification || selectedCustomers.length === 0 || selectedProducts.length === 0}
+                      className="flex-1"
+                    >
+                      {sendingNotification ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Bell className="h-4 w-4 mr-2" />
+                          Send Notifications
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsNotificationDialogOpen(false)}
+                      disabled={sendingNotification}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Customer
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Add New Customer</DialogTitle>
+                  <DialogDescription>
+                    Create a new customer profile
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Success/Error Messages */}
+                {addSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="text-green-800 font-medium">
+                        Customer added successfully!
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {addError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                      <span className="text-red-800 font-medium">
+                        Error adding customer
+                      </span>
+                    </div>
+                    <p className="text-red-700 text-sm mt-1">{addError}</p>
+                  </div>
+                )}
+
+                <form onSubmit={handleAddCustomer} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Customer Name *</Label>
+                      <Input
+                        id="name"
+                        placeholder="Enter customer name"
+                        value={formData.customerName}
+                        onChange={(e) =>
+                          handleInputChange("customerName", e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Customer Type *</Label>
+                      <Select
+                        value={formData.customerType}
+                        onValueChange={(value: "Wholesale" | "Retail") =>
+                          handleInputChange("customerType", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Wholesale">Wholesale</SelectItem>
+                          <SelectItem value="Retail">Retail</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="customer@example.com"
+                        value={formData.email}
+                        onChange={(e) =>
+                          handleInputChange("email", e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone *</Label>
+                      <Input
+                        id="phone"
+                        placeholder="+919876543210"
+                        value={formData.phone}
+                        onChange={(e) =>
+                          handleInputChange("phone", e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="city">City *</Label>
+                      <Select
+                        value={formData.city}
+                        onValueChange={(value) =>
+                          handleInputChange("city", value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select city" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cities.map((city) => (
+                            <SelectItem key={city} value={city}>
+                              {city}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="credit">Credit Limit *</Label>
+                      <Input
+                        id="credit"
+                        type="number"
+                        placeholder="0"
+                        value={formData.creditLimit}
+                        onChange={(e) =>
+                          handleInputChange("creditLimit", e.target.value)
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address *</Label>
+                    <Textarea
+                      id="address"
+                      placeholder="Enter complete address"
+                      value={formData.address}
+                      onChange={(e) =>
+                        handleInputChange("address", e.target.value)
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      type="submit"
+                      className="flex-1"
+                      disabled={addingCustomer}
+                    >
+                      {addingCustomer ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        "Add Customer"
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="flex-1 bg-transparent"
+                      onClick={handleDialogClose}
+                      disabled={addingCustomer}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -741,7 +1066,6 @@ export default function CustomersPage() {
                     <th className="text-left p-4 font-medium">Location</th>
                     <th className="text-left p-4 font-medium">Type</th>
                     <th className="text-left p-4 font-medium">Credit Limit</th>
-                    {/* <th className="text-left p-4 font-medium">Status</th> */}
                     <th className="text-left p-4 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -749,7 +1073,7 @@ export default function CustomersPage() {
                   {filteredCustomers.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={6}
                         className="p-8 text-center text-muted-foreground"
                       >
                         No customers found
@@ -766,7 +1090,6 @@ export default function CustomersPage() {
                             <p className="font-medium">
                               {customer.customerName}
                             </p>
-                            {/* <p className="text-sm text-muted-foreground">{customer._id}</p> */}
                           </div>
                         </td>
                         <td className="p-4">
@@ -799,7 +1122,6 @@ export default function CustomersPage() {
                             ₹{customer.creditLimit.toLocaleString()}
                           </p>
                         </td>
-                        {/* <td className="p-4">{getStatusBadge("active")}</td> */}
                         <td className="p-4">
                           <div className="flex gap-2">
                             <Link href={`/customers/${customer._id}`}>
@@ -838,175 +1160,6 @@ export default function CustomersPage() {
                     Add First Customer
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Add New Customer</DialogTitle>
-                    <DialogDescription>
-                      Create a new customer profile
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  {/* Success/Error Messages */}
-                  {addSuccess && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                        <span className="text-green-800 font-medium">
-                          Customer added successfully!
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {addError && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-red-500" />
-                        <span className="text-red-800 font-medium">
-                          Error adding customer
-                        </span>
-                      </div>
-                      <p className="text-red-700 text-sm mt-1">{addError}</p>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleAddCustomer} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name">Customer Name *</Label>
-                        <Input
-                          id="name"
-                          placeholder="Enter customer name"
-                          value={formData.customerName}
-                          onChange={(e) =>
-                            handleInputChange("customerName", e.target.value)
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="type">Customer Type *</Label>
-                        <Select
-                          value={formData.customerType}
-                          onValueChange={(value: "Wholesale" | "Retail") =>
-                            handleInputChange("customerType", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Wholesale">Wholesale</SelectItem>
-                            <SelectItem value="Retail">Retail</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email *</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          placeholder="customer@example.com"
-                          value={formData.email}
-                          onChange={(e) =>
-                            handleInputChange("email", e.target.value)
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="phone">Phone *</Label>
-                        <Input
-                          id="phone"
-                          placeholder="+919876543210"
-                          value={formData.phone}
-                          onChange={(e) =>
-                            handleInputChange("phone", e.target.value)
-                          }
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="city">City *</Label>
-                        <Select
-                          value={formData.city}
-                          onValueChange={(value) =>
-                            handleInputChange("city", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select city" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {cities.map((city) => (
-                              <SelectItem key={city} value={city}>
-                                {city}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="credit">Credit Limit *</Label>
-                        <Input
-                          id="credit"
-                          type="number"
-                          placeholder="0"
-                          value={formData.creditLimit}
-                          onChange={(e) =>
-                            handleInputChange("creditLimit", e.target.value)
-                          }
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="address">Address *</Label>
-                      <Textarea
-                        id="address"
-                        placeholder="Enter complete address"
-                        value={formData.address}
-                        onChange={(e) =>
-                          handleInputChange("address", e.target.value)
-                        }
-                        required
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        className="flex-1"
-                        disabled={addingCustomer}
-                      >
-                        {addingCustomer ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Adding...
-                          </>
-                        ) : (
-                          "Add Customer"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="flex-1 bg-transparent"
-                        onClick={handleDialogClose}
-                        disabled={addingCustomer}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
               </Dialog>
             </CardContent>
           </Card>
