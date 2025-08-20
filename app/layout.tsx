@@ -1,4 +1,4 @@
-//app/layout.tsx
+// app/layout.tsx
 import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -25,18 +25,26 @@ export default function RootLayout({
       <html lang="en">
         <body className={inter.className}>
           <header className="w-full flex justify-end items-center p-4 border-b">
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-              <SignedOut>
-                <SignInButton mode="modal" />
-              </SignedOut>
-            </header>
-          <SidebarProvider>
-            <AppSidebar />
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
+            <SignedOut>
+              <SignInButton mode="modal" />
+            </SignedOut>
+          </header>
+
+          <SignedIn>
+            <SidebarProvider>
+              <AppSidebar />
+              {children}
+            </SidebarProvider>
+          </SignedIn>
+
+          <SignedOut>
             {children}
-            <Toaster />
-          </SidebarProvider>
+          </SignedOut>
+
+          <Toaster />
         </body>
       </html>
     </ClerkProvider>
