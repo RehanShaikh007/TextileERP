@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ClerkProvider, SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/toaster";
+import AuthWrapper from "@/components/AuthWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -15,11 +16,7 @@ export const metadata: Metadata = {
   description: "Complete textile business management system",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider>
       <html lang="en">
@@ -32,18 +29,9 @@ export default function RootLayout({
               <SignInButton mode="modal" />
             </SignedOut>
           </header>
-
-          <SignedIn>
-            <SidebarProvider>
-              <AppSidebar />
-              {children}
-            </SidebarProvider>
-          </SignedIn>
-
-          <SignedOut>
+          <AuthWrapper>
             {children}
-          </SignedOut>
-
+          </AuthWrapper>
           <Toaster />
         </body>
       </html>
