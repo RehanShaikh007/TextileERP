@@ -69,7 +69,7 @@ interface ProductFormData {
   tags: string[];
   variants: Variant[];
   stockInfo: StockInfo;
-  unit: 'METERS' | 'SETS';
+  unit: "METERS" | "SETS";
   images?: string[];
   isActive: boolean;
   minStock?: number;
@@ -119,9 +119,7 @@ export default function EditProductPage() {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/products/${productId}`
-        );
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`);
         if (!response.ok) {
           throw new Error("Failed to fetch product");
         }
@@ -146,34 +144,38 @@ export default function EditProductPage() {
     fetchProduct();
   }, [productId]);
 
-  const handleVariantChange = (index: number, field: string, value: string | number) => {
+  const handleVariantChange = (
+    index: number,
+    field: string,
+    value: string | number
+  ) => {
     setFormData((prev: any) => {
       const newVariants = [...prev.variants];
       newVariants[index] = {
         ...newVariants[index],
-        [field]: value
+        [field]: value,
       };
       return {
         ...prev,
-        variants: newVariants
+        variants: newVariants,
       };
     });
   };
-  
+
   const addVariant = () => {
     setFormData((prev: any) => ({
       ...prev,
       variants: [
         ...prev.variants,
-        { color: '', pricePerMeters: 0, stockInMeters: 0 }
-      ]
+        { color: "", pricePerMeters: 0, stockInMeters: 0 },
+      ],
     }));
   };
-  
+
   const removeVariant = (index: number) => {
     setFormData((prev: any) => ({
       ...prev,
-      variants: prev.variants.filter((_: any, i: number) => i !== index)
+      variants: prev.variants.filter((_: any, i: number) => i !== index),
     }));
   };
 
@@ -219,23 +221,23 @@ export default function EditProductPage() {
     setUploadingImages(true);
     try {
       const formData = new FormData();
-      
+
       // Append all files to FormData with 'images' field name
       for (let i = 0; i < files.length; i++) {
-        formData.append('images', files[i]);
+        formData.append("images", files[i]);
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/products/upload-images`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to upload images');
+        throw new Error("Failed to upload images");
       }
-      
+
       const result = await response.json();
-      
+
       if (result.success && result.images) {
         setFormData((prev: any) => ({
           ...prev,
@@ -243,8 +245,8 @@ export default function EditProductPage() {
         }));
       }
     } catch (err) {
-      console.error('Error uploading images:', err);
-      setError('Failed to upload images');
+      console.error("Error uploading images:", err);
+      setError("Failed to upload images");
     } finally {
       setUploadingImages(false);
     }
@@ -265,7 +267,7 @@ export default function EditProductPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-  
+
     try {
       // Prepare payload matching backend schema
       const payload = {
@@ -273,41 +275,52 @@ export default function EditProductPage() {
         category: formData.category,
         description: formData.description,
         tags: formData.tags,
-        variants: formData.variants.map(v => ({
+        variants: formData.variants.map((v) => ({
           color: v.color,
           pricePerMeters: Number(v.pricePerMeters),
-          stockInMeters: Number(v.stockInMeters)
+          stockInMeters: Number(v.stockInMeters),
         })),
         stockInfo: {
           minimumStock: Number(formData.minStock) || 0,
           reorderPoint: Number(formData.reorderPoint) || 0,
-          storageLocation: formData.storageLocation || '',
+          storageLocation: formData.storageLocation || "",
         },
-        unit: formData.unit || 'METERS',
+        unit: formData.unit || "METERS",
         images: formData.images || [],
-        isActive: formData.isActive
+        isActive: formData.isActive,
       };
-  
+
       const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to update product');
+        throw new Error(errorData.message || "Failed to update product");
       }
-  
-      toast({ title: "Product updated", description: `${payload.productName} has been updated successfully.` });
-      setTimeout(() => router.push('/products'), 900);
+
+      toast({
+        title: "Product updated",
+        description: `${payload.productName} has been updated successfully.`,
+      });
+      setTimeout(() => router.push("/products"), 900);
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
-        toast({ title: "Failed to update product", description: err.message, variant: "destructive" });
+        toast({
+          title: "Failed to update product",
+          description: err.message,
+          variant: "destructive",
+        });
       } else {
-        setError('Unknown error');
-        toast({ title: "Failed to update product", description: 'Unknown error', variant: "destructive" });
+        setError("Unknown error");
+        toast({
+          title: "Failed to update product",
+          description: "Unknown error",
+          variant: "destructive",
+        });
       }
     } finally {
       setLoading(false);
@@ -320,18 +333,18 @@ export default function EditProductPage() {
       setDeleting(true);
       setError(null);
       const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || 'Failed to delete product');
+        throw new Error(errData.message || "Failed to delete product");
       }
-      router.push('/products');
+      router.push("/products");
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Failed to delete product');
+        setError("Failed to delete product");
       }
     } finally {
       setDeleting(false);
@@ -651,13 +664,13 @@ export default function EditProductPage() {
                     <p className="text-sm text-muted-foreground mb-2">
                       Drag and drop images here, or click to browse
                     </p>
-                    <Button 
-                      type="button" 
+                    <Button
+                      type="button"
                       variant="outline"
                       onClick={triggerFileInput}
                       disabled={uploadingImages}
                     >
-                      {uploadingImages ? 'Uploading...' : 'Choose Files'}
+                      {uploadingImages ? "Uploading..." : "Choose Files"}
                     </Button>
                     <input
                       ref={fileInputRef}
@@ -686,33 +699,37 @@ export default function EditProductPage() {
               <Save className="h-4 w-4 mr-2" />
               Save Changes
             </Button>
+            {/* Danger Zone: Delete Product */}
+            <div>
+              <div className="text-sm text-muted-foreground"></div>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">Delete Product</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this product?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete
+                      the product and remove it from the product list.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleting}>
+                      No
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      disabled={deleting}
+                    >
+                      {deleting ? "Deleting..." : "Yes, delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </form>
-
-        {/* Danger Zone: Delete Product */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground"></div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive">Delete Product</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this product?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete the product
-                  and remove it from the product list.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={deleting}>No</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} disabled={deleting}>
-                  {deleting ? 'Deleting...' : 'Yes, delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
       </div>
     </SidebarInset>
   );
