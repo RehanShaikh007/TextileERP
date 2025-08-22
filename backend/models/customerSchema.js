@@ -20,7 +20,6 @@ const customerSchema = new mongoose.Schema({
     },
     city:{
         type: String,
-        enum: ["Mumbai", "Delhi", "Bangalore", "Chennai", "Pune", "Kolkata", "Hyderabad", "Ahemdabad"],
         required: true,
     },
     creditLimit:{

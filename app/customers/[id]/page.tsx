@@ -394,16 +394,16 @@ export default function CustomerViewPage() {
 
           {/* Orders and Payment History */}
           <div className="lg:col-span-2">
-            <Tabs defaultValue="orders" className="space-y-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="orders">Recent Orders</TabsTrigger>
+            <Tabs defaultValue="orders" className="space-y-4 ">
+              <TabsList className="w-full ">
+                <TabsTrigger className="w-full" value="orders">Orders</TabsTrigger>
                 {/* <TabsTrigger value="payments">Payment History</TabsTrigger> */}
               </TabsList>
 
               <TabsContent value="orders">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Recent Orders</CardTitle>
+                    <CardTitle>Orders</CardTitle>
                     <CardDescription>Latest orders from this customer</CardDescription>
                   </CardHeader>
                   <CardContent className="p-0">

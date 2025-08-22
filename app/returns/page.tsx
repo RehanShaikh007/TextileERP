@@ -46,8 +46,12 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  Undo2,
+  Eye,
+  Edit,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
+import Link from "next/link";
 
 interface Return {
   _id: string;
@@ -98,6 +102,15 @@ export default function ReturnsPage() {
   const [colors, setColors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [undoConfirmDialog, setUndoConfirmDialog] = useState<{
+    isOpen: boolean;
+    returnId: string | null;
+    returnDetails: any | null;
+  }>({
+    isOpen: false,
+    returnId: null,
+    returnDetails: null,
+  });
 
   // Form state for new return
   const [newReturn, setNewReturn] = useState({
@@ -174,6 +187,8 @@ export default function ReturnsPage() {
       console.log("Returns data:", returnsData);
 
       if (returnsData.success && returnsData.returns) {
+        console.log("Raw returns data from backend:", returnsData.returns);
+        
         // Format order IDs as ORD-XXX
         const formattedReturns = returnsData.returns.map((returnItem: any) => {
           // Format order ID
@@ -198,6 +213,9 @@ export default function ReturnsPage() {
           };
         });
 
+        console.log("Formatted returns before setting state:", formattedReturns);
+        
+        // Set the new data
         setReturns(formattedReturns);
       } else {
         throw new Error("Invalid response format");
@@ -278,6 +296,14 @@ export default function ReturnsPage() {
 
     fetchData();
   }, []);
+
+  // Debug: Monitor returns state changes
+  useEffect(() => {
+    console.log("Returns state updated:", returns);
+    console.log("Approved returns:", returns.filter(r => r.isApprove));
+    console.log("Pending returns:", returns.filter(r => !r.isApprove && !r.isRejected));
+    console.log("Rejected returns:", returns.filter(r => r.isRejected));
+  }, [returns]);
 
   // Handle status filter change
   const handleStatusChange = (newStatus: string) => {
@@ -364,13 +390,28 @@ export default function ReturnsPage() {
     return orderItem ? orderItem.quantity : 0;
   };
 
+  // Get actual return value based on order item price
+  const getReturnValue = (returnItem: Return) => {
+    const order = orders.find(o => o._id === returnItem.order);
+    if (order) {
+      const orderItem = order.orderItems.find(
+        item => item.product === returnItem.product && item.color === returnItem.color
+      );
+      if (orderItem) {
+        return returnItem.quantityInMeters * orderItem.pricePerMeters;
+      }
+    }
+    // Fallback to estimated value if order not found
+    return returnItem.quantityInMeters * 450;
+  };
+
   const returnStats = {
     total: returns.length,
     pending: returns.filter((r) => !r.isApprove && !r.isRejected).length,
     approved: returns.filter((r) => r.isApprove).length,
     rejected: returns.filter((r) => r.isRejected).length,
     processed: returns.filter((r) => r.isApprove).length, // For now, processed = approved
-    totalValue: returns.reduce((sum, r) => sum + r.quantityInMeters * 450, 0), // Use estimated value
+    totalValue: returns.reduce((sum, r) => sum + getReturnValue(r), 0),
   };
 
   const handleCreateReturn = async () => {
@@ -388,7 +429,10 @@ export default function ReturnsPage() {
       }
 
       const data = await response.json();
-      setReturns([...returns, data.return]);
+      
+      // Instead of adding to existing array, refresh the entire data
+      await fetchReturns();
+      
       setNewReturn({
         order: "",
         product: "",
@@ -448,6 +492,67 @@ export default function ReturnsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject return");
     }
+  };
+
+  const handleUndoReturn = async (id: string) => {
+    try {
+      console.log("Starting undo operation for return:", id);
+      console.log("Current returns state before undo:", returns);
+      console.log("Current approved returns:", returns.filter(r => r.isApprove));
+      console.log("Current pending returns:", returns.filter(r => !r.isApprove && !r.isRejected));
+      
+      const response = await fetch(`${API_BASE_URL}/returns/${id}/undo`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to undo return");
+      }
+
+      const updatedReturn = await response.json();
+      console.log("Backend response for undo:", updatedReturn);
+
+      // Refresh the data
+      await fetchReturns();
+
+      // Debug: Log the returns after refresh
+      console.log("Returns after undo:", returns);
+      console.log("Approved returns after undo:", returns.filter(r => r.isApprove));
+      console.log("Pending returns after undo:", returns.filter(r => !r.isApprove && !r.isRejected));
+      
+      // Check for duplicates
+      const returnIds = returns.map(r => r._id);
+      const duplicateIds = returnIds.filter((id, index) => returnIds.indexOf(id) !== index);
+      if (duplicateIds.length > 0) {
+        console.warn("Duplicate return IDs found:", duplicateIds);
+      }
+
+      // Close confirmation dialog if it was open
+      if (undoConfirmDialog.isOpen) {
+        setUndoConfirmDialog({
+          isOpen: false,
+          returnId: null,
+          returnDetails: null,
+        });
+      }
+
+      // Show success message
+      alert(`✅ Return undone successfully! Moved back to pending requests.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to undo return");
+    }
+  };
+
+  const openUndoConfirmation = (returnItem: Return) => {
+    setUndoConfirmDialog({
+      isOpen: true,
+      returnId: returnItem._id,
+      returnDetails: returnItem,
+    });
   };
 
   if (loading) return <div>Loading...</div>;
@@ -720,6 +825,79 @@ export default function ReturnsPage() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Undo Confirmation Dialog */}
+          <Dialog 
+            open={undoConfirmDialog.isOpen} 
+            onOpenChange={(open) => {
+              if (!open) {
+                setUndoConfirmDialog({
+                  isOpen: false,
+                  returnId: null,
+                  returnDetails: null,
+                });
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Undo Return Approval</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to undo this return approval? This will move the return back to pending requests.
+                </DialogDescription>
+              </DialogHeader>
+              
+              {undoConfirmDialog.returnDetails && (
+                <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="font-medium">Return ID:</span>
+                      <p>{undoConfirmDialog.returnDetails.id}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium">Customer:</span>
+                      <p>{undoConfirmDialog.returnDetails.customer}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium">Product:</span>
+                      <p>{undoConfirmDialog.returnDetails.product}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium">Quantity:</span>
+                      <p>{undoConfirmDialog.returnDetails.quantityInMeters}m</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-4">
+                <Button
+                  onClick={() => {
+                    if (undoConfirmDialog.returnId) {
+                                             handleUndoReturn(undoConfirmDialog.returnId);
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  <Undo2 className="h-4 w-4 mr-2" />
+                  Yes, Undo Approval
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setUndoConfirmDialog({
+                      isOpen: false,
+                      returnId: null,
+                      returnDetails: null,
+                    });
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Cards */}
@@ -816,7 +994,7 @@ export default function ReturnsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Select value={selectedStatus} onValueChange={handleStatusChange}>
+          {/* <Select value={selectedStatus} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
@@ -827,7 +1005,7 @@ export default function ReturnsPage() {
               <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="processed">Processed</SelectItem>
             </SelectContent>
-          </Select>
+          </Select> */}
         </div>
 
         {/* Returns Table */}
@@ -869,6 +1047,7 @@ export default function ReturnsPage() {
                         <th className="text-left p-4 font-medium">Color</th>
                         <th className="text-left p-4 font-medium">Qty</th>
                         <th className="text-left p-4 font-medium">Reason</th>
+                        <th className="text-left p-4 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -891,6 +1070,18 @@ export default function ReturnsPage() {
                             <td className="p-4">{r.color}</td>
                             <td className="p-4">{r.quantityInMeters}m</td>
                             <td className="p-4">{r.returnReason}</td>
+                            <td className="p-4">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openUndoConfirmation(r)}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                title="Undo approval - move back to pending requests"
+                              >
+                                <Undo2 className="h-4 w-4 mr-1" />
+                                Undo
+                              </Button>
+                            </td>
                           </tr>
                         ))}
                     </tbody>
@@ -980,12 +1171,9 @@ export default function ReturnsPage() {
                                 {returnItem.returnReason}
                               </span>
                             </td>
-                            <td className="p-4">
-                              ₹
-                              {(
-                                returnItem.quantityInMeters * 450
-                              ).toLocaleString()}
-                            </td>
+                                                         <td className="p-4">
+                               ₹{getReturnValue(returnItem).toLocaleString()}
+                             </td>
                             <td className="p-4">
                               <div className="flex items-center gap-2">
                                 {getStatusIcon(
@@ -1007,6 +1195,25 @@ export default function ReturnsPage() {
                             </td>
                             <td className="p-4">
                               <div className="flex gap-2">
+                                {/* View Button - Only for pending and approved returns */}
+                                {!returnItem.isRejected && (
+                                  <Link href={`/returns/${returnItem._id}`}>
+                                    <Button size="sm" variant="outline">
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </Link>
+                                )}
+                                
+                                {/* Edit Button - Only for pending and approved returns */}
+                                {!returnItem.isRejected && (
+                                  <Link href={`/returns/${returnItem._id}/edit`}>
+                                    <Button size="sm" variant="outline">
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </Link>
+                                )}
+                                
+                                {/* Approve/Reject Buttons - Only for pending returns */}
                                 {!returnItem.isApprove &&
                                   !returnItem.isRejected && (
                                     <>
@@ -1030,13 +1237,24 @@ export default function ReturnsPage() {
                                       </Button>
                                     </>
                                   )}
+                                
+                                {/* Process Button - Only for approved returns */}
                                 {returnItem.isApprove && (
                                   <Button size="sm">Process</Button>
                                 )}
+                                
+                                {/* Undo Button - Only for rejected returns */}
                                 {returnItem.isRejected && (
-                                  <span className="text-sm text-muted-foreground">
-                                    No actions available
-                                  </span>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                                                         onClick={() => handleUndoReturn(returnItem._id)}
+                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    title="Undo rejection - move back to pending requests"
+                                  >
+                                    <Undo2 className="h-4 w-4 mr-1" />
+                                    Undo
+                                  </Button>
                                 )}
                               </div>
                             </td>

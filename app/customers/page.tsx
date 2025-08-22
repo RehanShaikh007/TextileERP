@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -102,9 +102,12 @@ interface CustomerFormData {
 
 export default function CustomersPage() {
   const { toast } = useToast();
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCity, setSelectedCity] = useState("all");
   const [selectedType, setSelectedType] = useState("all");
+  const [citySearchTerm, setCitySearchTerm] = useState("");
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
 
   // Backend data states
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -116,6 +119,7 @@ export default function CustomersPage() {
   const [addingCustomer, setAddingCustomer] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addSuccess, setAddSuccess] = useState(false);
+  const [isCustomCity, setIsCustomCity] = useState(false);
 
   // Notification states
   const [isNotificationDialogOpen, setIsNotificationDialogOpen] = useState(false);
@@ -139,6 +143,20 @@ export default function CustomersPage() {
     creditLimit: "",
     address: "",
   });
+
+  // Click outside handler for city dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cityDropdownRef.current && !cityDropdownRef.current.contains(event.target as Node)) {
+        setIsCityDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch customers from backend
   useEffect(() => {
@@ -316,10 +334,18 @@ export default function CustomersPage() {
 
   // Handle form input changes
   const handleInputChange = (field: keyof CustomerFormData, value: string) => {
+    if (field === "city" && value === "custom") {
+      setIsCustomCity(true);
+      setFormData((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    } else {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
+    }
   };
 
   // Handle add customer submission
@@ -403,6 +429,7 @@ export default function CustomersPage() {
         creditLimit: "",
         address: "",
       });
+      setIsCustomCity(false);
 
       // Refresh customers list
       const refreshResponse = await fetch(`${API_BASE_URL}/customer`);
@@ -410,6 +437,11 @@ export default function CustomersPage() {
         const refreshData = await refreshResponse.json();
         if (refreshData.success) {
           setCustomers(refreshData.customers || []);
+           // Reset city filter if the newly added city is selected
+           if (selectedCity === payload.city) {
+             setSelectedCity("all");
+             setCitySearchTerm("");
+           }
         }
       }
 
@@ -449,9 +481,11 @@ export default function CustomersPage() {
     });
     setAddError(null);
     setAddSuccess(false);
+    setIsCustomCity(false);
   };
 
-  const cities = [
+  // Predefined cities
+  const predefinedCities = [
     "Mumbai",
     "Delhi",
     "Bangalore",
@@ -459,8 +493,29 @@ export default function CustomersPage() {
     "Pune",
     "Kolkata",
     "Hyderabad",
-    "Ahemdabad",
+    "Ahmedabad",
+    "Nashik",
+    "Surat",
+    "Jaipur",
+    "Lucknow",
+    "Kanpur",
+    "Nagpur",
+    "Indore",
+    "Thane",
+    "Bhopal",
+    "Visakhapatnam",
+    "Pimpri-Chinchwad",
+    "Patna",
   ];
+
+  // Get all unique cities from customers data and combine with predefined cities
+  const getAllCities = () => {
+    const customerCities = customers.map(customer => customer.city);
+    const allCities = [...new Set([...predefinedCities, ...customerCities])];
+    return allCities.sort();
+  };
+
+  const allCities = getAllCities();
 
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
@@ -873,6 +928,8 @@ export default function CustomersPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="city">City *</Label>
+                      {!isCustomCity ? (
+                        <div className="space-y-2">
                       <Select
                         value={formData.city}
                         onValueChange={(value) =>
@@ -883,13 +940,42 @@ export default function CustomersPage() {
                           <SelectValue placeholder="Select city" />
                         </SelectTrigger>
                         <SelectContent>
-                          {cities.map((city) => (
+                               {predefinedCities.map((city) => (
                             <SelectItem key={city} value={city}>
                               {city}
                             </SelectItem>
                           ))}
+                              <SelectItem value="custom" className="text-blue-600 font-medium border-t">
+                                ✏️ Add Custom City
+                              </SelectItem>
                         </SelectContent>
                       </Select>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            id="city"
+                            placeholder="Enter city name"
+                            value={formData.city}
+                            onChange={(e) =>
+                              handleInputChange("city", e.target.value)
+                            }
+                            required
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setIsCustomCity(false);
+                              handleInputChange("city", "Mumbai");
+                            }}
+                            className="text-xs h-7"
+                          >
+                            ← Back to list
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="credit">Credit Limit *</Label>
@@ -1025,19 +1111,72 @@ export default function CustomersPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Select value={selectedCity} onValueChange={setSelectedCity}>
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="All Cities" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Cities</SelectItem>
-              {cities.map((city) => (
-                <SelectItem key={city} value={city}>
+                     <div className="relative w-full md:w-48" ref={cityDropdownRef}>
+             <div className="relative">
+               <Input
+                 placeholder="Search cities..."
+                 value={citySearchTerm}
+                 onChange={(e) => setCitySearchTerm(e.target.value)}
+                 onFocus={() => setIsCityDropdownOpen(true)}
+                 className="w-full pr-8"
+               />
+               {citySearchTerm && (
+                 <button
+                   type="button"
+                   onClick={() => {
+                     setCitySearchTerm("");
+                     setSelectedCity("all");
+                   }}
+                   className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                 >
+                   <X className="h-4 w-4" />
+                 </button>
+               )}
+               {isCityDropdownOpen && (
+                 <div className="absolute top-full left-0 right-0 z-50 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                   <div
+                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b font-medium text-blue-600"
+                     onClick={() => {
+                       setSelectedCity("all");
+                       setCitySearchTerm("");
+                       setIsCityDropdownOpen(false);
+                     }}
+                   >
+                     All Cities
+                   </div>
+                   {allCities
+                     .filter(city => 
+                       city.toLowerCase().includes(citySearchTerm.toLowerCase())
+                     )
+                     .map((city) => (
+                       <div
+                         key={city}
+                         className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                         onClick={() => {
+                           setSelectedCity(city);
+                           setCitySearchTerm(city);
+                           setIsCityDropdownOpen(false);
+                         }}
+                       >
                   {city}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                       </div>
+                     ))}
+                   {allCities.filter(city => 
+                     city.toLowerCase().includes(citySearchTerm.toLowerCase())
+                   ).length === 0 && citySearchTerm && (
+                     <div className="px-3 py-2 text-gray-500 text-sm">
+                       No cities found
+                     </div>
+                   )}
+                 </div>
+               )}
+             </div>
+             {selectedCity !== "all" && (
+               <div className="mt-1 text-xs text-gray-500">
+                 Selected: {selectedCity}
+               </div>
+             )}
+           </div>
           <Select value={selectedType} onValueChange={setSelectedType}>
             <SelectTrigger className="w-full md:w-48">
               <SelectValue placeholder="All Types" />

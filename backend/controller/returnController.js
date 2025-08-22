@@ -203,6 +203,84 @@ export const updateReturn = async (req, res) => {
   }
 };
 
+export const undoReturn = async (req, res) => {
+  try {
+    const returnId = req.params.id;
+    
+    // Find the return and check if it's approved or rejected
+    const returnItem = await Return.findById(returnId);
+    if (!returnItem) {
+      return res.status(404).json({
+        success: false,
+        message: "Return not found",
+      });
+    }
+
+    // Check if the return is either approved or rejected
+    if (!returnItem.isApprove && !returnItem.isRejected) {
+      return res.status(400).json({
+        success: false,
+        message: "Return is already pending. Cannot undo.",
+      });
+    }
+
+    // Determine the previous status for the notification message
+    const previousStatus = returnItem.isApprove ? "approved" : "rejected";
+
+    // Reset the return to pending status
+    const updatedReturn = await Return.findByIdAndUpdate(
+      returnId,
+      {
+        isApprove: false,
+        isRejected: false
+      },
+      { new: true }
+    );
+
+    /** 🔔 Check Notification Settings **/
+    const notificationSettings = await WhatsappNotification.findOne();
+
+    let returnRequestsEnabled = false;
+    if (notificationSettings) {
+      returnRequestsEnabled = notificationSettings.returnRequests;
+    }
+
+    /** 📲 WhatsApp Notification **/
+    if (returnRequestsEnabled) {
+      const messageText = `↩️ Return Undone!\n\n🆔 Return ID: *${updatedReturn.id}*\n👤 Customer: ${updatedReturn.customer}\n🛍 Product: ${updatedReturn.product}\n🎨 Color: ${updatedReturn.color}\n📏 Qty (m): ${updatedReturn.quantityInMeters}\n💬 Reason: ${updatedReturn.returnReason}\n\nPrevious Status: ${previousStatus}\nNew Status: Pending\n\nView details: ${process.env.CLIENT_URL}/returns/`;
+      let status = "Delivered";
+      try {
+        await sendWhatsAppMessage(messageText);
+      } catch (whatsAppError) {
+        console.error(
+          "WhatsApp Notification Failed (undoApprovedReturn):",
+          whatsAppError
+        );
+        status = "Not Delivered";
+      }
+      await WhatsappMessages.create({
+        message: messageText,
+        type: "return_request",
+        sentToCount: sentToCount,
+        status,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Return undone successfully. Moved back to pending requests from ${previousStatus} status.`,
+      return: updatedReturn,
+    });
+  } catch (error) {
+    console.error("Error undoing return:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error,
+    });
+  }
+};
+
 export const deleteReturn = async (req, res) => {
   try {
     const deletedReturn = await Return.findByIdAndDelete(req.params.id);

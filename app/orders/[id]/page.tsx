@@ -15,6 +15,12 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   ShoppingCart,
   Edit,
   Download,
@@ -29,10 +35,18 @@ import {
   Mail,
   Calendar,
   Truck,
+  FileText,
+  FileSpreadsheet,
 } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { API_BASE_URL } from "@/lib/api"
+import jsPDF from 'jspdf'
+import * as XLSX from 'xlsx'
+
+// Import jspdf-autotable
+import 'jspdf-autotable'
+import {NotoSansRegular} from '@/app/fonts/NotoSans-Regular'
 
 // TypeScript interfaces
 interface OrderItem {
@@ -62,6 +76,128 @@ interface Customer {
   address: string
   email?: string
   city?: string
+}
+
+// Download utility functions
+const downloadAsPDF = (orderData: any, customerData: any) => {
+  const doc = new jsPDF()
+  
+  doc.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+doc.setFont("NotoSans");
+
+  // Set font and size
+  doc.setFontSize(20)
+  doc.text('ORDER DETAILS', 20, 20)
+  
+  // Order information
+  doc.setFontSize(12)
+  doc.text(`Order ID: ${orderData.displayId}`, 20, 35)
+  doc.text(`Customer: ${customerData.name}`, 20, 45)
+  doc.text(`Order Date: ${orderData.orderDate}`, 20, 55)
+  doc.text(`Due Date: ${orderData.dueDate}`, 20, 65)
+  doc.text(`Status: ${orderData.status}`, 20, 75)
+  doc.text(`Payment Status: ${orderData.paymentStatus}`, 20, 85)
+  
+  // Customer information
+  doc.setFontSize(16)
+  doc.text('CUSTOMER INFORMATION', 20, 105)
+  doc.setFontSize(12)
+  doc.text(`Name: ${customerData.name}`, 20, 115)
+  doc.text(`Phone: ${customerData.phone}`, 20, 125)
+  doc.text(`Email: ${customerData.email}`, 20, 135)
+  doc.text(`Address: ${customerData.address}`, 20, 145)
+  doc.text(`City: ${customerData.city}`, 20, 155)
+  
+  // Order items list
+  doc.setFontSize(16)
+  doc.text('ORDER ITEMS', 20, 175)
+  doc.setFontSize(12)
+  
+  let yPosition = 185
+  orderData.items.forEach((item: any, index: number) => {
+    doc.text(`${index + 1}. ${item.product}`, 20, yPosition)
+    doc.text(`   Color: ${item.color}`, 25, yPosition + 5)
+    doc.text(`   Quantity: ${item.quantity}m`, 25, yPosition + 10)
+    doc.text(`   Price: ₹${item.price}/m`, 25, yPosition + 15)
+    doc.text(`   Total: ₹${item.total.toLocaleString()}`, 25, yPosition + 20)
+    yPosition += 30
+  })
+  
+  // Order summary
+  doc.setFontSize(16)
+  doc.text('ORDER SUMMARY', 20, yPosition + 10)
+  doc.setFontSize(12)
+  doc.text(`Subtotal: ₹${orderData.items.reduce((sum: number, item: any) => sum + item.total, 0).toLocaleString()}`, 20, yPosition + 25)
+  doc.text(`Total Amount: ₹${orderData.totalAmount.toLocaleString()}`, 20, yPosition + 35)
+  doc.text(`Paid Amount: ₹${orderData.paidAmount.toLocaleString()}`, 20, yPosition + 45)
+  doc.text(`Balance: ₹${orderData.balanceAmount.toLocaleString()}`, 20, yPosition + 55)
+  
+  // Notes
+  if (orderData.notes) {
+    doc.text(`Notes: ${orderData.notes}`, 20, yPosition + 70)
+  }
+  
+  // Save the PDF
+  doc.save(`Order_${orderData.displayId}.pdf`)
+}
+
+// Format currency function to ensure consistent display
+const formatCurrency = (amount: number) => {
+  return `₹${amount.toLocaleString('en-IN')}`
+}
+
+
+const downloadAsExcel = (orderData: any, customerData: any) => {
+  // Create workbook and worksheets
+  const workbook = XLSX.utils.book_new()
+  
+  // Order Details worksheet
+  const orderDetailsData = [
+    ['ORDER DETAILS'],
+    ['Order ID', orderData.displayId],
+    ['Customer', customerData.name],
+    ['Order Date', orderData.orderDate],
+    ['Due Date', orderData.dueDate],
+    ['Status', orderData.status],
+    ['Payment Status', orderData.paymentStatus],
+    [''],
+    ['CUSTOMER INFORMATION'],
+    ['Name', customerData.name],
+    ['Phone', customerData.phone],
+    ['Email', customerData.email],
+    ['Address', customerData.address],
+    ['City', customerData.city],
+    [''],
+    ['ORDER SUMMARY'],
+    ['Subtotal', orderData.items.reduce((sum: number, item: any) => sum + item.total, 0).toLocaleString()],
+    ['Total Amount', orderData.totalAmount.toLocaleString()],
+    ['Paid Amount', orderData.paidAmount.toLocaleString()],
+    ['Balance', orderData.balanceAmount.toLocaleString()],
+    [''],
+    ['Notes', orderData.notes || '']
+  ]
+  
+  const orderDetailsSheet = XLSX.utils.aoa_to_sheet(orderDetailsData)
+  XLSX.utils.book_append_sheet(workbook, orderDetailsSheet, 'Order Details')
+  
+  // Order Items worksheet
+  const orderItemsData = [
+    ['Product', 'Color', 'Quantity (m)', 'Price/m (₹)', 'Total (₹)'],
+    ...orderData.items.map((item: any) => [
+      item.product,
+      item.color,
+      item.quantity,
+      item.price,
+      item.total.toLocaleString()
+    ])
+  ]
+  
+  const orderItemsSheet = XLSX.utils.aoa_to_sheet(orderItemsData)
+  XLSX.utils.book_append_sheet(workbook, orderItemsSheet, 'Order Items')
+  
+  // Save the Excel file
+  XLSX.writeFile(workbook, `Order_${orderData.displayId}.xlsx`)
 }
 
 export default function OrderViewPage() {
@@ -276,14 +412,34 @@ export default function OrderViewPage() {
                 Edit Order
               </Button>
             </Link>
-            <Button variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
-            <Button variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={() => downloadAsPDF(dynamicOrder, dynamicOrder.customer)}
+                  className="cursor-pointer"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => downloadAsExcel(dynamicOrder, dynamicOrder.customer)}
+                  className="cursor-pointer"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Download as Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/* <Button variant="outline" className="text-red-600 hover:text-red-700 bg-transparent">
               <Trash2 className="h-4 w-4 mr-2" />
               Cancel
-            </Button>
+            </Button> */}
           </div>
         </div>
 
@@ -296,28 +452,28 @@ export default function OrderViewPage() {
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Subtotal</span>
-                <span>₹{dynamicOrder.items.reduce((sum, item) => sum + item.total, 0).toLocaleString()}</span>
+                <span>{formatCurrency(dynamicOrder.items.reduce((sum, item) => sum + item.total, 0))}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">Discount</span>
                 <span>
-                  -₹{(dynamicOrder.items.reduce((sum, item) => sum + item.total, 0) - dynamicOrder.totalAmount).toLocaleString()}
+                -{formatCurrency(dynamicOrder.items.reduce((sum, item) => sum + item.total, 0) - dynamicOrder.totalAmount)}
                 </span>
               </div>
               <Separator />
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount</span>
-                <span>₹{dynamicOrder.totalAmount.toLocaleString()}</span>
+                <span>{formatCurrency(dynamicOrder.totalAmount)}</span>
               </div>
               <Separator />
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Paid Amount</span>
-                  <span className="text-green-600">₹{dynamicOrder.paidAmount.toLocaleString()}</span>
+                  <span className="text-green-600">{formatCurrency(dynamicOrder.paidAmount)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium">Balance</span>
-                  <span className="text-red-600">₹{dynamicOrder.balanceAmount.toLocaleString()}</span>
+                  <span className="text-red-600">{formatCurrency(dynamicOrder.balanceAmount)}</span>
                 </div>
               </div>
             </CardContent>
@@ -341,20 +497,20 @@ export default function OrderViewPage() {
                     <div className="space-y-4">
                       {dynamicOrder.items.map((item) => (
                         <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                          <img
+                          {/* <img
                             src={item.image || "/placeholder.svg"}
                             alt={item.product}
                             className="w-16 h-16 rounded-lg object-cover"
-                          />
+                          /> */}
                           <div className="flex-1">
                             <h4 className="font-medium">{item.product}</h4>
                             <p className="text-sm text-muted-foreground">Color: {item.color}</p>
                             <p className="text-sm text-muted-foreground">
-                              {item.quantity}m × ₹{item.price}/m
+                            {item.quantity}m × {formatCurrency(item.price)}/m
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-bold">₹{item.total.toLocaleString()}</p>
+                            <p className="font-bold">{formatCurrency(item.total)}</p>
                           </div>
                         </div>
                       ))}
