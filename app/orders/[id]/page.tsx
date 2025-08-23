@@ -65,6 +65,7 @@ interface Order {
   deliveryDate: string
   orderItems: OrderItem[]
   notes?: string
+  paidAmount?: number
   createdAt: string
   updatedAt: string
 }
@@ -228,6 +229,8 @@ export default function OrderViewPage() {
           throw new Error('Invalid order response')
         }
 
+        console.log('Order data from backend:', data.order) // Debug log
+        console.log('Paid amount from backend:', data.order.paidAmount) // Debug log
         setOrder(data.order)
 
         // Fetch customer details based on customer name
@@ -288,9 +291,9 @@ export default function OrderViewPage() {
     dueDate: new Date(order.deliveryDate).toLocaleDateString(),
     deliveryDate: null, // Can be enhanced based on business logic
     totalAmount: calculateOrderTotal(),
-    paidAmount: Math.floor(calculateOrderTotal() * 0.4), // Mock 40% paid
-    balanceAmount: Math.floor(calculateOrderTotal() * 0.6), // Mock 60% balance
-    paymentStatus: "partial", // Mock status
+    paidAmount: order.paidAmount || Math.floor(calculateOrderTotal() * 0.4), // Use saved value or default to 40%
+    balanceAmount: calculateOrderTotal() - (order.paidAmount || Math.floor(calculateOrderTotal() * 0.4)), // Calculate balance based on actual paid amount
+    paymentStatus: order.paidAmount && order.paidAmount >= calculateOrderTotal() ? "paid" : order.paidAmount && order.paidAmount > 0 ? "partial" : "pending", // Dynamic payment status
     items: order.orderItems.map((item, index) => ({
       id: index + 1,
       product: item.product,
@@ -304,6 +307,16 @@ export default function OrderViewPage() {
     createdBy: "Sales Team", // Mock data
     lastUpdated: new Date(order.updatedAt).toLocaleDateString(),
   } : null
+
+  // Debug log for dynamic order
+  if (dynamicOrder) {
+    console.log('Dynamic order created:', {
+      totalAmount: dynamicOrder.totalAmount,
+      paidAmount: dynamicOrder.paidAmount,
+      balanceAmount: dynamicOrder.balanceAmount,
+      paymentStatus: dynamicOrder.paymentStatus
+    })
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {

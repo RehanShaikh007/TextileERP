@@ -123,6 +123,7 @@ export default function EditOrderPage() {
     orderDate: new Date(),
     dueDate: new Date(),
     notes: "",
+    paidAmount: 0, // Add paidAmount field
   });
 
   const [orderItems, setOrderItems] = useState<FormOrderItem[]>([
@@ -163,15 +164,8 @@ export default function EditOrderPage() {
 
         // Transform backend order to form data
         const order = orderData.order;
-        setFormData({
-          customer: order.customer,
-          status: order.status || "pending", // Use actual status from backend
-          orderDate: new Date(order.orderDate),
-          dueDate: new Date(order.deliveryDate),
-          notes: order.notes || "",
-        });
-
-        // Transform order items
+        
+        // Transform order items first
         const transformedItems = order.orderItems.map(
           (item: OrderItem, index: number) => ({
             id: index + 1,
@@ -184,6 +178,22 @@ export default function EditOrderPage() {
           })
         );
         setOrderItems(transformedItems);
+
+        // Calculate total and paid amount
+        const orderTotal = transformedItems.reduce((sum: number, item: any) => sum + item.total, 0);
+        // Use actual paidAmount from backend if it exists, otherwise default to 40%
+        const paidAmount = order.paidAmount !== null && order.paidAmount !== undefined 
+          ? order.paidAmount 
+          : Math.floor(orderTotal * 0.4);
+
+        setFormData({
+          customer: order.customer,
+          status: order.status || "pending", // Use actual status from backend
+          orderDate: new Date(order.orderDate),
+          dueDate: new Date(order.deliveryDate),
+          notes: order.notes || "",
+          paidAmount: paidAmount,
+        });
 
         // Handle customers response
         if (customersResponse.ok) {
@@ -232,7 +242,7 @@ export default function EditOrderPage() {
     { value: "confirmed", label: "Confirmed" },
   ];
 
-  const handleInputChange = (field: string, value: string | Date) => {
+  const handleInputChange = (field: string, value: string | Date | number) => {
     setFormData((prev) => ({
       ...prev,
       [field]: value,
@@ -297,6 +307,20 @@ export default function EditOrderPage() {
     return orderItems.reduce((sum, item) => sum + item.total, 0);
   };
 
+  // Calculate paid amount (40% of total by default, like in view page)
+  const calculatePaidAmount = () => {
+    return Math.floor(getOrderTotal() * 0.4);
+  };
+
+  // Format order ID as ORD-XXX where XXX is a number
+  const formatOrderId = (orderId: string) => {
+    // Extract only numeric digits from the ID
+    const numericChars = orderId.replace(/[^0-9]/g, '');
+    // Use the last 3 digits, or pad with zeros if less than 3 digits
+    const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
+    return `ORD-${lastThreeDigits}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -333,6 +357,7 @@ export default function EditOrderPage() {
         deliveryDate: formData.dueDate.toISOString(),
         orderItems: backendOrderItems,
         notes: formData.notes,
+        paidAmount: formData.paidAmount, // Include paidAmount in the order data
       };
 
       const response = await fetch(`${API_BASE_URL}/order/${orderId}`, {
@@ -408,7 +433,7 @@ export default function EditOrderPage() {
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink href={`/orders/${orderId}`}>
-                {orderId}
+                {formatOrderId(orderId)}
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -495,26 +520,38 @@ export default function EditOrderPage() {
                       </Select>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="status">Order Status *</Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) =>
-                          handleInputChange("status", value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                                         <div className="space-y-2">
+                       <Label htmlFor="status">Order Status *</Label>
+                       <Select
+                         value={formData.status}
+                         onValueChange={(value) =>
+                           handleInputChange("status", value)
+                         }
+                       >
+                         <SelectTrigger>
+                           <SelectValue />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {statusOptions.map((status) => (
+                             <SelectItem key={status.value} value={status.value}>
+                               {status.label}
+                             </SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+
+                     <div className="space-y-2">
+                       <Label htmlFor="paidAmount">Paid Amount (₹)</Label>
+                       <Input
+                         type="number"
+                         placeholder="0"
+                         value={formData.paidAmount || ""}
+                         onChange={(e) =>
+                           handleInputChange("paidAmount", Number.parseInt(e.target.value) || 0)
+                         }
+                       />
+                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -612,6 +649,25 @@ export default function EditOrderPage() {
                         <span>Total Amount:</span>
                         <span>₹{getOrderTotal().toLocaleString()}</span>
                       </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paidAmount">Paid Amount (₹)</Label>
+                        <Input
+                          id="paidAmount"
+                          type="number"
+                          value={formData.paidAmount}
+                          onChange={(e) => handleInputChange("paidAmount", parseFloat(e.target.value) || 0)}
+                          placeholder="Enter paid amount"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Default: 40% of total (₹{calculatePaidAmount().toLocaleString()})
+                        </p>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Balance Amount:</span>
+                        <span className={getOrderTotal() - formData.paidAmount < 0 ? 'text-red-500' : ''}>
+                          ₹{(getOrderTotal() - formData.paidAmount).toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -653,7 +709,7 @@ export default function EditOrderPage() {
                                   key={product._id}
                                   value={product.productName}
                                 >
-                                  <div className="flex flex-col">
+                                  <div className="flex flex-col h-10">
                                     <span>{product.productName}</span>
                                     <span className="text-xs text-muted-foreground">
                                       {product.variants.length} variants

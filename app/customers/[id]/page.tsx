@@ -2,6 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -13,11 +14,24 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Edit, MapPin, Phone, Mail, ShoppingCart, TrendingUp, ArrowLeft, Star, Clock, Loader2, AlertTriangle } from "lucide-react"
+import { Edit, MapPin, Phone, Mail, ShoppingCart, TrendingUp, ArrowLeft, Star, Clock, Loader2, AlertTriangle, Search, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Download, FileText, FileSpreadsheet } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { API_BASE_URL } from "@/lib/api"
+import jsPDF from 'jspdf'
+import * as XLSX from 'xlsx'
+import 'jspdf-autotable'
+import {NotoSansRegular} from '@/app/fonts/NotoSans-Regular'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Label } from "@/components/ui/label"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function CustomerViewPage() {
   const params = useParams()
@@ -36,6 +50,32 @@ export default function CustomerViewPage() {
   })
 
   const [customerOrders, setCustomerOrders] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10,
+    hasNextPage: false,
+    hasPrevPage: false
+  })
+  const [filterValues, setFilterValues] = useState({
+    dateFrom: undefined as Date | undefined,
+    dateTo: undefined as Date | undefined,
+    dateFromDay: "",
+    dateFromMonth: "",
+    dateFromYear: "",
+    dateToDay: "",
+    dateToMonth: "",
+    dateToYear: "",
+    amountMin: "",
+    amountMax: "",
+    itemCount: "",
+    orderStatus: ""
+  })
   const [customerStats, setCustomerStats] = useState({
     totalOrders: 0,
     totalValue: 0,
@@ -45,10 +85,10 @@ export default function CustomerViewPage() {
     creditUsed: 0,
   })
 
-  // Fetch customer orders
-  const fetchCustomerOrders = async (customerName: string, creditLimit: number) => {
+  // Fetch customer orders with pagination
+  const fetchCustomerOrders = async (customerName: string, creditLimit: number, page: number = 1, limit: number = 10) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/order?customer=${encodeURIComponent(customerName)}&limit=100`, {
+      const res = await fetch(`${API_BASE_URL}/order?customer=${encodeURIComponent(customerName)}&page=${page}&limit=${limit}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -57,8 +97,14 @@ export default function CustomerViewPage() {
         if (data.success && data.orders) {
           setCustomerOrders(data.orders)
           
-          // Calculate customer stats
-          const totalOrders = data.orders.length
+          // Set pagination info
+          if (data.pagination) {
+            setPagination(data.pagination)
+          }
+          
+          // Calculate customer stats (this should ideally be fetched separately or calculated from all orders)
+          // For now, we'll use the current page data to update stats
+          const totalOrders = data.pagination?.totalItems || data.orders.length
           const totalValue = data.orders.reduce((sum: number, order: any) => {
             const orderTotal = order.orderItems.reduce((itemSum: number, item: any) => {
               return itemSum + (item.quantity * (item.pricePerMeters || 0))
@@ -110,10 +156,10 @@ export default function CustomerViewPage() {
           customerType: c.customerType || "",
         })
         
-        // Fetch customer orders after getting customer data
-        if (c.customerName) {
-          await fetchCustomerOrders(c.customerName, c.creditLimit || 0)
-        }
+                 // Fetch customer orders after getting customer data
+         if (c.customerName) {
+           await fetchCustomerOrders(c.customerName, c.creditLimit || 0, 1, 10)
+         }
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to fetch customer')
       } finally {
@@ -123,11 +169,42 @@ export default function CustomerViewPage() {
     if (customerId) fetchCustomer()
   }, [customerId])
 
+  // Update date objects when dropdown values change
+  useEffect(() => {
+    if (activeFilter === "dateRange") {
+      updateDateFrom();
+      updateDateTo();
+    }
+  }, [
+    filterValues.dateFromDay, 
+    filterValues.dateFromMonth, 
+    filterValues.dateFromYear,
+    filterValues.dateToDay, 
+    filterValues.dateToMonth, 
+    filterValues.dateToYear,
+    activeFilter
+  ]);
+
   // Helper function to calculate order total
   const calculateOrderTotal = (order: any) => {
     return order.orderItems.reduce((sum: number, item: any) => {
       return sum + (item.quantity * (item.pricePerMeters || 0))
     }, 0)
+  }
+
+  // Helper function to calculate paid amount (use backend value if exists, otherwise default to 40%)
+  const calculatePaidAmount = (order: any) => {
+    const orderTotal = calculateOrderTotal(order)
+    return order.paidAmount !== null && order.paidAmount !== undefined 
+      ? order.paidAmount 
+      : Math.floor(orderTotal * 0.4)
+  }
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    if (customer.customerName) {
+      fetchCustomerOrders(customer.customerName, customer.creditLimit, newPage, pagination.itemsPerPage)
+    }
   }
 
   // Helper function to format order ID
@@ -138,6 +215,198 @@ export default function CustomerViewPage() {
     const lastThreeDigits = numericChars.slice(-3).padStart(3, '0');
     return `ORD-${lastThreeDigits}`;
   }
+
+  // Reset pagination when search or filters change
+  useEffect(() => {
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [searchQuery, activeFilter, filterValues]);
+
+  // Filter orders based on search query and active filter
+  const filteredOrders = customerOrders.filter((order) => {
+    // First apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const orderId = formatOrderId(order._id).toLowerCase();
+      const orderDate = new Date(order.orderDate).toLocaleDateString().toLowerCase();
+      const orderAmount = calculateOrderTotal(order).toString().toLowerCase();
+      const orderStatus = (order.status || "").toLowerCase();
+      
+      // Check if any product name matches the search query
+      const productNames = order.orderItems.map((item: any) => item.product.toLowerCase());
+      const hasMatchingProduct = productNames.some((productName: string) => productName.includes(query));
+      
+      if (!(
+        orderId.includes(query) ||
+        orderDate.includes(query) ||
+        orderAmount.includes(query) ||
+        orderStatus.includes(query) ||
+        hasMatchingProduct
+      )) {
+        return false;
+      }
+    }
+
+    // Then apply active filter (only one can be active)
+    if (!activeFilter) return true;
+
+    switch (activeFilter) {
+      case "dateRange":
+        if (filterValues.dateFrom || filterValues.dateTo) {
+          const orderDate = new Date(order.orderDate);
+          // Set time to start of day for accurate comparison
+          orderDate.setHours(0, 0, 0, 0);
+          
+          console.log('Date filtering:', {
+            orderDate: orderDate.toISOString(),
+            dateFrom: filterValues.dateFrom?.toISOString(),
+            dateTo: filterValues.dateTo?.toISOString(),
+            orderId: formatOrderId(order._id)
+          });
+          
+          if (filterValues.dateFrom && orderDate < filterValues.dateFrom) {
+            console.log('Filtered out - before from date');
+            return false;
+          }
+          if (filterValues.dateTo && orderDate > filterValues.dateTo) {
+            console.log('Filtered out - after to date');
+            return false;
+          }
+        }
+        break;
+
+      case "amountRange":
+        if (filterValues.amountMin || filterValues.amountMax) {
+          const orderAmount = calculateOrderTotal(order);
+          if (filterValues.amountMin && orderAmount < parseFloat(filterValues.amountMin)) return false;
+          if (filterValues.amountMax && orderAmount > parseFloat(filterValues.amountMax)) return false;
+        }
+        break;
+
+      case "itemCount":
+        if (filterValues.itemCount) {
+          const targetCount = parseInt(filterValues.itemCount);
+          if (order.orderItems.length !== targetCount) return false;
+        }
+        break;
+
+      case "orderStatus":
+        if (filterValues.orderStatus && order.status !== filterValues.orderStatus) {
+          return false;
+        }
+        break;
+    }
+
+    return true;
+  });
+
+  // Clear all filters
+  const clearFilters = () => {
+    setActiveFilter(null);
+    setFilterValues({
+      dateFrom: undefined,
+      dateTo: undefined,
+      dateFromDay: "",
+      dateFromMonth: "",
+      dateFromYear: "",
+      dateToDay: "",
+      dateToMonth: "",
+      dateToYear: "",
+      amountMin: "",
+      amountMax: "",
+      itemCount: "",
+      orderStatus: ""
+    });
+    // Reset pagination when clearing filters
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Get filter display text
+  const getFilterDisplayText = () => {
+    if (!activeFilter) return "Filter";
+    
+    switch (activeFilter) {
+      case "dateRange":
+        if (filterValues.dateFromDay || filterValues.dateFromMonth || filterValues.dateFromYear || 
+            filterValues.dateToDay || filterValues.dateToMonth || filterValues.dateToYear) {
+          const from = filterValues.dateFromDay && filterValues.dateFromMonth && filterValues.dateFromYear 
+            ? `${filterValues.dateFromDay}/${filterValues.dateFromMonth}/${filterValues.dateFromYear}` 
+            : "Any";
+          const to = filterValues.dateToDay && filterValues.dateToMonth && filterValues.dateToYear 
+            ? `${filterValues.dateToDay}/${filterValues.dateToMonth}/${filterValues.dateToYear}` 
+            : "Any";
+          return `Date: ${from} - ${to}`;
+        }
+        break;
+      case "amountRange":
+        if (filterValues.amountMin || filterValues.amountMax) {
+          const min = filterValues.amountMin || "Any";
+          const max = filterValues.amountMax || "Any";
+          return `Amount: ₹${min} - ₹${max}`;
+        }
+        break;
+      case "itemCount":
+        if (filterValues.itemCount) {
+          return `Items: ${filterValues.itemCount}`;
+        }
+        break;
+      case "orderStatus":
+        if (filterValues.orderStatus) {
+          return `Status: ${filterValues.orderStatus}`;
+        }
+        break;
+    }
+    return "Filter";
+  };
+
+  // Check if any filter is active and has valid values
+  const isAnyFilterActive = () => {
+    if (!activeFilter) return false;
+    
+    switch (activeFilter) {
+      case "dateRange":
+        return (filterValues.dateFromDay && filterValues.dateFromMonth && filterValues.dateFromYear) ||
+               (filterValues.dateToDay && filterValues.dateToMonth && filterValues.dateToYear);
+      case "amountRange":
+        return filterValues.amountMin || filterValues.amountMax;
+      case "itemCount":
+        return filterValues.itemCount;
+      case "orderStatus":
+        return filterValues.orderStatus;
+      default:
+        return false;
+    }
+  };
+
+  // Helper functions to update Date objects when dropdowns change
+  const updateDateFrom = () => {
+    if (filterValues.dateFromDay && filterValues.dateFromMonth && filterValues.dateFromYear) {
+      const date = new Date(
+        parseInt(filterValues.dateFromYear), 
+        parseInt(filterValues.dateFromMonth) - 1, 
+        parseInt(filterValues.dateFromDay)
+      );
+      // Set the time to start of day for accurate comparison
+      date.setHours(0, 0, 0, 0);
+      setFilterValues(prev => ({ ...prev, dateFrom: date }));
+    } else {
+      setFilterValues(prev => ({ ...prev, dateFrom: undefined }));
+    }
+  };
+
+  const updateDateTo = () => {
+    if (filterValues.dateToDay && filterValues.dateToMonth && filterValues.dateToYear) {
+      const date = new Date(
+        parseInt(filterValues.dateToYear), 
+        parseInt(filterValues.dateToMonth) - 1, 
+        parseInt(filterValues.dateToDay)
+      );
+      // Set the time to end of day for accurate comparison
+      date.setHours(23, 59, 59, 999);
+      setFilterValues(prev => ({ ...prev, dateTo: date }));
+    } else {
+      setFilterValues(prev => ({ ...prev, dateTo: undefined }));
+    }
+  };
 
   // const paymentHistory = [
   //   { id: "PAY-001", date: "2024-01-16", amount: 45000, method: "Bank Transfer", status: "completed", reference: "TXN123456789" },
@@ -160,6 +429,144 @@ export default function CustomerViewPage() {
       default:
         return <Badge variant="outline">{status}</Badge>
     }
+  }
+
+  // Download utility functions
+  const downloadAsPDF = () => {
+    const doc = new jsPDF()
+    
+    doc.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+    doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+    doc.setFont("NotoSans");
+
+    // Set font and size
+    doc.setFontSize(20)
+    doc.text('CUSTOMER DETAILS', 20, 20)
+    
+    // Customer information
+    doc.setFontSize(16)
+    doc.text('CUSTOMER INFORMATION', 20, 40)
+    doc.setFontSize(12)
+    doc.text(`Name: ${customer.customerName}`, 20, 55)
+    doc.text(`Phone: ${customer.phone}`, 20, 65)
+    doc.text(`Email: ${customer.email || 'N/A'}`, 20, 75)
+    doc.text(`Address: ${customer.address}`, 20, 85)
+    doc.text(`City: ${customer.city}`, 20, 95)
+    doc.text(`Customer Type: ${customer.customerType}`, 20, 105)
+    doc.text(`Credit Limit: ₹${customer.creditLimit.toLocaleString()}`, 20, 115)
+    doc.text(`Credit Used: ₹${customerStats.creditUsed.toLocaleString()}`, 20, 125)
+    doc.text(`Remaining Credit: ₹${customerStats.remainingCredit.toLocaleString()}`, 20, 135)
+    
+         // Customer stats
+     doc.setFontSize(16)
+     doc.text('CUSTOMER STATISTICS', 20, 155)
+     doc.setFontSize(12)
+     doc.text(`Total Orders: ${customerStats.totalOrders}`, 20, 170)
+     doc.text(`Total Value: ₹${customerStats.totalValue.toLocaleString()}`, 20, 180)
+     doc.text(`Average Order Value: ₹${customerStats.averageOrderValue.toLocaleString()}`, 20, 190)
+     
+     // Filter information
+     const filterInfo = searchQuery.trim() || activeFilter 
+       ? `Filter Applied: ${searchQuery.trim() ? `Search: "${searchQuery}"` : ''}${activeFilter ? `Filter: ${activeFilter}` : ''}`
+       : 'No filters applied';
+     doc.text(filterInfo, 20, 205)
+     
+     // Orders section
+     doc.setFontSize(16)
+     doc.text('ORDERS', 20, 225)
+    doc.setFontSize(12)
+    
+         let yPosition = 240
+     filteredOrders.forEach((order: any, index: number) => {
+      const orderTotal = calculateOrderTotal(order)
+      const paidAmount = calculatePaidAmount(order)
+      
+      doc.text(`${index + 1}. Order ID: ${formatOrderId(order._id)}`, 20, yPosition)
+      doc.text(`   Date: ${new Date(order.orderDate).toLocaleDateString()}`, 25, yPosition + 5)
+      doc.text(`   Status: ${order.status || 'pending'}`, 25, yPosition + 10)
+      doc.text(`   Items: ${order.orderItems.length}`, 25, yPosition + 15)
+      doc.text(`   Total Amount: ₹${orderTotal.toLocaleString()}`, 25, yPosition + 20)
+      doc.text(`   Paid Amount: ₹${paidAmount.toLocaleString()}`, 25, yPosition + 25)
+      doc.text(`   Balance: ₹${(orderTotal - paidAmount).toLocaleString()}`, 25, yPosition + 30)
+      
+             // Add product names with bullet points
+       if (order.orderItems.length > 1) {
+         doc.text(`   Products:`, 25, yPosition + 35)
+         order.orderItems.forEach((item: any, itemIndex: number) => {
+           doc.text(`   • ${item.product}`, 30, yPosition + 40 + (itemIndex * 5))
+         })
+         yPosition += (order.orderItems.length * 5) + 5
+       } else {
+         doc.text(`   Products: ${order.orderItems[0].product}`, 25, yPosition + 35)
+                  yPosition += 45
+       }
+      
+      // Check if we need a new page
+      if (yPosition > 250) {
+        doc.addPage()
+        yPosition = 20
+      }
+    })
+    
+    // Save the PDF
+    doc.save(`Customer_${customer.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`)
+  }
+
+  const downloadAsExcel = () => {
+    // Create workbook and worksheets
+    const workbook = XLSX.utils.book_new()
+    
+    // Customer Details worksheet
+    const customerDetailsData = [
+      ['CUSTOMER DETAILS'],
+      ['Name', customer.customerName],
+      ['Phone', customer.phone],
+      ['Email', customer.email || 'N/A'],
+      ['Address', customer.address],
+      ['City', customer.city],
+      ['Customer Type', customer.customerType],
+      ['Credit Limit', customer.creditLimit.toLocaleString()],
+      ['Credit Used', customerStats.creditUsed.toLocaleString()],
+      ['Remaining Credit', customerStats.remainingCredit.toLocaleString()],
+      [''],
+      ['CUSTOMER STATISTICS'],
+      ['Total Orders', customerStats.totalOrders],
+      ['Total Value', customerStats.totalValue.toLocaleString()],
+      ['Average Order Value', customerStats.averageOrderValue.toLocaleString()],
+      [''],
+      ['Filter Applied', searchQuery.trim() || activeFilter ? `${searchQuery.trim() ? `Search: "${searchQuery}"` : ''}${activeFilter ? `Filter: ${activeFilter}` : ''}` : 'None']
+    ]
+    
+    const customerDetailsSheet = XLSX.utils.aoa_to_sheet(customerDetailsData)
+    XLSX.utils.book_append_sheet(workbook, customerDetailsSheet, 'Customer Details')
+    
+    // Orders worksheet
+    const ordersData = [
+      ['Order ID', 'Date', 'Status', 'Items', 'Total Amount', 'Paid Amount', 'Balance', 'Products']
+    ]
+    
+    filteredOrders.forEach((order: any) => {
+      const orderTotal = calculateOrderTotal(order)
+      const paidAmount = calculatePaidAmount(order)
+      const productNames = order.orderItems.map((item: any) => item.product).join(', ')
+      
+      ordersData.push([
+        formatOrderId(order._id),
+        new Date(order.orderDate).toLocaleDateString(),
+        order.status || 'pending',
+        order.orderItems.length,
+        orderTotal.toLocaleString(),
+        paidAmount.toLocaleString(),
+        (orderTotal - paidAmount).toLocaleString(),
+        productNames
+      ])
+    })
+    
+    const ordersSheet = XLSX.utils.aoa_to_sheet(ordersData)
+    XLSX.utils.book_append_sheet(workbook, ordersSheet, 'Orders')
+    
+    // Save the Excel file
+    XLSX.writeFile(workbook, `Customer_${customer.customerName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
   }
 
   if (loading) {
@@ -264,14 +671,38 @@ export default function CustomerViewPage() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Link href={`/customers/${customerId}/edit`}>
-              <Button>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Customer
-              </Button>
-            </Link>
-          </div>
+                     <div className="flex gap-2">
+             <Link href={`/customers/${customerId}/edit`}>
+               <Button>
+                 <Edit className="h-4 w-4 mr-2" />
+                 Edit Customer
+               </Button>
+             </Link>
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <Button variant="outline">
+                   <Download className="h-4 w-4 mr-2" />
+                   Download
+                 </Button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent align="end">
+                 <DropdownMenuItem 
+                   onClick={downloadAsPDF}
+                   className="cursor-pointer"
+                 >
+                   <FileText className="h-4 w-4 mr-2" />
+                   Download as PDF
+                 </DropdownMenuItem>
+                 <DropdownMenuItem 
+                   onClick={downloadAsExcel}
+                   className="cursor-pointer"
+                 >
+                   <FileSpreadsheet className="h-4 w-4 mr-2" />
+                   Download as Excel
+                 </DropdownMenuItem>
+               </DropdownMenuContent>
+             </DropdownMenu>
+           </div>
         </div>
 
         {/* Customer Overview Cards */}
@@ -400,47 +831,500 @@ export default function CustomerViewPage() {
                 {/* <TabsTrigger value="payments">Payment History</TabsTrigger> */}
               </TabsList>
 
+              {/* Search and Filter Bar */}
+              <div className="flex gap-2">
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                     <Input
+                     placeholder="Search orders by ID, date, amount, status, or product name..."
+                     value={searchQuery}
+                     onChange={(e) => {
+                       setSearchQuery(e.target.value);
+                       // Reset pagination when search changes
+                       setPagination(prev => ({ ...prev, currentPage: 1 }));
+                     }}
+                     className="pl-10"
+                   />
+                </div>
+
+                {/* Filter Dropdown */}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant={isAnyFilterActive() ? "default" : "outline"} 
+                      className="flex items-center gap-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      {getFilterDisplayText()}
+                      {isAnyFilterActive() && (
+                        <Badge variant="secondary" className="ml-1">
+                          {filteredOrders.length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-4" align="end">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium">Filter Orders</h4>
+                        {activeFilter && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearFilters}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+
+                      {/* Filter Type Selection */}
+                      <div className="space-y-2">
+                        <Label>Filter Type</Label>
+                                                   <Select
+                             value={activeFilter || ""}
+                             onValueChange={(value) => {
+                                setActiveFilter(value || null);
+                                // Clear previous filter values when changing filter type
+                                setFilterValues({
+                                  dateFrom: undefined,
+                                  dateTo: undefined,
+                                  dateFromDay: "",
+                                  dateFromMonth: "",
+                                  dateFromYear: "",
+                                  dateToDay: "",
+                                  dateToMonth: "",
+                                  dateToYear: "",
+                                  amountMin: "",
+                                  amountMax: "",
+                                  itemCount: "",
+                                  orderStatus: ""
+                                });
+                                // Reset pagination when filter type changes
+                                setPagination(prev => ({ ...prev, currentPage: 1 }));
+                              }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select filter type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="dateRange">Date Range</SelectItem>
+                            <SelectItem value="amountRange">Amount Range</SelectItem>
+                            <SelectItem value="itemCount">Item Count</SelectItem>
+                            <SelectItem value="orderStatus">Order Status</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                                                                     {/* Date Range Filter */}
+                        {activeFilter === "dateRange" && (
+                          <div className="space-y-2">
+                            <Label>Date Range</Label>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label className="text-xs">From Date</Label>
+                                <div className="grid grid-cols-3 gap-1">
+                                                                     <Select
+                                     value={filterValues.dateFromDay}
+                                     onValueChange={(value) => {
+                                       setFilterValues(prev => ({ ...prev, dateFromDay: value }));
+                                       updateDateFrom();
+                                       // Reset pagination when filter values change
+                                       setPagination(prev => ({ ...prev, currentPage: 1 }));
+                                     }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Day" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                        <SelectItem key={day} value={day.toString()}>
+                                          {day.toString().padStart(2, '0')}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={filterValues.dateFromMonth}
+                                    onValueChange={(value) => {
+                                      setFilterValues(prev => ({ ...prev, dateFromMonth: value }));
+                                      updateDateFrom();
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Month" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {[
+                                        { value: "1", label: "Jan" },
+                                        { value: "2", label: "Feb" },
+                                        { value: "3", label: "Mar" },
+                                        { value: "4", label: "Apr" },
+                                        { value: "5", label: "May" },
+                                        { value: "6", label: "Jun" },
+                                        { value: "7", label: "Jul" },
+                                        { value: "8", label: "Aug" },
+                                        { value: "9", label: "Sep" },
+                                        { value: "10", label: "Oct" },
+                                        { value: "11", label: "Nov" },
+                                        { value: "12", label: "Dec" }
+                                      ].map(month => (
+                                        <SelectItem key={month.value} value={month.value}>
+                                          {month.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={filterValues.dateFromYear}
+                                    onValueChange={(value) => {
+                                      setFilterValues(prev => ({ ...prev, dateFromYear: value }));
+                                      updateDateFrom();
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Year" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                                        <SelectItem key={year} value={year.toString()}>
+                                          {year}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-xs">To Date</Label>
+                                <div className="grid grid-cols-3 gap-1">
+                                  <Select
+                                    value={filterValues.dateToDay}
+                                    onValueChange={(value) => {
+                                      setFilterValues(prev => ({ ...prev, dateToDay: value }));
+                                      updateDateTo();
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Day" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                        <SelectItem key={day} value={day.toString()}>
+                                          {day.toString().padStart(2, '0')}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={filterValues.dateToMonth}
+                                    onValueChange={(value) => {
+                                      setFilterValues(prev => ({ ...prev, dateToMonth: value }));
+                                      updateDateTo();
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Month" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {[
+                                        { value: "1", label: "Jan" },
+                                        { value: "2", label: "Feb" },
+                                        { value: "3", label: "Mar" },
+                                        { value: "4", label: "Apr" },
+                                        { value: "5", label: "May" },
+                                        { value: "6", label: "Jun" },
+                                        { value: "7", label: "Jul" },
+                                        { value: "8", label: "Aug" },
+                                        { value: "9", label: "Sep" },
+                                        { value: "10", label: "Oct" },
+                                        { value: "11", label: "Nov" },
+                                        { value: "12", label: "Dec" }
+                                      ].map(month => (
+                                        <SelectItem key={month.value} value={month.value}>
+                                          {month.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={filterValues.dateToYear}
+                                    onValueChange={(value) => {
+                                      setFilterValues(prev => ({ ...prev, dateToYear: value }));
+                                      updateDateTo();
+                                    }}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Year" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                                        <SelectItem key={year} value={year.toString()}>
+                                          {year}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                      {/* Amount Range Filter */}
+                      {activeFilter === "amountRange" && (
+                        <div className="space-y-2">
+                          <Label>Amount Range (₹)</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-xs">Min Amount</Label>
+                                                             <Input
+                                 type="number"
+                                 placeholder="0"
+                                 value={filterValues.amountMin}
+                                 onChange={(e) => {
+                                   setFilterValues(prev => ({ ...prev, amountMin: e.target.value }));
+                                   // Reset pagination when filter values change
+                                   setPagination(prev => ({ ...prev, currentPage: 1 }));
+                                 }}
+                               />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Max Amount</Label>
+                                                             <Input
+                                 type="number"
+                                 placeholder="100000"
+                                 value={filterValues.amountMax}
+                                 onChange={(e) => {
+                                   setFilterValues(prev => ({ ...prev, amountMax: e.target.value }));
+                                   // Reset pagination when filter values change
+                                   setPagination(prev => ({ ...prev, currentPage: 1 }));
+                                 }}
+                               />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Item Count Filter */}
+                      {activeFilter === "itemCount" && (
+                        <div className="space-y-2">
+                          <Label>Item Count</Label>
+                                                     <Input
+                             type="number"
+                             placeholder="Enter exact item count"
+                             value={filterValues.itemCount}
+                             onChange={(e) => {
+                               setFilterValues(prev => ({ ...prev, itemCount: e.target.value }));
+                               // Reset pagination when filter values change
+                               setPagination(prev => ({ ...prev, currentPage: 1 }));
+                             }}
+                           />
+                        </div>
+                      )}
+
+                      {/* Order Status Filter */}
+                      {activeFilter === "orderStatus" && (
+                        <div className="space-y-2">
+                          <Label>Order Status</Label>
+                                                     <Select
+                             value={filterValues.orderStatus}
+                             onValueChange={(value) => {
+                               setFilterValues(prev => ({ ...prev, orderStatus: value }));
+                               // Reset pagination when filter values change
+                               setPagination(prev => ({ ...prev, currentPage: 1 }));
+                             }}
+                           >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               <TabsContent value="orders">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Orders</CardTitle>
-                    <CardDescription>Latest orders from this customer</CardDescription>
-                  </CardHeader>
+                                     <CardHeader>
+                     <CardTitle>Orders</CardTitle>
+                     <CardDescription>
+                       {searchQuery.trim() || activeFilter
+                         ? `Found ${filteredOrders.length} order(s)${searchQuery.trim() ? ` matching "${searchQuery}"` : ""}${activeFilter ? ` with ${activeFilter} filter` : ""}`
+                         : `Latest orders from this customer (${filteredOrders.length} total)`
+                       }
+                     </CardDescription>
+                   </CardHeader>
                   <CardContent className="p-0">
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="border-b">
-                          <tr>
-                            <th className="text-left p-4 font-medium">Order ID</th>
-                            <th className="text-left p-4 font-medium">Date</th>
-                            <th className="text-left p-4 font-medium">Amount</th>
-                            <th className="text-left p-4 font-medium">Items</th>
-                            <th className="text-left p-4 font-medium">Status</th>
-                          </tr>
-                        </thead>
+                                                 <thead className="border-b">
+                           <tr>
+                             <th className="text-left p-4 font-medium">Order ID</th>
+                             <th className="text-left p-4 font-medium">Date</th>
+                             <th className="text-left p-4 font-medium">Paid Amount</th>
+                             <th className="text-left p-4 font-medium">Amount</th>
+                             <th className="text-left p-4 font-medium">Items</th>
+                             <th className="text-left p-4 font-medium">Status</th>
+                           </tr>
+                         </thead>
                         <tbody>
-                          {customerOrders.length > 0 ? (
-                            customerOrders.slice(0, 5).map((order: any) => (
-                              <tr key={order._id} className="border-b hover:bg-muted/50">
-                                <td className="p-4 font-medium">{formatOrderId(order._id)}</td>
-                                <td className="p-4">{new Date(order.orderDate).toLocaleDateString()}</td>
-                                <td className="p-4">₹{calculateOrderTotal(order).toLocaleString()}</td>
-                                <td className="p-4">{order.orderItems.length} items</td>
+                          {filteredOrders.length > 0 ? (
+                            filteredOrders.map((order: any) => (
+                                                             <tr key={order._id} className="border-b hover:bg-muted/50">
+                                 <td className="p-4 font-medium">{formatOrderId(order._id)}</td>
+                                 <td className="p-4">{new Date(order.orderDate).toLocaleDateString()}</td>
+                                 <td className="p-4">
+                                   <div className="relative group">
+                                     <span className="text-green-600 cursor-help">
+                                       ₹{calculatePaidAmount(order).toLocaleString()}
+                                     </span>
+                                                                           {/* Tooltip explaining the calculation */}
+                                      <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-xs">
+                                        <div className="font-medium mb-1">Paid Amount</div>
+                                        <div className="text-gray-300">
+                                          {order.paidAmount !== null && order.paidAmount !== undefined 
+                                            ? "Updated from edit page" 
+                                            : "Default: 40% of order total"
+                                          }
+                                        </div>
+                                        <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                      </div>
+                                   </div>
+                                 </td>
+                                 <td className="p-4">₹{calculateOrderTotal(order).toLocaleString()}</td>
+                                 <td className="p-4">
+                                  <div className="space-y-1">
+                                    <div>{order.orderItems.length} items</div>
+                                    {order.orderItems.length <= 3 ? (
+                                      <div className="text-xs text-gray-500 space-y-0.5">
+                                        {order.orderItems.map((item: any, index: number) => (
+                                          <div key={index} className="truncate">
+                                            {item.product}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="relative group">
+                                        <div className="text-xs text-gray-500">
+                                          {order.orderItems.slice(0, 3).map((item: any, index: number) => (
+                                            <div key={index} className="truncate">
+                                              {item.product}
+                                            </div>
+                                          ))}
+                                          <div className="text-gray-400">...</div>
+                                        </div>
+                                        {/* Hover popup */}
+                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10 max-w-xs">
+                                          <div className="font-medium mb-1">All Products:</div>
+                                          <div className="space-y-1">
+                                            {order.orderItems.map((item: any, index: number) => (
+                                              <div key={index} className="truncate">
+                                                {item.product}
+                                              </div>
+                                            ))}
+                                          </div>
+                                          <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </td>
                                 <td className="p-4">{getStatusBadge(order.status)}</td>
                               </tr>
                             ))
                           ) : (
-                            <tr>
-                              <td colSpan={5} className="p-4 text-center text-muted-foreground">
-                                No orders found for this customer
-                              </td>
-                            </tr>
+                                                         <tr>
+                               <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                                 {searchQuery.trim() ? `No orders found matching "${searchQuery}"` : "No orders found for this customer"}
+                               </td>
+                             </tr>
                           )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
+                                                 </tbody>
+                       </table>
+                     </div>
+                     
+                     {/* Pagination Controls */}
+                     {!loading && !error && pagination.totalPages > 1 && (
+                       <div className="flex items-center justify-between p-4 border-t">
+                         <div className="text-sm text-muted-foreground">
+                           Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} entries
+                         </div>
+                         <div className="flex items-center gap-2">
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handlePageChange(1)}
+                             disabled={!pagination.hasPrevPage}
+                           >
+                             <ChevronsLeft className="h-4 w-4" />
+                           </Button>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handlePageChange(pagination.currentPage - 1)}
+                             disabled={!pagination.hasPrevPage}
+                           >
+                             <ChevronLeft className="h-4 w-4" />
+                           </Button>
+                           
+                           <div className="flex items-center gap-1">
+                             {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                               let pageNum;
+                               if (pagination.totalPages <= 5) {
+                                 pageNum = i + 1;
+                               } else if (pagination.currentPage <= 3) {
+                                 pageNum = i + 1;
+                               } else if (pagination.currentPage >= pagination.totalPages - 2) {
+                                 pageNum = pagination.totalPages - 4 + i;
+                               } else {
+                                 pageNum = pagination.currentPage - 2 + i;
+                               }
+                               
+                               return (
+                                 <Button
+                                   key={pageNum}
+                                   variant={pageNum === pagination.currentPage ? "default" : "outline"}
+                                   size="sm"
+                                   onClick={() => handlePageChange(pageNum)}
+                                   className="w-8 h-8 p-0"
+                                 >
+                                   {pageNum}
+                                 </Button>
+                               );
+                             })}
+                           </div>
+                           
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handlePageChange(pagination.currentPage + 1)}
+                             disabled={!pagination.hasNextPage}
+                           >
+                             <ChevronRight className="h-4 w-4" />
+                           </Button>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => handlePageChange(pagination.totalPages)}
+                             disabled={!pagination.hasNextPage}
+                           >
+                             <ChevronsRight className="h-4 w-4" />
+                           </Button>
+                         </div>
+                       </div>
+                     )}
+                   </CardContent>
+                 </Card>
               </TabsContent>
 
               {/* <TabsContent value="payments">

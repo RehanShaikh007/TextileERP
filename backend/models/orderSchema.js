@@ -57,6 +57,11 @@ const orderSchema = new mongoose.Schema({
   notes: {
     type: String,
   },
+  // Paid Amount
+  paidAmount: {
+    type: Number,
+    default: null,
+  },
 }, { timestamps: true });
 
 const Order = mongoose.model('Order', orderSchema);
