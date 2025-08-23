@@ -49,6 +49,7 @@ import { Switch } from "@/components/ui/switch";
 import { Users, Plus, Edit, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "next-themes";
 
 // User interface matching the backend model
 interface User {
@@ -81,6 +82,7 @@ interface BusinessFormData {
 
 export default function SettingsPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const { theme, setTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -478,7 +480,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex items-center space-x-2">
-                  <Switch id="darkMode" />
+                  <Switch
+                    id="darkMode"
+                    checked={theme === "dark"}
+                    onCheckedChange={(checked) =>
+                      setTheme(checked ? "dark" : "light")
+                    }
+                  />
                   <Label htmlFor="darkMode">Enable dark mode</Label>
                 </div>
 
