@@ -1,12 +1,18 @@
-"use client"
+"use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,12 +20,141 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users } from "lucide-react"
+} from "@/components/ui/breadcrumb";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+
+// Form data interface
+interface BusinessFormData {
+  businessName: string;
+  gstNumber: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  phone: string;
+  email: string;
+}
 
 export default function SettingsPage() {
+  const [businessFormData, setBusinessFormData] = useState<BusinessFormData>({
+    businessName: "",
+    gstNumber: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    phone: "",
+    email: "",
+  });
+
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchBusinessData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/business`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data) {
+            setBusinessFormData({
+              businessName: data.businessName ?? "",
+              gstNumber: data.gstNumber ?? "",
+              address: data.address ?? "",
+              city: data.city ?? "",
+              state: data.state ?? "",
+              pincode: data.pincode ?? "",
+              phone: data.phone ?? "",
+              email: data.email ?? "",
+            });
+          } else {
+            // If no data found, optionally initialize with empty or default data
+            setBusinessFormData({
+              businessName: "",
+              gstNumber: "",
+              address: "",
+              city: "",
+              state: "",
+              pincode: "",
+              phone: "",
+              email: "",
+            });
+          }
+        } else {
+          console.error("Failed to fetch business data");
+        }
+      } catch (error) {
+        console.error("Error fetching business data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch business data.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchBusinessData();
+  }, []);
+
+  const updateBusinessData = async () => {
+    try {
+      if (
+        !businessFormData.phone.startsWith("+91") ||
+        businessFormData.phone.includes(" ") ||
+        businessFormData.phone.length !== 13
+      ) {
+        toast({
+          title: "Validation Error",
+          description:
+            "Phone number must be in the format +91XXXXXXXXXX with no spaces.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/business`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(businessFormData),
+      });
+      if (!response.ok) {
+        console.error("Failed to update business data");
+      }
+      toast({
+        title: "Success",
+        description: "Business data updated successfully.",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error updating business data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update business data.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle form input changes
+  const handleInputChange = (field: keyof BusinessFormData, value: string) => {
+    setBusinessFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   return (
     <SidebarInset>
       <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -42,15 +177,15 @@ export default function SettingsPage() {
         {/* Responsive: Add extra padding on mobile, reduce on desktop */}
         <div>
           <h2 className="text-2xl font-bold">Settings</h2>
-          <p className="text-muted-foreground">Manage your system preferences and configuration</p>
+          <p className="text-muted-foreground">
+            Manage your system preferences and configuration
+          </p>
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="business">Business</TabsTrigger>
-            <TabsTrigger value="inventory">Inventory</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
 
@@ -58,7 +193,9 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>System Preferences</CardTitle>
-                <CardDescription>Configure general system settings</CardDescription>
+                <CardDescription>
+                  Configure general system settings
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -83,9 +220,13 @@ export default function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ist">India Standard Time (IST)</SelectItem>
+                        <SelectItem value="ist">
+                          India Standard Time (IST)
+                        </SelectItem>
                         <SelectItem value="utc">UTC</SelectItem>
-                        <SelectItem value="est">Eastern Standard Time</SelectItem>
+                        <SelectItem value="est">
+                          Eastern Standard Time
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -141,191 +282,111 @@ export default function SettingsPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="businessName">Business Name</Label>
-                    <Input id="businessName" defaultValue="Textile ERP Solutions" />
+                    <Input
+                      id="businessName"
+                      value={businessFormData.businessName}
+                      onChange={(e) =>
+                        handleInputChange("businessName", e.target.value)
+                      }
+                      required
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="gstNumber">GST Number</Label>
-                    <Input id="gstNumber" placeholder="Enter GST number" />
+                    <Input
+                      id="gstNumber"
+                      placeholder="Enter GST number"
+                      value={businessFormData.gstNumber}
+                      onChange={(e) =>
+                        handleInputChange("gstNumber", e.target.value)
+                      }
+                      required
+                    />
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="address">Business Address</Label>
-                  <Input id="address" placeholder="Enter complete address" />
+                  <Input
+                    id="address"
+                    placeholder="Enter complete address"
+                    value={businessFormData.address}
+                    onChange={(e) =>
+                      handleInputChange("address", e.target.value)
+                    }
+                    required
+                  />
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
                     <Label htmlFor="city">City</Label>
-                    <Input id="city" placeholder="City" />
+                    <Input
+                      id="city"
+                      placeholder="City"
+                      value={businessFormData.city}
+                      onChange={(e) =>
+                        handleInputChange("city", e.target.value)
+                      }
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="state">State</Label>
-                    <Input id="state" placeholder="State" />
+                    <Input
+                      id="state"
+                      placeholder="State"
+                      value={businessFormData.state}
+                      onChange={(e) =>
+                        handleInputChange("state", e.target.value)
+                      }
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="pincode">Pincode</Label>
-                    <Input id="pincode" placeholder="Pincode" />
+                    <Input
+                      id="pincode"
+                      placeholder="Pincode"
+                      value={businessFormData.pincode}
+                      onChange={(e) =>
+                        handleInputChange("pincode", e.target.value)
+                      }
+                    />
                   </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="phone">Phone Number</Label>
-                    <Input id="phone" placeholder="+91 XXXXX XXXXX" />
+                    <Input
+                      id="phone"
+                      placeholder="+91XXXXXXXXXX"
+                      value={businessFormData.phone}
+                      onChange={(e) =>
+                        handleInputChange("phone", e.target.value)
+                      }
+                    />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="business@example.com" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="business@example.com"
+                      value={businessFormData.email}
+                      onChange={(e) =>
+                        handleInputChange("email", e.target.value)
+                      }
+                    />
                   </div>
                 </div>
 
-                <Button>Update Business Info</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="inventory" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Inventory Settings</CardTitle>
-                <CardDescription>Configure inventory management preferences</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="defaultUnit">Default Unit</Label>
-                    <Select defaultValue="meters">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="meters">Meters</SelectItem>
-                        <SelectItem value="yards">Yards</SelectItem>
-                        <SelectItem value="pieces">Pieces</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="lowStockThreshold">Low Stock Threshold</Label>
-                    <Input id="lowStockThreshold" type="number" defaultValue="50" />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch id="autoReorder" />
-                    <Label htmlFor="autoReorder">Enable automatic reorder alerts</Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch id="batchTracking" defaultChecked />
-                    <Label htmlFor="batchTracking">Enable batch/lot tracking</Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch id="expiryTracking" />
-                    <Label htmlFor="expiryTracking">Enable expiry date tracking</Label>
-                  </div>
-                </div>
-
-                <Button>Save Inventory Settings</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="notifications" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Configure how you receive notifications</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Email Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">WhatsApp Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive notifications via WhatsApp</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">SMS Notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive notifications via SMS</p>
-                    </div>
-                    <Switch />
-                  </div>
-                </div>
-
-                {/* --- WhatsApp Admin Numbers Section (Mock) --- */}
-                <Separator />
-                <div className="space-y-2">
-                  <h4 className="font-medium">WhatsApp Admin Numbers</h4>
-                  <p className="text-sm text-muted-foreground">Add admin phone numbers to receive WhatsApp stock alerts.</p>
-                  <div className="flex flex-col gap-2">
-                    {/* Mock list of admin numbers */}
-                    <div className="flex items-center gap-2">
-                      <Input value="+91 98765 43210" readOnly className="w-48" />
-                      <Button variant="outline" size="sm">Remove</Button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input value="+91 91234 56789" readOnly className="w-48" />
-                      <Button variant="outline" size="sm">Remove</Button>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Input placeholder="Add new admin number" className="w-48" />
-                    <Button size="sm">Add</Button>
-                  </div>
-                </div>
-                {/* --- End WhatsApp Admin Numbers Section --- */}
-
-                <Separator />
-
-                <div className="space-y-4">
-                  <h4 className="font-medium">Notification Types</h4>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Order Updates</p>
-                      <p className="text-sm text-muted-foreground">New orders and status changes</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Stock Alerts</p>
-                      <p className="text-sm text-muted-foreground">Low stock and out of stock alerts</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Daily Reports</p>
-                      <p className="text-sm text-muted-foreground">Daily business summary</p>
-                    </div>
-                    <Switch defaultChecked />
-                  </div>
-                </div>
-
-                <Button>Save Notification Settings</Button>
+                <Button onClick={() => updateBusinessData()}>
+                  Update Business Info
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -334,7 +395,9 @@ export default function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>User Management</CardTitle>
-                <CardDescription>Manage system users and permissions</CardDescription>
+                <CardDescription>
+                  Manage system users and permissions
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-4">
@@ -345,11 +408,15 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <p className="font-medium">Admin User</p>
-                        <p className="text-sm text-muted-foreground">admin@textileerp.com</p>
+                        <p className="text-sm text-muted-foreground">
+                          admin@textileerp.com
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Owner</span>
+                      <span className="text-sm text-muted-foreground">
+                        Owner
+                      </span>
                       <Switch defaultChecked />
                     </div>
                   </div>
@@ -361,11 +428,15 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <p className="font-medium">Manager User</p>
-                        <p className="text-sm text-muted-foreground">manager@textileerp.com</p>
+                        <p className="text-sm text-muted-foreground">
+                          manager@textileerp.com
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Manager</span>
+                      <span className="text-sm text-muted-foreground">
+                        Manager
+                      </span>
                       <Switch defaultChecked />
                     </div>
                   </div>
@@ -378,5 +449,5 @@ export default function SettingsPage() {
         </Tabs>
       </div>
     </SidebarInset>
-  )
+  );
 }

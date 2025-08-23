@@ -15,7 +15,7 @@ import WhatsappMessageRoutes from './routes/whatsappMessagesRoutes.js';
 import agentRouter from './routes/agent.js';
 import adjustmentRouter from './routes/adjustmentRoutes.js';
 import adminRouter from './routes/admin.js';
-
+import businessRouter from './routes/business.js';
 
 dotenv.config()
 
@@ -48,18 +48,18 @@ app.use('/api/v1/agent', agentRouter);
 app.use('/api/v1/adjustments', adjustmentRouter);
 
 app.use('/api/v1/admin', adminRouter);
-
+app.use('/api/v1/business', businessRouter);
 
 mongoose.connect(process.env.MONGO_URI)
-.then(()=>{
-  console.log(`MongoDb Connnected Successfully!`)
-})
-.catch((err)=>{
-  console.error(`Error Connecting MongoDb: ${err}`)
-})
+  .then(() => {
+    console.log(`MongoDb Connnected Successfully!`)
+  })
+  .catch((err) => {
+    console.error(`Error Connecting MongoDb: ${err}`)
+  })
 
 const PORT = process.env.PORT
 
-app.listen(PORT, () =>{
+app.listen(PORT, () => {
   console.log(`Server Running on PORT ${PORT}`)
 })
