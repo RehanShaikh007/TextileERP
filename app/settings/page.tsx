@@ -50,6 +50,7 @@ import { Users, Plus, Edit, Trash2, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "next-themes";
+import { API_BASE_URL } from "@/lib/api";
 
 // User interface matching the backend model
 interface User {
@@ -110,7 +111,7 @@ export default function SettingsPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:4000/api/v1/user");
+      const response = await fetch(`${API_BASE_URL}/user`);
       if (response.ok) {
         const data = await response.json();
         setUsers(data);
@@ -141,7 +142,7 @@ export default function SettingsPage() {
     }
 
     try {
-      const response = await fetch("http://localhost:4000/api/v1/user", {
+      const response = await fetch(`${API_BASE_URL}/user`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -186,7 +187,7 @@ export default function SettingsPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:4000/api/v1/user/${editingUser._id}`,
+        `${API_BASE_URL}/user/${editingUser._id}`,
         {
           method: "PUT",
           headers: {
@@ -229,7 +230,7 @@ export default function SettingsPage() {
   const deleteUser = async (userId: string) => {
     try {
       const response = await fetch(
-        `http://localhost:4000/api/v1/user/${userId}`,
+        `${API_BASE_URL}/user/${userId}`,
         {
           method: "DELETE",
         }
@@ -289,7 +290,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchBusinessData = async () => {
       try {
-        const response = await fetch("http://localhost:4000/api/v1/business");
+        const response = await fetch(`${API_BASE_URL}/business`);
         if (response.ok) {
           const data = await response.json();
           if (data) {
@@ -348,7 +349,7 @@ export default function SettingsPage() {
         return;
       }
 
-      const response = await fetch("http://localhost:4000/api/v1/business", {
+      const response = await fetch(`${API_BASE_URL}/business`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
