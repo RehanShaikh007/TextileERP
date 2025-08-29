@@ -49,6 +49,11 @@ app.use('/api/v1/adjustments', adjustmentRouter);
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/business', businessRouter);
 app.use('/api/v1/user', userRouter);
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {

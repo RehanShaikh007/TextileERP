@@ -67,6 +67,7 @@ interface UserFormData {
   name: string;
   email: string;
   role: string;
+  password: string;
 }
 
 // Business form data interface
@@ -92,6 +93,7 @@ export default function SettingsPage() {
     name: "",
     email: "",
     role: "sales",
+    password: "",
   });
 
   const [businessFormData, setBusinessFormData] = useState<BusinessFormData>({
@@ -153,7 +155,7 @@ export default function SettingsPage() {
       if (response.ok) {
         const newUser = await response.json();
         setUsers([newUser, ...users]);
-        setUserFormData({ name: "", email: "", role: "sales" });
+        setUserFormData({ name: "", email: "", role: "sales", password: "" });
         setIsCreateDialogOpen(false);
         toast({
           title: "Success",
@@ -186,16 +188,13 @@ export default function SettingsPage() {
     }
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/user/${editingUser._id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(userFormData),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/user/${editingUser._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(userFormData),
+      });
 
       if (response.ok) {
         const updatedUser = await response.json();
@@ -204,7 +203,7 @@ export default function SettingsPage() {
             user._id === editingUser._id ? updatedUser : user
           )
         );
-        setUserFormData({ name: "", email: "", role: "sales" });
+        setUserFormData({ name: "", email: "", role: "sales", password: "" });
         setEditingUser(null);
         setIsEditDialogOpen(false);
         toast({
@@ -229,12 +228,9 @@ export default function SettingsPage() {
   // Delete user
   const deleteUser = async (userId: string) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/user/${userId}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
+        method: "DELETE",
+      });
 
       if (response.ok) {
         setUsers(users.filter((user) => user._id !== userId));
@@ -264,6 +260,7 @@ export default function SettingsPage() {
       name: user.name,
       email: user.email,
       role: user.role,
+      password: "",
     });
     setIsEditDialogOpen(true);
   };
@@ -668,6 +665,18 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="space-y-2">
+                          <Label htmlFor="createPassword">Password</Label>
+                          <Input
+                            id="createPassword"
+                            type="password"
+                            value={userFormData.password}
+                            onChange={(e) =>
+                              handleUserInputChange("password", e.target.value)
+                            }
+                            placeholder="Enter user password"
+                          />
+                        </div>
+                        <div className="space-y-2">
                           <Label htmlFor="createRole">Role</Label>
                           <Select
                             value={userFormData.role}
@@ -698,6 +707,7 @@ export default function SettingsPage() {
                               name: "",
                               email: "",
                               role: "user",
+                              password: "",
                             });
                           }}
                         >
@@ -841,6 +851,7 @@ export default function SettingsPage() {
                             name: "",
                             email: "",
                             role: "sales",
+                            password: "",
                           });
                         }}
                       >
