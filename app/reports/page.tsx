@@ -30,12 +30,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart3,
   Download,
-  TrendingUp,
   Package,
   Users,
   ShoppingCart,
   DollarSign,
-  AlertTriangle, // ✅ added missing import
+  AlertTriangle,
 } from "lucide-react";
 import {
   BarChart,
@@ -45,13 +44,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
-  AreaChart,
-  Area,
 } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/lib/api";
@@ -693,7 +688,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <AreaChart data={filteredMonthlyData}>
+                    <BarChart data={filteredMonthlyData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis
@@ -708,14 +703,8 @@ export default function ReportsPage() {
                         ]}
                         labelFormatter={(label) => `Month: ${label}`}
                       />
-                      <Area
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#8884d8"
-                        fill="#8884d8"
-                        fillOpacity={0.6}
-                      />
-                    </AreaChart>
+                      <Bar dataKey="revenue" fill="#8884d8" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
@@ -781,13 +770,12 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={productPerformanceData} layout="horizontal">
+                    <BarChart data={productPerformanceData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        type="number"
+                      <XAxis dataKey="name" />
+                      <YAxis
                         tickFormatter={(value) => `₹${value}K`}
                       />
-                      <YAxis dataKey="name" type="category" width={80} />
                       <Tooltip
                         formatter={(value) => [
                           `₹${Number(value).toLocaleString()}K`,
@@ -800,34 +788,6 @@ export default function ReportsPage() {
                 </CardContent>
               </Card>
             </div>
-
-            {/* <Card>
-              <CardHeader>
-                <CardTitle>Product Growth Analysis</CardTitle>
-                <CardDescription>
-                  Growth rate comparison across products
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={productPerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(value) => `${value}%`} />
-                    <Tooltip
-                      formatter={(value) => [`${value}%`, "Growth Rate"]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="growth"
-                      stroke="#82ca9d"
-                      strokeWidth={3}
-                      dot={{ fill: "#82ca9d", strokeWidth: 2, r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card> */}
           </TabsContent>
 
           <TabsContent value="inventory" className="space-y-6">
@@ -969,19 +929,13 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={customerRevenueData}>
+                    <BarChart data={customerRevenueData}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip formatter={(value) => [value, "Orders"]} />
-                      <Line
-                        type="monotone"
-                        dataKey="orders"
-                        stroke="#82ca9d"
-                        strokeWidth={3}
-                        dot={{ fill: "#82ca9d", strokeWidth: 2, r: 6 }}
-                      />
-                    </LineChart>
+                      <Bar dataKey="orders" fill="#82ca9d" />
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
