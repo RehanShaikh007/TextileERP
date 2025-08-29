@@ -30,7 +30,7 @@ const __dirname = dirname(__filename)
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')))
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: process.env.CLIENT_URL,
   credentials: true
 }))
 
